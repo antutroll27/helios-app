@@ -1,0 +1,162 @@
+/* 2026 Typography Stack — geometric neo-grotesques + premium mono */
+@import url('https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600;700;800&family=Plus+Jakarta+Sans:wght@300;400;500;600;700&family=Space+Grotesk:wght@400;500;600;700&family=Geist+Mono:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap');
+@import "tailwindcss";
+
+@theme {
+  --color-onyx: #0A171D;
+  --color-onyx-light: #122028;
+  --color-onyx-lighter: #1A2E38;
+  --color-onyx-card: #15242E;
+  --color-wheat: #FFF6E9;
+  --color-wheat-dim: #E8DFD2;
+  --color-wheat-card: #F5EDE0;
+  --color-oceanic: #003F47;
+  --color-oceanic-light: #005A65;
+  --color-oceanic-bright: #00899A;
+  --color-nectarine: #FFBD76;
+  --color-nectarine-bright: #FFD4A0;
+  --color-nectarine-dim: #CC9660;
+  --color-storm: #FF4444;
+  --color-storm-dim: #CC3636;
+  --color-calm: #00D4AA;
+  --color-calm-dim: #00A888;
+
+  --font-display: 'Sora', 'Space Grotesk', sans-serif;
+  --font-body: 'Plus Jakarta Sans', 'Inter', sans-serif;
+  --font-mono: 'Geist Mono', 'JetBrains Mono', monospace;
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: var(--font-body);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  overflow-x: hidden;
+}
+
+/* Dark mode (default) */
+:root {
+  --bg-primary: #0A171D;
+  --bg-card: #15242E;
+  --bg-card-hover: #1A2E38;
+  --bg-surface: #122028;
+  --text-primary: #FFF6E9;
+  --text-secondary: #A0A8B0;
+  --text-muted: #607080;
+  --border-subtle: rgba(255, 246, 233, 0.08);
+  --border-card: rgba(255, 246, 233, 0.06);
+  --glass-bg: rgba(10, 23, 29, 0.85);
+  --glass-border: rgba(255, 246, 233, 0.1);
+}
+
+/* Light mode */
+:root.light {
+  --bg-primary: #FFF6E9;
+  --bg-card: #FFFFFF;
+  --bg-card-hover: #F5EDE0;
+  --bg-surface: #F0E8DB;
+  --text-primary: #0A171D;
+  --text-secondary: #4A5560;
+  --text-muted: #8A9098;
+  --border-subtle: rgba(10, 23, 29, 0.08);
+  --border-card: rgba(10, 23, 29, 0.06);
+  --glass-bg: rgba(255, 246, 233, 0.85);
+  --glass-border: rgba(10, 23, 29, 0.1);
+}
+
+/* Utility classes for the design system */
+.font-display { font-family: var(--font-display); }
+.font-mono { font-family: var(--font-mono); }
+.tracking-label { letter-spacing: 0.15em; }
+
+/* Scrollbar styling */
+::-webkit-scrollbar {
+  width: 4px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--text-muted);
+  border-radius: 2px;
+}
+
+/* Smooth transitions for theme switching */
+body, .theme-transition {
+  transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+/* Globe container */
+.globe-container canvas {
+  outline: none !important;
+}
+
+/* Chat input focus ring */
+.chat-input:focus {
+  outline: none;
+  box-shadow: 0 0 0 2px #FFBD76;
+}
+
+/* Bento card base */
+.bento-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border-card);
+  border-radius: 1rem;
+  padding: 1.25rem;
+  transition: all 0.2s ease;
+}
+.bento-card:hover {
+  background: var(--bg-card-hover);
+  border-color: var(--border-subtle);
+}
+
+/* Glassmorphism */
+.glass {
+  background: var(--glass-bg);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border-bottom: 1px solid var(--glass-border);
+}
+
+/* Pulse animation for live data indicators */
+@keyframes pulse-dot {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+.pulse-live {
+  animation: pulse-dot 2s ease-in-out infinite;
+}
+
+/* Fade in up animation for cards */
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.animate-fade-in-up {
+  animation: fadeInUp 0.5s ease-out forwards;
+}
+
+/* Staggered children animation */
+.stagger-children > * {
+  opacity: 0;
+  animation: fadeInUp 0.4s ease-out forwards;
+}
+.stagger-children > *:nth-child(1) { animation-delay: 0.05s; }
+.stagger-children > *:nth-child(2) { animation-delay: 0.1s; }
+.stagger-children > *:nth-child(3) { animation-delay: 0.15s; }
+.stagger-children > *:nth-child(4) { animation-delay: 0.2s; }
+.stagger-children > *:nth-child(5) { animation-delay: 0.25s; }
+.stagger-children > *:nth-child(6) { animation-delay: 0.3s; }
+.stagger-children > *:nth-child(7) { animation-delay: 0.35s; }
+.stagger-children > *:nth-child(8) { animation-delay: 0.4s; }
