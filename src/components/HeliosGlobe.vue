@@ -272,7 +272,7 @@ onMounted(async () => {
       if (!scene) return
 
       const sunLight = new THREE.DirectionalLight(0xffeedd, 1.8)
-      const subSolar = computeSubSolarPoint()
+      const subSolar = getSubSolarPoint()
       const sunR = 200
       const phi = (90 - subSolar.lat) * Math.PI / 180
       const theta = (subSolar.lng + 180) * Math.PI / 180

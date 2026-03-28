@@ -18,11 +18,11 @@ export const useSolarStore = defineStore('solar', () => {
 
   // ─── SunCalc raw data ────────────────────────────────────────────────────────
 
-  const times = computed<SunCalc.GetTimesResult>(() =>
+  const times = computed(() =>
     SunCalc.getTimes(now.value, geo.lat, geo.lng)
   )
 
-  const position = computed<SunCalc.GetSunPositionResult>(() =>
+  const position = computed(() =>
     SunCalc.getPosition(now.value, geo.lat, geo.lng)
   )
 
