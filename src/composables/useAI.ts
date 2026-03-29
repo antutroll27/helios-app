@@ -144,7 +144,7 @@ RULES:
   "message": "Your conversational response here (can use markdown)",
   "visualCards": [
     {
-      "type": "protocol" | "jetlag_timeline" | "health_impact" | "recommendation" | "space_weather",
+      "type": "protocol" | "jetlag_timeline" | "health_impact" | "recommendation" | "space_weather" | "environment",
       "title": "Card title",
       "data": { ... card-specific data }
     }
@@ -272,8 +272,9 @@ function parseAIResponse(raw: string): AIResponse {
   }
 
   // Strip markdown code fences if the model wrapped JSON in ```json ... ```
+  // The leading replace allows optional whitespace before the opening fence.
   const stripped = raw
-    .replace(/^```(?:json)?\s*/i, '')
+    .replace(/^\s*```(?:json)?\s*/i, '')
     .replace(/\s*```\s*$/, '')
     .trim()
 

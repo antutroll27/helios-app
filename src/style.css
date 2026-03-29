@@ -71,6 +71,7 @@ body {
 
 /* Utility classes for the design system */
 .font-display { font-family: var(--font-display); }
+.font-body { font-family: var(--font-body); }
 .font-mono { font-family: var(--font-mono); }
 .tracking-label { letter-spacing: 0.15em; }
 

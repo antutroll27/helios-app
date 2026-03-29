@@ -1,5 +1,8 @@
 {
   "installCommand": "npm install --legacy-peer-deps",
   "buildCommand": "npm run build",
-  "outputDirectory": "dist"
+  "outputDirectory": "dist",
+  "rewrites": [
+    { "source": "/((?!assets|icons|favicon\\.svg|registerSW\\.js|manifest\\.webmanifest|sw\\.js|workbox-.*).*)", "destination": "/index.html" }
+  ]
 }

@@ -42,7 +42,6 @@ const cardThemes: Record<string, { bg: string; text: string; accent: string }> =
 
 const theme = computed(() => cardThemes[props.icon] || cardThemes.Sun)
 const isPassed = computed(() => props.status === 'passed')
-const isActive = computed(() => props.status === 'active')
 </script>
 
 <template>

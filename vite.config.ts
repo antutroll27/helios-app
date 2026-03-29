@@ -14,6 +14,8 @@ export default defineConfig({
         name: 'HELIOS — Circadian Intelligence',
         short_name: 'HELIOS',
         description: 'Your body runs on the Sun.',
+        start_url: '/',
+        scope: '/',
         theme_color: '#0A171D',
         background_color: '#0A171D',
         display: 'standalone',

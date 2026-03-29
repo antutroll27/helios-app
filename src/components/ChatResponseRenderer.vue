@@ -1,8 +1,7 @@
 <script setup lang="ts">
-import { computed } from 'vue'
 import SpaceWeatherGauge from './SpaceWeatherGauge.vue'
 import ProtocolCard from './ProtocolCard.vue'
-import { Sunrise, Sun, Brain, Coffee, Moon, BedDouble, Heart, Zap, Shield, Activity } from 'lucide-vue-next'
+import { Heart, Zap, Shield, Activity } from 'lucide-vue-next'
 
 interface VisualCard {
   type: string
@@ -13,11 +12,6 @@ interface VisualCard {
 const props = defineProps<{
   cards: VisualCard[]
 }>()
-
-// Icon map for protocol cards
-const iconMap: Record<string, object> = {
-  Sunrise, Sun, Brain, Coffee, Moon, BedDouble
-}
 
 // Icon map for health metrics
 const healthIconMap: Record<string, object> = {
@@ -65,9 +59,6 @@ function safeProtocolStatus(time: any): 'upcoming' | 'active' | 'passed' {
   }
 }
 
-function getProtocolStatus(time: Date): 'upcoming' | 'active' | 'passed' {
-  return safeProtocolStatus(time)
-}
 </script>
 
 <template>

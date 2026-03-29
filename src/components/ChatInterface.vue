@@ -142,7 +142,7 @@ async function sendMessage() {
     <!-- Input area -->
     <div class="chat-input-area">
       <div v-if="!hasApiKey" class="chat-no-key">
-        <span class="font-body">Configure your AI provider in settings to start chatting</span>
+        <span>Configure your AI provider in settings to start chatting</span>
       </div>
       <div v-else class="chat-input-wrap">
         <textarea

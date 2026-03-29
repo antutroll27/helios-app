@@ -58,7 +58,7 @@ const wearables = [
       <section class="integrations-section">
         <div class="section-meta">
           <span class="font-mono" style="font-size: 0.55rem; color: var(--text-muted); letter-spacing: 0.1em;">SECTION / 02</span>
-          <span class="font-mono" style="font-size: 0.55rem; color: var(--text-muted);">4 DEVICES</span>
+          <span class="font-mono" style="font-size: 0.55rem; color: var(--text-muted);">5 DEVICES</span>
         </div>
         <h2 class="font-display section-heading">WEARABLE INTEGRATIONS</h2>
         <p class="font-mono section-sub">Close the feedback loop — measure your biology, not just predict it</p>
