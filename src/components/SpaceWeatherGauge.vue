@@ -29,40 +29,22 @@ const friendlyMessage = computed(() => {
 </script>
 
 <template>
-  <div class="sw">
-    <span class="sw-label font-mono">GEOMAGNETIC</span>
+  <div class="flex flex-col items-center text-center gap-2.5 py-1">
+    <span class="font-mono text-[0.7rem] font-semibold tracking-[0.15em] text-(--text-muted)">GEOMAGNETIC</span>
 
-    <div class="sw-main">
-      <div class="sw-circle" :style="{ background: scoreColor }">
+    <div class="flex flex-col items-center gap-1.5">
+      <div class="w-[52px] h-[52px] rounded-full flex items-center justify-center shrink-0" :style="{ background: scoreColor }">
         <component :is="scoreIcon" :size="18" color="#0A171D" :stroke-width="2.5" />
       </div>
-      <div class="sw-info">
-        <span class="sw-status font-display" :style="{ color: scoreColor }">{{ sw.disruptionLabel }}</span>
-        <span class="sw-msg">{{ friendlyMessage }}</span>
+      <div class="flex flex-col items-center gap-[0.1rem]">
+        <span class="font-display text-[0.9rem] font-bold tracking-[0.08em] uppercase" :style="{ color: scoreColor }">{{ sw.disruptionLabel }}</span>
+        <span class="text-[0.7rem] text-(--text-secondary) leading-[1.3]">{{ friendlyMessage }}</span>
       </div>
     </div>
 
-    <div class="sw-live font-mono">
-      <span class="sw-dot pulse-live" :style="{ color: scoreColor }">●</span>
+    <div class="font-mono flex items-center gap-[0.3rem] text-[0.7rem] text-(--text-muted) tracking-[0.05em]">
+      <span class="text-[0.5rem] pulse-live" :style="{ color: scoreColor }">●</span>
       <span>Kp {{ sw.kpIndex.toFixed(1) }} · Wind {{ sw.solarWindSpeed }}km/s</span>
     </div>
   </div>
 </template>
-
-<style scoped>
-.sw { display: flex; flex-direction: column; align-items: center; text-align: center; gap: 0.6rem; padding: 0.25rem 0; }
-.sw-label { font-size: 0.7rem; font-weight: 600; letter-spacing: 0.15em; color: var(--text-muted); }
-.sw-main { display: flex; flex-direction: column; align-items: center; gap: 0.4rem; }
-.sw-circle {
-  width: 52px; height: 52px; border-radius: 50%;
-  display: flex; align-items: center; justify-content: center; flex-shrink: 0;
-}
-.sw-info { display: flex; flex-direction: column; align-items: center; gap: 0.1rem; }
-.sw-status { font-size: 0.9rem; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; }
-.sw-msg { font-size: 0.7rem; color: var(--text-secondary); line-height: 1.3; }
-.sw-live {
-  display: flex; align-items: center; gap: 0.3rem;
-  font-size: 0.7rem; color: var(--text-muted); letter-spacing: 0.05em;
-}
-.sw-dot { font-size: 0.5rem; }
-</style>

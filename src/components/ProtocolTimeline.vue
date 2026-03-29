@@ -33,18 +33,18 @@ function getStatus(time: Date): 'upcoming' | 'active' | 'passed' {
 <template>
   <div>
     <!-- Section header — editorial style -->
-    <div class="timeline-header">
-      <div class="timeline-header-top">
-        <span class="font-mono" style="font-size: 0.55rem; color: var(--text-muted); letter-spacing: 0.1em;">SECTION / 01</span>
-        <span class="font-mono" style="font-size: 0.55rem; color: var(--text-muted);">6 ITEMS</span>
+    <div class="mb-5">
+      <div class="flex justify-between items-center mb-[0.35rem]">
+        <span class="font-mono text-[0.55rem] text-(--text-muted) tracking-widest">SECTION / 01</span>
+        <span class="font-mono text-[0.55rem] text-(--text-muted)">6 ITEMS</span>
       </div>
-      <h2 class="timeline-title font-display">YOUR PROTOCOL</h2>
-      <p class="timeline-subtitle font-mono">Based on live solar position + NOAA space weather data</p>
-      <div class="timeline-rule" />
+      <h2 class="font-display text-2xl font-extrabold tracking-[0.08em] uppercase text-(--text-primary) mb-[0.2rem]">YOUR PROTOCOL</h2>
+      <p class="font-mono text-[0.7rem] text-(--text-muted) mb-3">Based on live solar position + NOAA space weather data</p>
+      <div class="h-px bg-linear-to-r from-(--text-muted) to-transparent opacity-30" />
     </div>
 
     <!-- 3-column grid -->
-    <div class="protocol-grid stagger-children">
+    <div class="grid grid-cols-3 gap-2.5 max-[900px]:grid-cols-2 max-[500px]:grid-cols-1 stagger-children">
       <ProtocolCard
         v-for="item in protocolItems"
         :key="item.key"
@@ -58,55 +58,3 @@ function getStatus(time: Date): 'upcoming' | 'active' | 'passed' {
     </div>
   </div>
 </template>
-
-<style scoped>
-.timeline-header {
-  margin-bottom: 1.25rem;
-}
-
-.timeline-header-top {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 0.35rem;
-}
-
-.timeline-title {
-  font-size: 1.5rem;
-  font-weight: 800;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--text-primary);
-  margin-bottom: 0.2rem;
-}
-
-.timeline-subtitle {
-  font-size: 0.7rem;
-  color: var(--text-muted);
-  margin-bottom: 0.75rem;
-}
-
-.timeline-rule {
-  height: 1px;
-  background: linear-gradient(to right, var(--text-muted), transparent);
-  opacity: 0.3;
-}
-
-.protocol-grid {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 0.6rem;
-}
-
-@media (max-width: 900px) {
-  .protocol-grid {
-    grid-template-columns: repeat(2, 1fr);
-  }
-}
-
-@media (max-width: 500px) {
-  .protocol-grid {
-    grid-template-columns: 1fr;
-  }
-}
-</style>

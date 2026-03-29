@@ -45,99 +45,32 @@ const isPassed = computed(() => props.status === 'passed')
 </script>
 
 <template>
-  <div class="card" :class="{ 'card--passed': isPassed }">
+  <div
+    class="flex flex-col items-center text-center pt-6 pb-5 px-4 bg-(--bg-card) border border-(--border-subtle) rounded-lg transition-all duration-200 ease-in-out gap-2 hover:bg-(--bg-card-hover) hover:-translate-y-0.5"
+    :class="{ 'opacity-30': isPassed }"
+  >
     <!-- Colored circle with time — the hero -->
-    <div class="card-circle" :style="{ background: theme.bg }">
+    <div class="relative w-[90px] h-[90px] rounded-full flex items-center justify-center mb-[0.15rem] overflow-hidden" :style="{ background: theme.bg }">
       <component
         :is="iconComponent"
         :size="16"
         :color="theme.text"
         :stroke-width="2"
-        style="position: absolute; top: 10px; right: 10px; opacity: 0.4;"
+        class="absolute top-2.5 right-2.5 opacity-40"
       />
-      <span class="card-time font-mono" :style="{ color: theme.text }">{{ formattedTime }}</span>
+      <span class="font-mono text-[1.35rem] font-extrabold tracking-[-0.02em]" :style="{ color: theme.text }">{{ formattedTime }}</span>
     </div>
 
     <!-- Label with icon -->
-    <div class="card-label font-mono">
+    <div class="font-mono flex items-center gap-[0.3rem] text-[0.55rem] font-bold tracking-[0.15em] uppercase">
       <component :is="iconComponent" :size="13" :color="theme.bg" :stroke-width="2" />
       <span :style="{ color: theme.bg }">{{ title }}</span>
     </div>
 
     <!-- Description -->
-    <p class="card-desc">{{ subtitle }}</p>
+    <p class="font-body text-[0.65rem] text-(--text-secondary) leading-[1.4] max-w-47.5">{{ subtitle }}</p>
 
     <!-- Citation -->
-    <p class="card-cite font-mono">/ {{ citation }}</p>
+    <p class="font-mono text-[0.48rem] text-(--text-muted) leading-[1.3] opacity-50 max-w-47.5">/ {{ citation }}</p>
   </div>
 </template>
-
-<style scoped>
-.card {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  text-align: center;
-  padding: 1.5rem 1rem 1.25rem;
-  background: var(--bg-card);
-  border: 1px solid var(--border-subtle);
-  border-radius: 8px;
-  transition: all 0.2s ease;
-  gap: 0.5rem;
-}
-
-.card:hover {
-  background: var(--bg-card-hover);
-  transform: translateY(-2px);
-}
-
-.card--passed {
-  opacity: 0.3;
-}
-
-/* Colored circle with time */
-.card-circle {
-  position: relative;
-  width: 90px;
-  height: 90px;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  margin-bottom: 0.15rem;
-  overflow: hidden;
-}
-
-.card-time {
-  font-size: 1.35rem;
-  font-weight: 800;
-  letter-spacing: -0.02em;
-}
-
-/* Label with icon and colored text */
-.card-label {
-  display: flex;
-  align-items: center;
-  gap: 0.3rem;
-  font-size: 0.55rem;
-  font-weight: 700;
-  letter-spacing: 0.15em;
-  text-transform: uppercase;
-}
-
-.card-desc {
-  font-family: var(--font-body);
-  font-size: 0.65rem;
-  color: var(--text-secondary);
-  line-height: 1.4;
-  max-width: 190px;
-}
-
-.card-cite {
-  font-size: 0.48rem;
-  color: var(--text-muted);
-  line-height: 1.3;
-  opacity: 0.5;
-  max-width: 190px;
-}
-</style>
