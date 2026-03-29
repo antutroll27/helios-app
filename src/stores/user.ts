@@ -2,7 +2,7 @@ import { defineStore } from 'pinia'
 import { ref, watch } from 'vue'
 
 type Chronotype = 'early' | 'intermediate' | 'late'
-type Provider = 'openai' | 'claude' | 'kimi' | 'glm'
+type Provider = 'openai' | 'claude' | 'gemini' | 'perplexity' | 'kimi' | 'qwen' | 'glm'
 
 const PREFIX = 'helios_'
 

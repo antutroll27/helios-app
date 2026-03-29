@@ -26,17 +26,23 @@ interface ClaudeMessage {
 // ─── Provider registry ────────────────────────────────────────────────────────
 
 export const PROVIDERS = [
-  { id: 'openai', name: 'OpenAI', model: 'gpt-5.3', placeholder: 'sk-...' },
-  { id: 'claude', name: 'Claude', model: 'claude-opus-4-6 / claude-sonnet-4-6', placeholder: 'sk-ant-...' },
-  { id: 'kimi', name: 'Kimi 2.5 (DeepInfra)', model: 'moonshotai/Kimi-K2-Instruct', placeholder: 'ai335...' },
-  { id: 'glm', name: 'GLM-4', model: 'glm-4-flash', placeholder: '...' },
+  { id: 'openai', name: 'OpenAI', placeholder: 'sk-...' },
+  { id: 'claude', name: 'Anthropic', placeholder: 'sk-ant-...' },
+  { id: 'gemini', name: 'Google Gemini', placeholder: 'AIza...' },
+  { id: 'perplexity', name: 'Perplexity', placeholder: 'pplx-...' },
+  { id: 'kimi', name: 'Moonshot AI', placeholder: 'ai335...' },
+  { id: 'qwen', name: 'Alibaba Qwen', placeholder: 'sk-...' },
+  { id: 'glm', name: 'Zhipu AI', placeholder: '...' },
 ] as const
 
 const PROVIDER_CONFIGS: Record<string, { baseUrl: string; model: string }> = {
-  openai: { baseUrl: 'https://api.openai.com/v1/chat/completions', model: 'gpt-5.3' },
-  kimi: { baseUrl: 'https://api.deepinfra.com/v1/openai/chat/completions', model: 'moonshotai/Kimi-K2-Instruct' },
-  glm: { baseUrl: 'https://open.bigmodel.cn/api/paas/v4/chat/completions', model: 'glm-4-flash' },
-  claude: { baseUrl: 'https://api.anthropic.com/v1/messages', model: 'claude-opus-4-6' },
+  openai:     { baseUrl: 'https://api.openai.com/v1/chat/completions', model: 'gpt-4o' },
+  gemini:     { baseUrl: 'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions', model: 'gemini-2.5-flash' },
+  perplexity: { baseUrl: 'https://api.perplexity.ai/chat/completions', model: 'sonar-pro' },
+  kimi:       { baseUrl: 'https://api.deepinfra.com/v1/openai/chat/completions', model: 'moonshotai/Kimi-K2-Instruct' },
+  qwen:       { baseUrl: 'https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions', model: 'qwen-max' },
+  glm:        { baseUrl: 'https://open.bigmodel.cn/api/paas/v4/chat/completions', model: 'glm-4-flash' },
+  claude:     { baseUrl: 'https://api.anthropic.com/v1/messages', model: 'claude-sonnet-4-6-20250514' },
 }
 
 // ─── Utility ──────────────────────────────────────────────────────────────────
