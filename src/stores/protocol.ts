@@ -211,9 +211,9 @@ export const useProtocolStore = defineStore('protocol', () => {
         time: peakFocusStart.value,
         icon: 'Brain',
         citation:
-          'Core body temperature peak aligns with cognitive performance maximum',
+          'Cognitive performance peaks in late afternoon/evening, paralleling core body temperature rhythm',
         subtitle:
-          `Schedule deep work ${fmt(peakFocusStart.value)} – ${fmt(peakFocusEnd.value)} for maximal cognitive output.`
+          `Your cognitive peak window: ${fmt(peakFocusStart.value)} – ${fmt(peakFocusEnd.value)}. ${user.chronotype === 'early' ? 'Early types peak earlier.' : user.chronotype === 'late' ? 'Night owls peak in the evening.' : 'Adjusted for your chronotype.'}`
       },
 
       caffeineCutoff: {
