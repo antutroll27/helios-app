@@ -91,6 +91,7 @@ export const useGeoStore = defineStore('geo', () => {
     locationName,
     loading,
     error,
-    requestLocation
+    requestLocation,
+    reverseGeocode
   }
 })

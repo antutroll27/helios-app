@@ -59,7 +59,9 @@ export const useUserStore = defineStore('user', () => {
    * If the time has already passed today, returns tomorrow's date at that time.
    */
   function getSleepTimeToday(): Date {
-    const [hours, minutes] = usualSleepTime.value.split(':').map(Number)
+    const parts = usualSleepTime.value.split(':').map(Number)
+    const hours = Number.isFinite(parts[0]) ? parts[0] : 23
+    const minutes = Number.isFinite(parts[1]) ? parts[1] : 0
     const now = new Date()
     const target = new Date(now.getFullYear(), now.getMonth(), now.getDate(), hours, minutes, 0, 0)
     if (target.getTime() <= now.getTime()) {

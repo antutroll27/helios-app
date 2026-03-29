@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia'
 import { computed, ref } from 'vue'
-import * as SunCalc from 'suncalc'
+import SunCalc from 'suncalc'
 
 // ─── Interfaces ───────────────────────────────────────────────────────────────
 
@@ -292,10 +292,11 @@ export const useJetLagStore = defineStore('jetlag', () => {
 
   /**
    * Number of recovery days needed at maximum 1.5 h/day shift rate.
+   * Returns 1 when there is no phase shift (no-jet-lag baseline day still shown).
    */
   const recoveryDays = computed<number>(() => {
     const abs = Math.abs(totalShiftHours.value)
-    if (abs === 0) return 0
+    if (abs === 0) return tripInput.value ? 1 : 0
     return Math.ceil(abs / 1.5)
   })
 

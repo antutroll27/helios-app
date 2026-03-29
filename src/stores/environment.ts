@@ -83,8 +83,16 @@ export const useEnvironmentStore = defineStore('environment', () => {
     const now = new Date()
     const hourlyTimes = data.hourly.time
 
-    // Find current hour index
-    const currentHourStr = now.toISOString().substring(0, 13) // "YYYY-MM-DDTHH"
+    // Find current hour index.
+    // Open-Meteo returns times in LOCAL timezone format ("YYYY-MM-DDTHH:00"), NOT UTC.
+    // Using now.toISOString() (UTC) would cause a mismatch for any UTC+ timezone.
+    // Instead, format the current local wall-clock hour as "YYYY-MM-DDTHH" by
+    // reading the local date/time parts directly.
+    const localYear = now.getFullYear()
+    const localMonth = String(now.getMonth() + 1).padStart(2, '0')
+    const localDay = String(now.getDate()).padStart(2, '0')
+    const localHour = String(now.getHours()).padStart(2, '0')
+    const currentHourStr = `${localYear}-${localMonth}-${localDay}T${localHour}` // "YYYY-MM-DDTHH"
     let currentIndex = hourlyTimes.findIndex((t) => t.startsWith(currentHourStr))
     if (currentIndex === -1) currentIndex = 0
 

@@ -2,7 +2,11 @@ import { defineStore } from 'pinia'
 import { ref } from 'vue'
 
 const BASE_URL = 'https://api.nasa.gov/DONKI'
-const NASA_KEY = () => import.meta.env.VITE_NASA_API_KEY as string
+/** Returns the NASA API key, falling back to the public demo key if not set. */
+const NASA_KEY = (): string => {
+  const key = import.meta.env.VITE_NASA_API_KEY as string | undefined
+  return key && key !== 'undefined' ? key : 'DEMO_KEY'
+}
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 

@@ -56,8 +56,14 @@ export const useProtocolStore = defineStore('protocol', () => {
    * Today's projected sleep time as a Date object.
    * Delegates to the user store's getSleepTimeToday() which advances to tomorrow
    * if the sleep time has already passed for today.
+   *
+   * Explicitly reads solar.now so this computed re-evaluates every 60 seconds,
+   * ensuring the "today vs tomorrow" branch stays correct after midnight.
    */
-  const sleepTime = computed<Date>(() => user.getSleepTimeToday())
+  const sleepTime = computed<Date>(() => {
+    void solar.now // reactive dependency — ticks every 60 s
+    return user.getSleepTimeToday()
+  })
 
   /**
    * Estimated melatonin onset: 90 minutes before sleep time.
