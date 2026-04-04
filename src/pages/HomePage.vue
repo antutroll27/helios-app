@@ -22,19 +22,14 @@ const wearables = [
 
 <template>
   <div class="home-page">
-    <!-- Onboarding -->
     <OnboardingModal v-if="!user.hasCompletedOnboarding" />
 
-    <!-- Globe Section — full bleed -->
     <section class="globe-section">
       <HeliosGlobe />
       <div class="globe-fade" />
     </section>
 
-    <!-- Everything below globe is centered with max-width -->
     <div class="content-container">
-
-      <!-- Live Data — 3-card grid -->
       <section class="data-section">
         <div class="data-grid">
           <div class="data-card">
@@ -49,12 +44,10 @@ const wearables = [
         </div>
       </section>
 
-      <!-- Protocol Timeline -->
       <section class="protocol-section">
         <ProtocolTimeline />
       </section>
 
-      <!-- Wearable Integrations -->
       <section class="integrations-section">
         <div class="section-meta">
           <span class="font-mono" style="font-size: 0.55rem; color: var(--text-muted); letter-spacing: 0.1em;">SECTION / 02</span>
@@ -94,7 +87,6 @@ const wearables = [
         </p>
       </section>
 
-      <!-- Attribution -->
       <div class="attribution">
         <p class="font-mono" style="font-size: 0.6rem; color: var(--text-muted); text-align: center;">
           Powered by NASA APIs · NOAA SWPC · Open-Meteo
@@ -104,7 +96,6 @@ const wearables = [
         </p>
       </div>
 
-      <!-- Chat Interface -->
       <section class="chat-section">
         <ChatInterface />
       </section>
@@ -117,8 +108,6 @@ const wearables = [
   min-height: 100vh;
   position: relative;
 }
-
-/* ── Globe — full bleed ─────────────────────────────── */
 
 .globe-section {
   position: relative;
@@ -140,24 +129,20 @@ const wearables = [
   z-index: 2;
 }
 
-/* ── Centered content container ─────────────────────── */
-
 .content-container {
   max-width: 960px;
   margin: 0 auto;
   padding: 0 1.5rem;
 }
 
-/* ── Live Data Grid ──────────────────────────────────── */
-
 .data-section {
-  margin-top: -0.5rem;
+  margin-top: 0.5rem;
 }
 
 .data-grid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  gap: 0.6rem;
+  gap: 0.75rem;
 }
 
 .data-card {
@@ -173,16 +158,12 @@ const wearables = [
   }
 }
 
-/* ── Protocol ───────────────────────────────────────── */
-
 .protocol-section {
-  padding-top: 2rem;
+  padding-top: 2.5rem;
 }
 
-/* ── Integrations ───────────────────────────────────── */
-
 .integrations-section {
-  padding-top: 2rem;
+  padding-top: 2.5rem;
 }
 
 .section-meta {
@@ -211,13 +192,13 @@ const wearables = [
   height: 1px;
   background: linear-gradient(to right, var(--text-muted), transparent);
   opacity: 0.2;
-  margin-bottom: 1rem;
+  margin-bottom: 1.25rem;
 }
 
 .integrations-grid {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
-  gap: 0.5rem;
+  gap: 0.6rem;
 }
 
 @media (max-width: 640px) {
@@ -243,24 +224,19 @@ const wearables = [
   border-color: var(--border-card);
 }
 
-/* ── Attribution ────────────────────────────────────── */
-
 .attribution {
   padding: 2rem 0 0.5rem;
 }
-
-/* ── Chat ───────────────────────────────────────────── */
 
 .chat-section {
   padding: 1rem 0 1.5rem;
 }
 
-/* ── Responsive ─────────────────────────────────────── */
-
 @media (max-width: 640px) {
   .data-row {
     grid-template-columns: 1fr;
   }
+
   .content-container {
     padding: 0 1rem;
   }

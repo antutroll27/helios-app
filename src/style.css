@@ -39,7 +39,6 @@ body {
   overflow-x: hidden;
 }
 
-/* Dark mode (default) */
 :root {
   --bg-primary: #0A171D;
   --bg-card: #15242E;
@@ -54,7 +53,6 @@ body {
   --glass-border: rgba(255, 246, 233, 0.1);
 }
 
-/* Light mode */
 :root.light {
   --bg-primary: #FFF6E9;
   --bg-card: #FFFFFF;
@@ -69,41 +67,37 @@ body {
   --glass-border: rgba(10, 23, 29, 0.1);
 }
 
-/* Utility classes for the design system */
 .font-display { font-family: var(--font-display); }
 .font-body { font-family: var(--font-body); }
 .font-mono { font-family: var(--font-mono); }
 .tracking-label { letter-spacing: 0.15em; }
 
-/* Scrollbar styling */
 ::-webkit-scrollbar {
   width: 4px;
 }
+
 ::-webkit-scrollbar-track {
   background: transparent;
 }
+
 ::-webkit-scrollbar-thumb {
   background: var(--text-muted);
   border-radius: 2px;
 }
 
-/* Smooth transitions for theme switching */
 body, .theme-transition {
   transition: background-color 0.3s ease, color 0.3s ease;
 }
 
-/* Globe container */
 .globe-container canvas {
   outline: none !important;
 }
 
-/* Chat input focus ring */
 .chat-input:focus {
   outline: none;
   box-shadow: 0 0 0 2px #FFBD76;
 }
 
-/* Bento card base */
 .bento-card {
   background: var(--bg-card);
   border: 1px solid var(--border-card);
@@ -111,12 +105,12 @@ body, .theme-transition {
   padding: 1.25rem;
   transition: all 0.2s ease;
 }
+
 .bento-card:hover {
   background: var(--bg-card-hover);
   border-color: var(--border-subtle);
 }
 
-/* Glassmorphism */
 .glass {
   background: var(--glass-bg);
   backdrop-filter: blur(20px);
@@ -124,16 +118,15 @@ body, .theme-transition {
   border-bottom: 1px solid var(--glass-border);
 }
 
-/* Pulse animation for live data indicators */
 @keyframes pulse-dot {
   0%, 100% { opacity: 1; }
   50% { opacity: 0.4; }
 }
+
 .pulse-live {
   animation: pulse-dot 2s ease-in-out infinite;
 }
 
-/* Fade in up animation for cards */
 @keyframes fadeInUp {
   from {
     opacity: 0;
@@ -144,15 +137,16 @@ body, .theme-transition {
     transform: translateY(0);
   }
 }
+
 .animate-fade-in-up {
   animation: fadeInUp 0.5s ease-out forwards;
 }
 
-/* Staggered children animation */
 .stagger-children > * {
   opacity: 0;
   animation: fadeInUp 0.4s ease-out forwards;
 }
+
 .stagger-children > *:nth-child(1) { animation-delay: 0.05s; }
 .stagger-children > *:nth-child(2) { animation-delay: 0.1s; }
 .stagger-children > *:nth-child(3) { animation-delay: 0.15s; }

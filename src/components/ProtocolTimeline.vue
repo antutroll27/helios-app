@@ -61,7 +61,7 @@ function getStatus(time: Date): 'upcoming' | 'active' | 'passed' {
 
 <style scoped>
 .timeline-header {
-  margin-bottom: 1.25rem;
+  margin-bottom: 1.5rem;
 }
 
 .timeline-header-top {
@@ -95,7 +95,7 @@ function getStatus(time: Date): 'upcoming' | 'active' | 'passed' {
 .protocol-grid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  gap: 0.6rem;
+  gap: 0.75rem;
 }
 
 @media (max-width: 900px) {
