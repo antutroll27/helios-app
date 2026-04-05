@@ -171,38 +171,119 @@ This document tracks peer-reviewed papers, open source libraries, data sources, 
 
 ## Agent Architecture — Learning from User Data
 
-### Recommended Stack
+### Full Stack
 ```
-Vue 3 Frontend (existing useAI.ts)
-    |
-FastAPI Backend (feature/fastapi-backend)
-    ├── Mem0 (memory: semantic + episodic + procedural)
-    ├── LanceDB (local vector store, zero-ops)
+Vue 3 Frontend (existing useAI.ts — 7 LLM providers)
+    │
+    ▼
+FastAPI Backend
+    ├── Supabase (auth, user DB, chat logs, wearable data, protocol logs)
+    ├── Mem0 (distilled memory: semantic + episodic + procedural)
+    ├── Hermes Agent (background learner — processes sessions, extracts insights)
+    ├── Wearable Parsers (file-upload adapters per platform)
     ├── ChronotypeEngine (existing)
+    ├── CaffeineModel (existing)
+    ├── SpaceWeatherBioModel (existing)
+    ├── CircadianLightModel (existing)
     └── ProtocolScorer (existing)
 ```
 
-### Why Mem0 + LanceDB
-- Mem0: 48K stars, purpose-built memory layer, local-first with FastEmbed
-- LanceDB: Zero-ops, Rust-based, versioned data for tracking patterns over time
-- Plugs into existing multi-provider AI without replacing anything
-- Privacy-first: all data stays on device, user's own API key for LLM calls
+### How It Works
+- **Hermes Agent as background learner** — runs after each chat session ends, NOT during. Analyzes the conversation, extracts learnings, updates user memories. Invisible to the user.
+- **Mem0 for distilled intelligence** — stores semantic ("user is late chronotype"), episodic ("ignored caffeine cutoff Friday, slept 45min worse"), and procedural ("advance Friday caffeine cutoff 1h") memories. Compact, searchable, directly injectable into prompts.
+- **Supabase for structured data** — raw chat logs, wearable imports, sleep logs, protocol adherence. Queryable SQL for analytics and investor demos.
+- **System prompt injection** — before each LLM call, FastAPI queries Mem0 for top 5-10 relevant memories, formats them as a `[USER PROFILE]` section in the system prompt alongside the existing scientific knowledge base.
 
-### Rejected Alternatives
+### Supabase Schema
+```
+users              → auth, profile, LLM API keys (encrypted)
+chat_sessions      → full conversation logs (raw)
+chat_messages      → individual messages with role/content/timestamp
+memories           → Mem0 distilled insights (semantic/episodic/procedural)
+sleep_logs         → nightly sleep data (maps to SleepLog dataclass)
+data_imports       → uploaded wearable files (source, date range, status)
+wearable_tokens    → OAuth tokens for future live sync (encrypted)
+protocol_logs      → daily protocol + adherence (maps to ProtocolLog)
+caffeine_logs      → intake tracking for CaffeineModel
+biometric_logs     → HR, HRV (rMSSD/SDNN), skin temp, respiratory rate, SpO2
+```
+
+### The Learning Loop
+1. User chats → LLM responds with Mem0-enriched context
+2. Session ends → Hermes processes conversation, extracts learnings
+3. Mem0 stores distilled insights (not raw chat — compact and searchable)
+4. User uploads wearable data → parsers extract SleepLog + biometric entries
+5. ChronotypeEngine reassesses chronotype from accumulated sleep logs
+6. ProtocolScorer correlates protocol adherence with sleep outcomes
+7. Next session → richer context → better personalized advice
+
+### Wearable Data Import (No OAuth Required)
+
+Users export their own data and upload to HELIOS. No API partnerships needed for v1.
+
+| Platform | Format | Parser | Key Biometrics |
+|---|---|---|---|
+| Oura Ring | JSON | stdlib `json` | Sleep stages, HRV (rMSSD), skin temp, respiratory rate |
+| Whoop | CSV | `pandas` | Sleep stages, HRV (rMSSD), skin temp, respiratory rate |
+| Fitbit | JSON (Google Takeout) | stdlib `json` | Sleep stages, HRV, skin temp deviation |
+| Samsung Health | CSV | `pandas` | Sleep stages, HR, stress, SpO2 |
+| Garmin | FIT binary | `fitparse` | Sleep stages, HRV, stress, Body Battery |
+| Apple Health | XML | `lxml.iterparse` | ALL synced device data (universal import) |
+
+**UX Flow:**
+```
+User drags file onto chat/upload area
+→ Frontend detects format (filename + content sniffing)
+→ FastAPI routes to platform-specific parser adapter
+→ Parser extracts SleepLog + biometric entries
+→ Stored in Supabase per-user
+→ ChronotypeEngine + research modules run on accumulated data
+→ Hermes updates user memory with new patterns
+→ Next chat: "Based on 14 nights of Oura data, your HRV drops
+   18% on nights after afternoon caffeine..."
+```
+
+**Parser Architecture:**
+```python
+class WearableParser(Protocol):
+    def parse(self, file_content: bytes, filename: str) -> list[SleepLog]: ...
+
+class OuraParser(WearableParser): ...
+class GarminParser(WearableParser): ...
+class FitbitParser(WearableParser): ...
+class AppleHealthParser(WearableParser): ...
+class SamsungParser(WearableParser): ...
+class WhoopParser(WearableParser): ...
+```
+
+**Priority:** Oura > Whoop > Fitbit > Garmin > Apple Health > Samsung
+
+### Biometric Data Beyond Sleep
+
+HELIOS collects more than sleep timing — the full biometric picture enables ISS-grade circadian analysis:
+
+| Metric | What It Tells Us | Source Papers |
+|---|---|---|
+| HRV (rMSSD) | Parasympathetic tone, circadian phase marker, Kp impact indicator | Alabdali 2022, Woelders 2023 |
+| HRV (SDNN) | Overall autonomic variability, stress recovery | McCraty 2018 |
+| Resting HR | Circadian rhythm marker (HR acrophase = phase estimate) | Kolbe 2024 |
+| Skin/wrist temperature | CBTmin proxy (skin max ≈ core min), sleep readiness signal | Cuesta 2017, Martinez-Nicolas 2019 |
+| Respiratory rate | Sleep stage quality indicator, illness detection | — |
+| SpO2 | Sleep apnea screening, altitude effects | — |
+| Sleep stages | Deep/REM/light architecture for protocol scoring | — |
+
+### Future: Custom Wearable Hardware
+
+Long-term vision: build affordable, stylish sleep-specific wearables that outperform smartwatches for circadian metrics. HELIOS software is the foundation for a future hardware+software ecosystem. The file-upload pipeline (v1) → live API sync (v2) → custom hardware (v3) progression builds the data science and user base before committing to hardware.
+
+### Rejected Agent Alternatives
 | Framework | Why Not |
 |---|---|
-| Hermes Agent | Too general-purpose, would strip 80% |
+| Hermes as orchestrator | Too heavy as middleware — use as background learner instead |
 | Letta (MemGPT) | Replaces entire AI layer, too big a commitment now |
 | LangGraph | Overkill orchestration for a memory + scoring problem |
 | CrewAI | Multi-agent = wrong paradigm, adds latency and cost |
 | AutoGen | Maintenance mode, Microsoft pivoted to Semantic Kernel |
-
-### The Learning Loop
-1. User follows protocol → reports sleep quality → ProtocolScorer scores the day
-2. Mem0 stores episodic memory ("protocol score 0.72, user slept 30min late")
-3. After 7 days → ChronotypeEngine updates chronotype assessment
-4. Before next protocol → FastAPI queries Mem0 for patterns → enriches system prompt
-5. Protocol becomes personalized over time
 
 ---
 
