@@ -2,3 +2,4 @@ node_modules
 dist
 .env
 .superpowers
+research/__pycache__/
