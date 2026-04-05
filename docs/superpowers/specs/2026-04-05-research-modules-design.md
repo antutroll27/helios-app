@@ -135,7 +135,7 @@ class LightProfile:
 ### Melatonin Suppression Model (Gimenez 2022)
 
 ```
-suppression = a + (c - a) / (1 + (melanopic_edi / ED50)^d)
+suppression = a + (c - a) / (1 + (ED50 / melanopic_edi)^d)
 
 Full parameter set:
   a (floor)    = 0.0   (no suppression at zero light)

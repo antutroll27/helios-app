@@ -68,6 +68,19 @@ class SpaceWeatherBioModel:
         Returns:
             dict with expected values, deltas, percent reduction, risk tier
         """
+        # Input validation
+        kp_index = max(0.0, min(9.0, kp_index))
+        if baseline_rmssd <= 0 or baseline_sdnn <= 0:
+            return {
+                "expected_rmssd": baseline_rmssd,
+                "expected_sdnn": baseline_sdnn,
+                "delta_rmssd": 0.0,
+                "delta_sdnn": 0.0,
+                "pct_reduction": 0.0,
+                "risk_tier": "unknown",
+                "advisory": "Error: baseline HRV values must be positive.",
+            }
+
         # Per-unit Kp scaling factors
         delta_rmssd_per_kp = -6.125   # ms per Kp unit
         delta_sdnn_per_kp = -3.417    # ms per Kp unit
@@ -78,7 +91,7 @@ class SpaceWeatherBioModel:
         expected_rmssd = max(5.0, baseline_rmssd + delta_rmssd)
         expected_sdnn = max(5.0, baseline_sdnn + delta_sdnn)
 
-        pct_reduction = abs(delta_rmssd) / baseline_rmssd if baseline_rmssd > 0 else 0.0
+        pct_reduction = abs(delta_rmssd) / baseline_rmssd
 
         if pct_reduction < 0.15:
             risk_tier = "low"
@@ -185,6 +198,8 @@ class SpaceWeatherBioModel:
         Returns:
             dict with impact tier, focus modifier (0-1), and advisory
         """
+        kp_index = max(0.0, min(9.0, kp_index))
+
         if kp_index < 3:
             impact_tier = "none"
             focus_modifier = 1.0

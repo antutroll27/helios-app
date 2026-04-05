@@ -269,6 +269,19 @@ class CaffeineModel:
                 "advisory": "Error: dose_mg must be positive.",
             }
 
+        # Guard: invalid target
+        if target_remaining_mg <= 0:
+            return {
+                "cutoff_times": {},
+                "recommended": None,
+                "advisory": "Error: target_remaining_mg must be positive.",
+            }
+
+        # Warn on extreme doses (LD50 ~ 150mg/kg)
+        if dose_mg > 600:
+            import logging
+            logging.warning(f"Unusually high caffeine dose: {dose_mg}mg. Verify input.")
+
         standard_doses = [100, 200, 400]
         if dose_mg not in standard_doses:
             standard_doses.append(dose_mg)
@@ -374,9 +387,10 @@ class CaffeineModel:
             if h > 0:
                 current_level = current_level * (0.5 ** (1.0 / half_life))
 
-            # Add any doses at this hour
+            # Add any doses at this hour (handles midnight crossing)
             for dose_hour, dose_mg in dose_schedule:
-                if abs(day_hour - dose_hour) < 0.5:  # within 30min window
+                diff = abs(day_hour - dose_hour)
+                if min(diff, 24 - diff) < 0.5:  # within 30min window, wraps at midnight
                     current_level += dose_mg
 
             levels[h] = current_level

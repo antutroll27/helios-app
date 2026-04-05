@@ -166,6 +166,9 @@ class CircadianLightModel:
         if profile is None:
             return 1.0
 
+        if profile.age < 1 or profile.age > 120:
+            return 1.0  # invalid age, use default
+
         factor = 1.0
         if profile.age < 18:
             factor = 1.5

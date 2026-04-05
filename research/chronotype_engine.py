@@ -154,7 +154,7 @@ class ChronotypeEngine:
             return "Late"
         return "Extreme Late"
 
-    def chronotype_from_logs(self, logs: list[SleepLog], work_days: set[int] = {0, 1, 2, 3, 4}) -> dict:
+    def chronotype_from_logs(self, logs: list[SleepLog], work_days: Optional[set[int]] = None) -> dict:
         """
         Derive chronotype from a collection of sleep logs.
 
@@ -165,6 +165,9 @@ class ChronotypeEngine:
         Returns:
             dict with chronotype analysis results
         """
+        if work_days is None:
+            work_days = {0, 1, 2, 3, 4}
+
         if len(logs) < 3:
             return {"error": "Need at least 3 days of data", "confidence": "low"}
 
@@ -214,7 +217,7 @@ class ChronotypeEngine:
         avg_angle = np.arctan2(sin_avg, cos_avg)
         if avg_angle < 0:
             avg_angle += 2 * np.pi
-        avg_minutes = int((avg_angle / (2 * np.pi)) * 1440)
+        avg_minutes = int((avg_angle / (2 * np.pi)) * 1440) % 1440
         return times[0].replace(hour=avg_minutes // 60, minute=avg_minutes % 60, second=0)
 
 
