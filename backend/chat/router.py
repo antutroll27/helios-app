@@ -1,10 +1,9 @@
 """
 HELIOS Backend — Chat Router
-Handles chat messages, session management, and AI responses.
+Handles chat messages with Hermes memory enrichment.
 """
 
 import uuid
-from datetime import datetime
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks
@@ -13,8 +12,15 @@ from pydantic import BaseModel
 from backend.auth.supabase_auth import get_current_user
 from backend.chat.llm_proxy import call_llm, parse_ai_response
 from backend.chat.prompt_builder import build_system_prompt
+from backend.memory.hermes_learner import HermesLearner
 
 router = APIRouter()
+
+
+# ─── In-memory session store (Phase 1 — move to Supabase in production) ─────
+
+_sessions: dict[str, list[dict]] = {}  # session_id -> messages
+_session_meta: dict[str, dict] = {}    # session_id -> {user_id, provider, api_key}
 
 
 # ─── Request / Response Models ───────────────────────────────────────────────
@@ -26,11 +32,11 @@ class ChatContext(BaseModel):
 
 class ChatRequest(BaseModel):
     message: str
-    provider: str  # "openai" | "claude" | "kimi" | "glm"
-    api_key: str   # user's API key (sent per-request for now, encrypted storage in v2)
+    provider: str
+    api_key: str
     session_id: Optional[str] = None
     context: ChatContext
-    history: list[dict] = []  # previous messages [{role, content}]
+    history: list[dict] = []
 
 class ChatResponse(BaseModel):
     message: str
@@ -38,7 +44,7 @@ class ChatResponse(BaseModel):
     session_id: str
 
 
-# ─── Endpoints ───────────────────────────────────────────────────────────────
+# ─── Memory-enriched chat endpoint ──────────────────────────────────────────
 
 @router.post("/send", response_model=ChatResponse)
 async def send_message(
@@ -46,23 +52,29 @@ async def send_message(
     user_id: str = Depends(get_current_user),
 ):
     """
-    Main chat endpoint. Enriches the system prompt with memories and live data,
-    proxies to the user's chosen LLM, and stores the conversation.
+    Main chat endpoint with Hermes memory injection.
+
+    1. Fetch user's memory.md (learned insights from past sessions)
+    2. Build enriched system prompt (scientific KB + live data + memories)
+    3. Proxy to user's chosen LLM
+    4. Store messages in session for later Hermes processing
     """
-    # Generate session ID if new conversation
     session_id = request.session_id or str(uuid.uuid4())
 
+    # Fetch user's memory for prompt enrichment
+    # TODO: Wire to MemoryService.get_memory_for_prompt(user_id) when Supabase is connected
+    memory_block = ""  # Will be populated from Supabase user_memories table
+
     # Build enriched system prompt
-    # Phase 2 will add Mem0 memory injection here
     system_prompt = build_system_prompt(
         lat=request.context.lat,
         lng=request.context.lng,
         timezone=request.context.timezone,
         user_id=user_id,
-        # memory_block=""  # Phase 2: inject memories here
+        memory_block=memory_block,
     )
 
-    # Build conversation with user's new message
+    # Build conversation
     messages = request.history + [{"role": "user", "content": request.message}]
 
     # Call LLM
@@ -76,18 +88,71 @@ async def send_message(
     except Exception as e:
         raise HTTPException(status_code=502, detail=f"LLM provider error: {e}")
 
-    # Parse response into message + visual cards
+    # Parse response
     parsed = parse_ai_response(raw_response)
 
-    # TODO Phase 1.5: Store messages in Supabase
-    # await store_message(session_id, "user", request.message)
-    # await store_message(session_id, "assistant", parsed["message"], parsed["visual_cards"])
+    # Store in session for Hermes processing on end-session
+    if session_id not in _sessions:
+        _sessions[session_id] = []
+        _session_meta[session_id] = {
+            "user_id": user_id,
+            "provider": request.provider,
+            "api_key": request.api_key,
+        }
+    _sessions[session_id].append({"role": "user", "content": request.message})
+    _sessions[session_id].append({"role": "assistant", "content": parsed["message"]})
 
     return ChatResponse(
         message=parsed["message"],
         visual_cards=parsed["visual_cards"],
         session_id=session_id,
     )
+
+
+# ─── Session end → Hermes learns ────────────────────────────────────────────
+
+async def _hermes_background_task(session_id: str):
+    """
+    Background task: Hermes processes the session transcript,
+    extracts circadian insights, and updates the user's memory.md.
+    Uses the user's own LLM key — zero extra cost.
+    """
+    messages = _sessions.get(session_id, [])
+    meta = _session_meta.get(session_id, {})
+
+    if not messages or len(messages) < 4:  # Need at least 2 exchanges
+        return
+
+    user_id = meta.get("user_id", "")
+    provider = meta.get("provider", "")
+    api_key = meta.get("api_key", "")
+
+    if not user_id or not api_key:
+        return
+
+    # TODO: Replace with MemoryService when Supabase is connected
+    # For now, use in-memory store
+    from backend.memory.hermes_learner import DEFAULT_MEMORY
+    current_memory = _user_memories.get(user_id, DEFAULT_MEMORY)
+
+    learner = HermesLearner()
+    updated_memory = await learner.process_session(
+        messages=messages,
+        current_memory=current_memory,
+        provider=provider,
+        api_key=api_key,
+    )
+
+    _user_memories[user_id] = updated_memory
+    print(f"Hermes updated memory for user {user_id[:8]}... ({len(messages)} messages processed)")
+
+    # Cleanup session data
+    _sessions.pop(session_id, None)
+    _session_meta.pop(session_id, None)
+
+
+# In-memory user memories (move to Supabase in production)
+_user_memories: dict[str, str] = {}
 
 
 @router.post("/end-session")
@@ -98,14 +163,21 @@ async def end_session(
 ):
     """
     End a chat session and trigger Hermes background learning.
-    Called when user closes chat or after inactivity timeout.
+    Hermes analyzes the conversation, extracts insights, and updates
+    the user's memory.md — all using the user's own LLM key.
     """
-    # TODO Phase 3: Trigger Hermes background processing
-    # messages = await get_session_messages(session_id)
-    # if len(messages) >= 3:
-    #     background_tasks.add_task(process_session, session_id, user_id, messages)
+    messages = _sessions.get(session_id, [])
+    has_enough = len(messages) >= 4
 
-    return {"status": "ok", "session_id": session_id, "hermes_queued": False}
+    if has_enough:
+        background_tasks.add_task(_hermes_background_task, session_id)
+
+    return {
+        "status": "ok",
+        "session_id": session_id,
+        "messages_in_session": len(messages),
+        "hermes_queued": has_enough,
+    }
 
 
 @router.get("/history")
@@ -114,5 +186,25 @@ async def get_history(
     user_id: str = Depends(get_current_user),
 ):
     """Get messages for a chat session."""
-    # TODO: Fetch from Supabase chat_messages table
-    return {"session_id": session_id, "messages": []}
+    messages = _sessions.get(session_id, [])
+    return {"session_id": session_id, "messages": messages}
+
+
+@router.get("/memory")
+async def get_user_memory(
+    user_id: str = Depends(get_current_user),
+):
+    """Get the user's current memory file (what Hermes has learned)."""
+    from backend.memory.hermes_learner import DEFAULT_MEMORY
+    memory = _user_memories.get(user_id, DEFAULT_MEMORY)
+    return {"user_id": user_id, "memory_md": memory}
+
+
+@router.delete("/memory")
+async def reset_user_memory(
+    user_id: str = Depends(get_current_user),
+):
+    """Reset the user's memory (GDPR delete / fresh start)."""
+    from backend.memory.hermes_learner import DEFAULT_MEMORY
+    _user_memories[user_id] = DEFAULT_MEMORY
+    return {"status": "ok", "message": "Memory reset to default."}

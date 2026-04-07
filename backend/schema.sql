@@ -17,6 +17,14 @@ CREATE TABLE IF NOT EXISTS public.users (
     updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
+-- ─── User Memories (Hermes-managed markdown per user) ───────────────────────
+
+CREATE TABLE IF NOT EXISTS public.user_memories (
+    user_id UUID PRIMARY KEY REFERENCES public.users(id) ON DELETE CASCADE,
+    memory_md TEXT NOT NULL DEFAULT '# HELIOS User Memory',
+    updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
 -- ─── Chat Sessions ──────────────────────────────────────────────────────────
 
 CREATE TABLE IF NOT EXISTS public.chat_sessions (
@@ -125,6 +133,7 @@ CREATE INDEX idx_biometric_logs_user_metric ON public.biometric_logs(user_id, me
 
 -- ─── Row Level Security ─────────────────────────────────────────────────────
 
+ALTER TABLE public.user_memories ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.users ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.chat_sessions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.chat_messages ENABLE ROW LEVEL SECURITY;
@@ -136,6 +145,7 @@ ALTER TABLE public.biometric_logs ENABLE ROW LEVEL SECURITY;
 
 -- Users can only access their own data
 CREATE POLICY users_own_data ON public.users FOR ALL USING (auth.uid() = id);
+CREATE POLICY memories_own_data ON public.user_memories FOR ALL USING (auth.uid() = user_id);
 CREATE POLICY sessions_own_data ON public.chat_sessions FOR ALL USING (auth.uid() = user_id);
 CREATE POLICY messages_own_data ON public.chat_messages FOR ALL USING (
     session_id IN (SELECT id FROM public.chat_sessions WHERE user_id = auth.uid())

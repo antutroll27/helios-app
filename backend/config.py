@@ -13,16 +13,10 @@ load_dotenv()
 SUPABASE_URL = os.environ.get("SUPABASE_URL", "")
 SUPABASE_KEY = os.environ.get("SUPABASE_KEY", "")  # service role key (server-side)
 SUPABASE_JWT_SECRET = os.environ.get("SUPABASE_JWT_SECRET", "")
-SUPABASE_DB_URL = os.environ.get("SUPABASE_DB_URL", "")  # direct postgres connection for Mem0
 
 # ─── Encryption ──────────────────────────────────────────────────────────────
 
 ENCRYPTION_KEY = os.environ.get("ENCRYPTION_KEY", "")  # Fernet key for API key encryption
-
-# ─── Shared LLM (for Mem0 + Hermes background processing) ───────────────────
-
-GOOGLE_API_KEY = os.environ.get("GOOGLE_API_KEY", "")  # Gemini 3.1 Flash for memory ops
-SHARED_MODEL = "gemini-3.1-flash"
 
 # ─── CORS ────────────────────────────────────────────────────────────────────
 
@@ -49,24 +43,5 @@ PROVIDER_CONFIGS = {
     "glm": {
         "base_url": "https://open.bigmodel.cn/api/paas/v4/chat/completions",
         "model": "glm-4-flash",
-    },
-}
-
-# ─── Mem0 Config ─────────────────────────────────────────────────────────────
-
-MEM0_CONFIG = {
-    "vector_store": {
-        "provider": "pgvector",
-        "config": {
-            "connection_string": SUPABASE_DB_URL,
-            "collection_name": "helios_memories",
-        },
-    },
-    "llm": {
-        "provider": "google",
-        "config": {
-            "model": SHARED_MODEL,
-            "api_key": GOOGLE_API_KEY,
-        },
     },
 }
