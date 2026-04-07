@@ -4,6 +4,7 @@ Handles chat messages with Hermes memory enrichment.
 """
 
 import uuid
+from datetime import datetime
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks
@@ -32,8 +33,8 @@ class ChatContext(BaseModel):
 
 class ChatRequest(BaseModel):
     message: str
-    provider: str
-    api_key: str
+    provider: Optional[str] = None   # None = use shared key
+    api_key: Optional[str] = None    # None = use shared key
     session_id: Optional[str] = None
     context: ChatContext
     history: list[dict] = []
@@ -42,6 +43,30 @@ class ChatResponse(BaseModel):
     message: str
     visual_cards: list[dict]
     session_id: str
+    using_shared_key: bool
+
+
+# ─── Shared key rate limiting (in-memory, per-user daily count) ──────────────
+
+_shared_key_usage: dict[str, dict] = {}  # user_id -> {date: str, count: int}
+
+
+def _check_shared_rate_limit(user_id: str) -> bool:
+    """Check if user is within the shared key daily rate limit."""
+    from backend.config import SHARED_LLM_RATE_LIMIT
+    today = datetime.now().strftime("%Y-%m-%d")
+    usage = _shared_key_usage.get(user_id, {})
+    if usage.get("date") != today:
+        _shared_key_usage[user_id] = {"date": today, "count": 0}
+    return _shared_key_usage[user_id]["count"] < SHARED_LLM_RATE_LIMIT
+
+
+def _increment_shared_usage(user_id: str):
+    """Increment shared key usage counter."""
+    today = datetime.now().strftime("%Y-%m-%d")
+    if user_id not in _shared_key_usage or _shared_key_usage[user_id].get("date") != today:
+        _shared_key_usage[user_id] = {"date": today, "count": 0}
+    _shared_key_usage[user_id]["count"] += 1
 
 
 # ─── Memory-enriched chat endpoint ──────────────────────────────────────────
@@ -54,16 +79,37 @@ async def send_message(
     """
     Main chat endpoint with Hermes memory injection.
 
-    1. Fetch user's memory.md (learned insights from past sessions)
-    2. Build enriched system prompt (scientific KB + live data + memories)
-    3. Proxy to user's chosen LLM
-    4. Store messages in session for later Hermes processing
+    Supports two modes:
+    - BYOK (Bring Your Own Key): user provides provider + api_key
+    - Shared key: no provider/key → uses the house model (rate-limited)
+
+    Flow:
+    1. Resolve provider + key (own or shared)
+    2. Fetch user's memory.md (learned insights from past sessions)
+    3. Build enriched system prompt (scientific KB + live data + memories)
+    4. Proxy to LLM
+    5. Store messages in session for later Hermes processing
     """
+    from backend.config import SHARED_LLM_PROVIDER, SHARED_LLM_KEY
+
     session_id = request.session_id or str(uuid.uuid4())
 
+    # Resolve provider + key
+    using_shared = not request.api_key or not request.provider
+    if using_shared:
+        if not SHARED_LLM_KEY:
+            raise HTTPException(status_code=503, detail="Shared AI is not configured. Please add your own API key in Settings.")
+        if not _check_shared_rate_limit(user_id):
+            raise HTTPException(status_code=429, detail="Daily AI limit reached. Add your own API key in Settings for unlimited access.")
+        provider = SHARED_LLM_PROVIDER
+        api_key = SHARED_LLM_KEY
+        _increment_shared_usage(user_id)
+    else:
+        provider = request.provider
+        api_key = request.api_key
+
     # Fetch user's memory for prompt enrichment
-    # TODO: Wire to MemoryService.get_memory_for_prompt(user_id) when Supabase is connected
-    memory_block = ""  # Will be populated from Supabase user_memories table
+    memory_block = ""  # TODO: Wire to MemoryService when Supabase is connected
 
     # Build enriched system prompt
     system_prompt = build_system_prompt(
@@ -80,8 +126,8 @@ async def send_message(
     # Call LLM
     try:
         raw_response = await call_llm(
-            provider=request.provider,
-            api_key=request.api_key,
+            provider=provider,
+            api_key=api_key,
             system_prompt=system_prompt,
             messages=messages,
         )
@@ -96,8 +142,8 @@ async def send_message(
         _sessions[session_id] = []
         _session_meta[session_id] = {
             "user_id": user_id,
-            "provider": request.provider,
-            "api_key": request.api_key,
+            "provider": provider,
+            "api_key": api_key,
         }
     _sessions[session_id].append({"role": "user", "content": request.message})
     _sessions[session_id].append({"role": "assistant", "content": parsed["message"]})
@@ -106,6 +152,7 @@ async def send_message(
         message=parsed["message"],
         visual_cards=parsed["visual_cards"],
         session_id=session_id,
+        using_shared_key=using_shared,
     )
 
 

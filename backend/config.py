@@ -18,6 +18,15 @@ SUPABASE_JWT_SECRET = os.environ.get("SUPABASE_JWT_SECRET", "")
 
 ENCRYPTION_KEY = os.environ.get("ENCRYPTION_KEY", "")  # Fernet key for API key encryption
 
+# ─── Shared LLM Key (for users without their own API key) ───────────────────
+# Users who don't configure their own key get the shared "house" model.
+# This keeps the onboarding frictionless — they can always add their own later.
+# Rate-limited per user to prevent abuse.
+
+SHARED_LLM_PROVIDER = os.environ.get("SHARED_LLM_PROVIDER", "kimi")  # cheapest default
+SHARED_LLM_KEY = os.environ.get("SHARED_LLM_KEY", "")
+SHARED_LLM_RATE_LIMIT = int(os.environ.get("SHARED_LLM_RATE_LIMIT", "20"))  # msgs/day per user
+
 # ─── CORS ────────────────────────────────────────────────────────────────────
 
 CORS_ORIGINS = os.environ.get(
