@@ -68,11 +68,10 @@ Based on peer-reviewed quantitative models ready to convert to code.
 
 ### Tier 1: Build Now (Investor Demo-Ready)
 
-**1. Digital Phenotyping — Circadian Phase from Typing Speed**
+**1. ~~Digital Phenotyping — REJECTED~~**
 - Source: npj Digital Medicine, Dec 2025 (Nature)
-- BiAffect keyboard: typing dynamics predict circadian phase, validated against Oura Ring
-- **Investor line:** *"We detect your circadian phase from how you type. No wearable needed."*
-- Competitive moat: VERY HIGH — nobody does this
+- BiAffect keyboard: typing dynamics predict circadian phase
+- **Why we rejected it:** Signal too indirect (proxy of a proxy), easily faked, and "app monitors your keystrokes" is a privacy nightmare. Direct physiological measurement (HRV, skin temp, sleep stages) from existing wearables is superior in every way. We evaluated it and made a scientific judgment call to pass.
 
 **2. NASA Countermeasure Protocols for Civilians**
 - Source: Life Sciences in Space Research, June 2025
