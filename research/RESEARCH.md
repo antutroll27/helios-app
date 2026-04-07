@@ -173,13 +173,13 @@ This document tracks peer-reviewed papers, open source libraries, data sources, 
 
 ### Full Stack
 ```
-Vue 3 Frontend (existing useAI.ts — 7 LLM providers)
-    │
+Vue 3 Frontend (useAI.ts)
+    │ POST /api/chat/send
     ▼
 FastAPI Backend
     ├── Supabase (auth, user DB, chat logs, wearable data, protocol logs)
-    ├── Mem0 (distilled memory: semantic + episodic + procedural)
-    ├── Hermes Agent (background learner — processes sessions, extracts insights)
+    ├── Hermes Learner (per-user markdown memory, uses user's own LLM key)
+    ├── LLM Proxy (BYOK + shared key fallback for free tier users)
     ├── Wearable Parsers (file-upload adapters per platform)
     ├── ChronotypeEngine (existing)
     ├── CaffeineModel (existing)
@@ -189,8 +189,10 @@ FastAPI Backend
 ```
 
 ### How It Works
-- **Hermes Agent as background learner** — runs after each chat session ends, NOT during. Analyzes the conversation, extracts learnings, updates user memories. Invisible to the user.
-- **Mem0 for distilled intelligence** — stores semantic ("user is late chronotype"), episodic ("ignored caffeine cutoff Friday, slept 45min worse"), and procedural ("advance Friday caffeine cutoff 1h") memories. Compact, searchable, directly injectable into prompts.
+- **Hermes as per-user background learner** — runs after each chat session ends using the user's own LLM API key. Analyzes the conversation, extracts circadian insights, updates structured markdown memory file. Zero extra API costs.
+- **Markdown memory files in Postgres** — each user has one `user_memories` row containing structured markdown (categories: sleep, caffeine, light, adherence, biometrics, lifestyle, preferences). No Mem0, no pgvector, no vector embeddings. Plain text, queryable, GDPR-deletable.
+- **System prompt injection** — before each LLM call, the user's memory.md is formatted and injected as `[USER PROFILE FROM MEMORY]` alongside the scientific knowledge base.
+- **Shared key for free tier** — users without their own API key get a rate-limited shared model (Kimi/DeepInfra, 20 msgs/day). Hermes still learns from these sessions.
 - **Supabase for structured data** — raw chat logs, wearable imports, sleep logs, protocol adherence. Queryable SQL for analytics and investor demos.
 - **System prompt injection** — before each LLM call, FastAPI queries Mem0 for top 5-10 relevant memories, formats them as a `[USER PROFILE]` section in the system prompt alongside the existing scientific knowledge base.
 
@@ -276,14 +278,17 @@ HELIOS collects more than sleep timing — the full biometric picture enables IS
 
 Long-term vision: build affordable, stylish sleep-specific wearables that outperform smartwatches for circadian metrics. HELIOS software is the foundation for a future hardware+software ecosystem. The file-upload pipeline (v1) → live API sync (v2) → custom hardware (v3) progression builds the data science and user base before committing to hardware.
 
-### Rejected Agent Alternatives
-| Framework | Why Not |
+### Rejected Approaches
+| Approach | Why Not |
 |---|---|
-| Hermes as orchestrator | Too heavy as middleware — use as background learner instead |
-| Letta (MemGPT) | Replaces entire AI layer, too big a commitment now |
-| LangGraph | Overkill orchestration for a memory + scoring problem |
+| Mem0 + pgvector | Needed shared API key for embeddings, added pgvector dependency, overkill for structured categories |
+| Shared Gemini/GPT key for Hermes | Extra API cost to us, privacy concern (user data processed by our key), unnecessary when user's own key works |
+| Hermes as orchestrator | Too heavy as middleware — simpler as background learner |
+| Letta (MemGPT) | Replaces entire AI layer, too big a commitment |
+| LangGraph | Overkill orchestration for a memory + markdown problem |
 | CrewAI | Multi-agent = wrong paradigm, adds latency and cost |
 | AutoGen | Maintenance mode, Microsoft pivoted to Semantic Kernel |
+| Vector embeddings | Structured markdown categories are sufficient for circadian insights — semantic search is overkill when you have 7 clear categories |
 
 ---
 
