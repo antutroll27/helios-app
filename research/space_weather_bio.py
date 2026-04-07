@@ -126,15 +126,23 @@ class SpaceWeatherBioModel:
         """
         Estimate melatonin disruption risk from lagged Kp history.
 
-        Burch et al. (2008) found that geomagnetic disturbances affect
-        melatonin metabolite excretion with a 15-33 hour lag. This method
-        filters Kp readings to that window and estimates disruption risk.
+        EVIDENCE LEVEL: PRELIMINARY / EMERGING
+        - Burch et al. (2008): n=142 utility workers, single research group
+        - The 15-33h lag window has NOT been independently replicated
+        - Mechanism uncertain ("possibly mediated by cryptochrome")
+        - Treat as a POSSIBLE association, not established causation
+
+        This is included because HELIOS's unique value is correlating space
+        weather with biology, but users must understand this is frontier
+        science, not clinical-grade evidence. The Kp→HRV link (Alabdali 2022,
+        n=809) is substantially stronger evidence.
 
         Args:
             kp_history: List of (timestamp, kp_index) tuples, most recent last
 
         Returns:
-            dict with disruption_risk (0-1 or None), lag window stats, advisory
+            dict with disruption_risk (0-1 or None), lag window stats,
+            evidence_level, advisory
         """
         if not kp_history:
             return {
@@ -165,22 +173,32 @@ class SpaceWeatherBioModel:
         disruption_risk = min(1.0, max(0.0, avg_kp / 7.0))
 
         if disruption_risk < 0.3:
-            advisory = "Low melatonin disruption risk from prior geomagnetic activity."
+            advisory = (
+                "Low geomagnetic activity in the past 15-33h. "
+                "Emerging research (Burch 2008, n=142) suggests minimal melatonin impact at this level."
+            )
         elif disruption_risk < 0.6:
             advisory = (
-                "Moderate melatonin disruption risk (Burch 2008). Consider "
-                "supplemental dim-light exposure in the evening."
+                "Moderate geomagnetic activity in the past 15-33h. "
+                "Preliminary research (Burch 2008, n=142, not yet independently replicated) "
+                "suggests a possible association with reduced melatonin. "
+                "Consider prioritizing dark environment in the evening as a precaution."
             )
         else:
             advisory = (
-                "High melatonin disruption risk from geomagnetic storm 15-33h ago. "
-                "Prioritize dark environment, consider melatonin timing adjustment."
+                "Elevated geomagnetic activity in the past 15-33h. "
+                "Preliminary evidence (Burch 2008, small study, not replicated) "
+                "suggests a possible association with melatonin disruption during storms. "
+                "As a precaution: prioritize dark sleep environment and consistent sleep timing. "
+                "Note: the Kp-HRV link (Alabdali 2022, n=809) is better established than the melatonin link."
             )
 
         return {
             "disruption_risk": round(disruption_risk, 3),
             "lag_window_kp_avg": round(avg_kp, 2),
             "readings_in_window": len(readings_in_window),
+            "evidence_level": "preliminary",
+            "evidence_note": "Burch 2008, n=142, single study, not independently replicated. Treat as emerging research.",
             "advisory": advisory,
         }
 

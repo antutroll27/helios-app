@@ -35,15 +35,20 @@ Based on peer-reviewed quantitative models ready to convert to code.
 
 ### Module 6: `supplement_model.py` (Priority: MEDIUM)
 - **Mah 2021 (BMC, meta-analysis)**: Mg glycinate 225-500mg = -17.36min latency, +16.06min TST
+  - **CAVEAT**: Studies mostly in elderly insomniacs. Effect in healthy young adults likely MUCH smaller. Supplement blinding is inherently weak.
 - **Fatemeh 2022 (J Neurology, k=23 RCTs)**: Melatonin 0.5-1mg = -7.06min latency (0.5mg > 5mg due to receptor desensitization)
+  - Effect size is modest (7 min). Most useful for circadian misalignment, not general insomnia.
 - **Bannai 2012**: 3g glycine before bed = -0.1-0.2°C core temp, -10min latency
-- **Function**: `supplement_sleep_effect(supplement, dose, timing, days_of_use) → latency_reduction, TST_gain, optimal_dose`
+- **FRAMING**: Always present as "may help, evidence strongest in older adults or those with deficiency." Never claim supplements fix sleep problems. The timing/light/caffeine protocols have much stronger evidence.
+- **Function**: `supplement_sleep_effect(supplement, dose, timing, days_of_use) → latency_reduction, TST_gain, optimal_dose, evidence_quality`
 
 ### Module 7: `cold_exposure_model.py` (Priority: MEDIUM)
 - **Espeland 2022 (Int J Circumpolar Health)**: 10-15°C for 1-3min = +200-300% norepinephrine, +250% dopamine
-- **Post-cold HRV rebound**: rMSSD +15-30% within 30-60 min (parasympathetic rebound)
+  - **CAVEAT**: These numbers are from ice bath protocols, not cold showers. Cold shower response is lower and highly individual. Some people get no parasympathetic rebound at all.
+- **Post-cold HRV rebound**: rMSSD +15-30% within 30-60 min — **wide range, highly variable between individuals**
 - **Morning cold amplifies cortisol awakening response by ~30%**
-- **Function**: `cold_exposure_hrv_response(water_temp, duration, time_since_waking) → NE fold, rMSSD delta`
+- **FRAMING**: Present ranges not point estimates. "You may experience..." not "You will experience..." Individual response varies 2-5x.
+- **Function**: `cold_exposure_hrv_response(water_temp, duration, time_since_waking) → NE fold_range, rMSSD delta_range`
 
 ### Module 8: `hrv_sleep_model.py` (Priority: MEDIUM)
 - **Faust et al. (2020, npj Digital Medicine)**: Each 30min bedtime deviation = -4-5ms rMSSD, +1.5 bpm RHR
@@ -138,7 +143,7 @@ HELIOS starts with **Arcascope's Kronauer model** as the circadian brain, ingest
 The long-term vision: a **circadian digital twin** that simulates your biology before you change your schedule, integrated with **molecular clock profiling** from saliva samples, and **metabolic chronotyping** from CGM data.
 
 **Five investor lines:**
-1. "We detect your circadian phase from how you type. No wearable needed."
+1. "We work with whatever hardware users already own — Apple Watch, Oura, Garmin, phone. No custom hardware, no partnerships needed."
 2. "We overlay your blood glucose on your circadian clock to predict metabolic danger zones."
 3. "We use the same circadian countermeasures NASA developed for ISS astronauts."
 4. "We don't tell you what works in studies. We run a clinical-grade N-of-1 trial to prove it works for YOU."

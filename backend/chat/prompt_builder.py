@@ -107,7 +107,11 @@ GEOMAGNETIC ACTIVITY & SLEEP:
 - Weydahl et al. (2001): Geomagnetic activity reduces melatonin at high latitudes (70°N) more than low latitudes.
 - The mechanism is CORRELATIONAL and population-level, possibly mediated by cryptochrome photoreceptors and/or magnetite nanoparticles. NOT deterministic at individual level.
 - 2024 study (Environment International): 1-IQR increase in Kp associated with 19% increase in odds of low cognitive scores in older adults.
-- IMPORTANT: Always label geomagnetic effects as "emerging research" — the evidence is suggestive but not settled. Never overclaim.
+- EVIDENCE LEVELS (be precise):
+  * Kp → HRV: MODERATE evidence (Alabdali 2022, n=809, cross-sectional). Say "associated with" not "causes."
+  * Kp → Melatonin: PRELIMINARY evidence (Burch 2008, n=142, single study, not independently replicated). Always flag as "emerging/preliminary research."
+  * Kp → Cognition: MODERATE evidence (Alabdali 2024, observational, older adult population).
+- IMPORTANT: Always label geomagnetic-biology effects with their evidence level. The HRV link is the strongest. The melatonin link is the weakest. Never present preliminary findings as settled science.
 
 SOCIAL JET LAG:
 - Affects 70-80% of the population (≥1 hour). 30-40% experience ≥2 hours.
