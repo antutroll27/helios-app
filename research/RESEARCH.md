@@ -299,9 +299,19 @@ Long-term vision: build affordable, stylish sleep-specific wearables that outper
 - `ProtocolScorer` — Protocol effectiveness scoring
 - `CircadianPhaseEstimator` — CBTmin and DLMO estimation
 
-### To Build Next
+### Built (V1)
 - `caffeine_model.py` — Personalized pharmacokinetics (CYP1A2, ADORA2A)
 - `light_model.py` — Melanopic EDI zones, melatonin suppression prediction
 - `space_weather_bio.py` — Kp → HRV impact, melatonin modifier, cognitive advisory
+
+### To Build (V2 — see RESEARCH_V2.md)
+- `alcohol_model.py` — BAC pharmacokinetics, HRV impact, REM suppression (Pietilä 2018, n=4,098)
+- `breathwork_model.py` — Resonance breathing HRV response (Laborde 2022 meta-analysis)
+- `nap_model.py` — NASA nap science, duration/timing optimization (Rosekind 1995)
+- `meal_timing_model.py` — TRF, peripheral clock alignment (Sutton 2018, Cell Metabolism)
+- `exercise_timing_model.py` — First human exercise PRC (Youngstedt 2019)
+- `supplement_model.py` — Mg glycinate, melatonin, glycine (meta-analysis effect sizes)
+- `cold_exposure_model.py` — Cold water HRV rebound (Espeland 2022)
+- `hrv_sleep_model.py` — Sleep regularity index (Windred 2024)
 - `wearable_pipeline.py` — Garmin/Oura data ingestion, cosinor phase extraction
 - `jetlag_optimizer.py` — Kronauer model, optimal light schedules, asymmetry correction
