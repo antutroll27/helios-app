@@ -203,10 +203,6 @@ function formatSignedMinutes(value: number) {
   z-index: 1;
 }
 
-.globe-panel__overlay--orbital {
-  display: none;
-}
-
 .globe-panel__overlay--intro {
   top: 1.25rem;
   left: 1.25rem;
@@ -255,10 +251,6 @@ function formatSignedMinutes(value: number) {
 
   .globe-panel__stage {
     padding: clamp(3.8rem, 8vw, 4.8rem) 0.85rem clamp(9rem, 17vw, 10.4rem);
-  }
-
-  .globe-panel__overlay--orbital {
-    display: none;
   }
 
   .globe-panel__overlay--intro {

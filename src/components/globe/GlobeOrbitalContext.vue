@@ -6,16 +6,11 @@ interface OrbitalContext {
 
 interface CurrentAnchor {
   label: string
-  lat: number
-  lng: number
-  timezone: string
 }
 
 interface SolarAnchor {
   phase: string
   elevationDeg: number
-  sunriseLabel: string
-  sunsetLabel: string
 }
 
 interface Props {
