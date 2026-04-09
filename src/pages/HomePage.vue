@@ -237,10 +237,6 @@ const wearables = [
 }
 
 @media (max-width: 640px) {
-  .data-row {
-    grid-template-columns: 1fr;
-  }
-
   .content-container {
     padding: 0 1rem;
   }
