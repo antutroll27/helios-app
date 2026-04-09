@@ -1,15 +1,30 @@
 <script setup lang="ts">
+import { defineAsyncComponent } from 'vue'
+import { Activity, Smartphone, Watch } from 'lucide-vue-next'
 import { useUserStore } from '@/stores/user'
-import { Watch, Activity, Smartphone } from 'lucide-vue-next'
-import HeliosGlobe from '@/components/HeliosGlobe.vue'
-import SpaceWeatherGauge from '@/components/SpaceWeatherGauge.vue'
-import SocialJetLagScore from '@/components/SocialJetLagScore.vue'
+import { useHomeDeferredSections } from '@/composables/useHomeDeferredSections'
 import EnvironmentBadge from '@/components/EnvironmentBadge.vue'
-import ProtocolTimeline from '@/components/ProtocolTimeline.vue'
-import ChatInterface from '@/components/ChatInterface.vue'
 import OnboardingModal from '@/components/OnboardingModal.vue'
+import ProtocolTimeline from '@/components/ProtocolTimeline.vue'
+import SocialJetLagScore from '@/components/SocialJetLagScore.vue'
+import SpaceWeatherGauge from '@/components/SpaceWeatherGauge.vue'
+import HomeChatPlaceholder from '@/components/home/HomeChatPlaceholder.vue'
+import HomeGlobePlaceholder from '@/components/home/HomeGlobePlaceholder.vue'
+
+const HeliosGlobePanel = defineAsyncComponent({
+  loader: () => import('@/components/globe/HeliosGlobePanel.vue'),
+  loadingComponent: HomeGlobePlaceholder,
+  delay: 0,
+})
+
+const ChatInterface = defineAsyncComponent({
+  loader: () => import('@/components/ChatInterface.vue'),
+  loadingComponent: HomeChatPlaceholder,
+  delay: 0,
+})
 
 const user = useUserStore()
+const { chatSectionRef, showGlobe, showChat } = useHomeDeferredSections()
 
 const wearables = [
   { name: 'Garmin', icon: Watch, color: '#00B4D8' },
@@ -25,22 +40,17 @@ const wearables = [
     <OnboardingModal v-if="!user.hasCompletedOnboarding" />
 
     <section class="globe-section">
-      <HeliosGlobe />
+      <HomeGlobePlaceholder v-if="!showGlobe" />
+      <HeliosGlobePanel v-else />
       <div class="globe-fade" />
     </section>
 
     <div class="content-container">
       <section class="data-section">
         <div class="data-grid">
-          <div class="data-card">
-            <SpaceWeatherGauge />
-          </div>
-          <div class="data-card">
-            <SocialJetLagScore />
-          </div>
-          <div class="data-card">
-            <EnvironmentBadge />
-          </div>
+          <SpaceWeatherGauge />
+          <SocialJetLagScore />
+          <EnvironmentBadge />
         </div>
       </section>
 
@@ -96,8 +106,9 @@ const wearables = [
         </p>
       </div>
 
-      <section class="chat-section">
-        <ChatInterface />
+      <section ref="chatSectionRef" class="chat-section">
+        <HomeChatPlaceholder v-if="!showChat" />
+        <ChatInterface v-else />
       </section>
     </div>
   </div>
@@ -142,14 +153,7 @@ const wearables = [
 .data-grid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  gap: 0.75rem;
-}
-
-.data-card {
-  background: var(--bg-card);
-  border: 1px solid var(--border-subtle);
-  border-radius: 6px;
-  padding: 1.25rem;
+  gap: 0.85rem;
 }
 
 @media (max-width: 640px) {

@@ -16,69 +16,104 @@ const aqiColor = computed(() => {
   if (env.aqiLevel < 150) return '#F97316'
   return '#FF4444'
 })
-
-const aqiLabel = computed(() => {
-  if (env.aqiLevel < 50) return 'Good'
-  if (env.aqiLevel < 100) return 'Moderate'
-  if (env.aqiLevel < 150) return 'Unhealthy'
-  return 'Hazardous'
-})
 </script>
 
 <template>
   <div class="env">
-    <span class="env-label font-mono">ENVIRONMENT</span>
+    <div class="env__header">
+      <span class="env__label font-mono">ENVIRONMENT</span>
+      <span class="env__stamp font-mono">LOCAL</span>
+    </div>
 
-    <div class="env-grid">
-      <div class="env-item">
-        <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
-          <circle cx="9" cy="9" r="4" :stroke="uvColor" stroke-width="1.5" fill="none"/>
-          <line x1="9" y1="1" x2="9" y2="4" :stroke="uvColor" stroke-width="1"/>
-          <line x1="9" y1="14" x2="9" y2="17" :stroke="uvColor" stroke-width="1"/>
-          <line x1="1" y1="9" x2="4" y2="9" :stroke="uvColor" stroke-width="1"/>
-          <line x1="14" y1="9" x2="17" y2="9" :stroke="uvColor" stroke-width="1"/>
-        </svg>
-        <span class="env-val font-mono" :style="{ color: uvColor }">{{ env.uvIndexNow }}</span>
-        <span class="env-k font-mono">UV</span>
+    <div class="env__grid">
+      <div class="env__item">
+        <span class="env__k font-mono">UV</span>
+        <span class="env__val font-mono" :style="{ color: uvColor }">{{ env.uvIndexNow }}</span>
       </div>
-
-      <div class="env-item">
-        <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
-          <rect x="7" y="2" width="4" height="12" rx="2" stroke="var(--text-muted)" stroke-width="1" fill="none"/>
-          <circle cx="9" cy="14" r="2.5" stroke="var(--text-muted)" stroke-width="1" fill="none"/>
-        </svg>
-        <span class="env-val font-mono">{{ Math.round(env.temperatureNow) }}°</span>
-        <span class="env-k font-mono">TEMP</span>
+      <div class="env__item">
+        <span class="env__k font-mono">TEMP</span>
+        <span class="env__val font-mono">{{ Math.round(env.temperatureNow) }}&deg;</span>
       </div>
-
-      <div class="env-item">
-        <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
-          <path d="M9 2 C9 2 4 8 4 11 C4 14 6.5 16 9 16 C11.5 16 14 14 14 11 C14 8 9 2 9 2Z" :stroke="aqiColor" stroke-width="1" fill="none"/>
-        </svg>
-        <span class="env-val font-mono" :style="{ color: aqiColor }">{{ env.aqiLevel }}</span>
-        <span class="env-k font-mono">AQI · {{ aqiLabel }}</span>
+      <div class="env__item">
+        <span class="env__k font-mono">AQI</span>
+        <span class="env__val font-mono" :style="{ color: aqiColor }">{{ env.aqiLevel }}</span>
       </div>
-
-      <div class="env-item">
-        <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
-          <path d="M9 3 L9 8 M5 12 C5 9.8 6.8 8 9 8 C11.2 8 13 9.8 13 12 C13 14.2 11.2 16 9 16 C6.8 16 5 14.2 5 12Z" stroke="var(--text-muted)" stroke-width="1" fill="none"/>
-        </svg>
-        <span class="env-val font-mono">{{ env.humidity }}%</span>
-        <span class="env-k font-mono">HUMID</span>
+      <div class="env__item">
+        <span class="env__k font-mono">HUMID</span>
+        <span class="env__val font-mono">{{ env.humidity }}%</span>
       </div>
     </div>
   </div>
 </template>
 
 <style scoped>
-.env { display: flex; flex-direction: column; align-items: center; gap: 0.5rem; }
-.env-label { font-size: 0.7rem; font-weight: 600; letter-spacing: 0.15em; color: var(--text-muted); }
-.env-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 0.4rem; width: 100%; max-width: 220px; }
-.env-item {
-  display: flex; flex-direction: column; align-items: center; gap: 0.15rem;
-  padding: 0.4rem 0.25rem;
-  border: 1px solid var(--border-subtle); border-radius: 4px;
+.env {
+  display: grid;
+  gap: 0.75rem;
+  padding: 0.95rem 0.95rem 1rem;
+  border-radius: 1.15rem;
+  border: 1px solid rgba(148, 163, 184, 0.14);
+  background:
+    linear-gradient(180deg, rgba(7, 14, 27, 0.9), rgba(7, 14, 27, 0.74)),
+    radial-gradient(circle at bottom left, rgba(94, 234, 212, 0.08), transparent 48%);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.04),
+    0 18px 40px rgba(2, 8, 20, 0.22);
 }
-.env-val { font-size: 0.85rem; font-weight: 700; color: var(--text-primary); line-height: 1; }
-.env-k { font-size: 0.35rem; letter-spacing: 0.1em; color: var(--text-muted); text-align: center; }
+
+.env__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.env__label,
+.env__stamp {
+  font-size: 0.58rem;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: rgba(148, 163, 184, 0.78);
+}
+
+.env__stamp {
+  padding: 0.3rem 0.55rem;
+  border-radius: 999px;
+  border: 1px solid rgba(148, 163, 184, 0.14);
+  background: rgba(4, 10, 21, 0.7);
+}
+
+.env__grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.55rem;
+}
+
+.env__item {
+  display: grid;
+  gap: 0.18rem;
+  padding: 0.58rem 0.65rem;
+  border-radius: 0.9rem;
+  border: 1px solid rgba(148, 163, 184, 0.12);
+  background: rgba(3, 10, 22, 0.42);
+}
+
+.env__k {
+  font-size: 0.5rem;
+  letter-spacing: 0.16em;
+  color: rgba(148, 163, 184, 0.72);
+}
+
+.env__val {
+  font-size: 0.8rem;
+  line-height: 1;
+  font-weight: 700;
+  color: rgba(226, 232, 240, 0.96);
+}
+
+@media (max-width: 480px) {
+  .env__grid {
+    grid-template-columns: 1fr;
+  }
+}
 </style>
