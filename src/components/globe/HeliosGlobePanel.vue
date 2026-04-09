@@ -129,16 +129,18 @@ function formatSignedMinutes(value: number) {
 
 .globe-panel__status {
   margin: 0;
-  justify-self: start;
-  padding: 0.34rem 0.72rem;
-  border-radius: 999px;
-  border: 1px solid rgba(148, 163, 184, 0.14);
-  background: rgba(4, 10, 21, 0.72);
-  color: rgba(226, 232, 240, 0.74);
+  padding-top: 0.42rem;
+  border-top: 1px solid rgba(148, 163, 184, 0.18);
+  color: rgba(226, 232, 240, 0.7);
   font-size: 0.62rem;
-  letter-spacing: 0.16em;
+  letter-spacing: 0.14em;
   line-height: 1.2;
   text-transform: uppercase;
+}
+
+.globe-panel__status::before {
+  content: 'ROUTE / ';
+  color: rgba(148, 163, 184, 0.82);
 }
 
 .globe-panel__hero {
@@ -300,8 +302,9 @@ function formatSignedMinutes(value: number) {
   }
 
   .globe-panel__status {
-    font-size: 0.62rem;
-    letter-spacing: 0.1em;
+    padding-top: 0.36rem;
+    font-size: 0.6rem;
+    letter-spacing: 0.09em;
   }
 
   .globe-panel__intro-slab {
