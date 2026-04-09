@@ -231,9 +231,9 @@ function formatSignedMinutes(value: number) {
 
 .globe-panel__overlay--rail {
   top: 50%;
-  right: 1.2rem;
-  transform: translateY(-50%);
-  max-width: min(15rem, 26vw);
+  right: 1.25rem;
+  transform: translateY(-52%);
+  max-width: min(15rem, 24vw);
 }
 
 .globe-panel__overlay--stats {
