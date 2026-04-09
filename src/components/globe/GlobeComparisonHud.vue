@@ -1,13 +1,11 @@
 <script setup lang="ts">
 import { computed } from 'vue'
+import type { GlobeComparison } from '@/composables/useCobeGlobeData'
 
-interface ComparisonItem {
-  id: string
-  label: string
-  timezone: string
-  timezoneDeltaHours: number
-  travelReadiness: string
-}
+type ComparisonItem = Pick<
+  GlobeComparison,
+  'id' | 'label' | 'timezoneDeltaHours' | 'travelReadiness'
+>
 
 interface Props {
   comparisons: ComparisonItem[]
@@ -23,8 +21,15 @@ const emit = defineEmits<{
 const displayedComparisons = computed(() => {
   const selected = props.comparisons.find((comparison) => comparison.id === props.selectedDestinationId)
   const rest = props.comparisons.filter((comparison) => comparison.id !== selected?.id)
+  const comparisons: ComparisonItem[] = []
 
-  return [selected, ...rest].filter(Boolean).slice(0, 3) as ComparisonItem[]
+  if (selected) {
+    comparisons.push(selected)
+  }
+
+  comparisons.push(...rest)
+
+  return comparisons.slice(0, 3)
 })
 
 function formatSignedHours(value: number) {
