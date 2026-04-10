@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, ref, onMounted, onUnmounted } from 'vue'
 import GlobeComparisonHud from './GlobeComparisonHud.vue'
 import GlobeOrbitalContext from './GlobeOrbitalContext.vue'
 import GlobeStatStrip from './GlobeStatStrip.vue'
@@ -42,6 +42,32 @@ function formatSignedMinutes(value: number) {
   const direction = value > 0 ? '+' : '-'
   return `${direction}${Math.abs(value)}m`
 }
+
+// ── Mobile rail toggle ────────────────────────────────────────────────────
+const showRail = ref(false)
+const isMobile = ref(false)
+
+const handleResize = () => {
+  isMobile.value = window.innerWidth <= 600
+}
+
+onMounted(() => {
+  handleResize()
+  window.addEventListener('resize', handleResize)
+})
+
+onUnmounted(() => {
+  window.removeEventListener('resize', handleResize)
+})
+
+function toggleRail() {
+  showRail.value = !showRail.value
+}
+
+function onDestinationSelect(id: string) {
+  selectDestination(id)
+  showRail.value = false
+}
 </script>
 
 <template>
@@ -78,11 +104,23 @@ function formatSignedMinutes(value: number) {
 
       <div class="globe-panel__overlay globe-panel__overlay--rail">
         <GlobeComparisonHud
+          v-show="!isMobile || showRail"
           :comparisons="comparisons"
           :selected-destination-id="selectedDestinationId"
-          @select-destination="selectDestination"
+          @select-destination="onDestinationSelect"
         />
       </div>
+
+      <!-- Mobile-only destination pill toggle -->
+      <button
+        v-if="isMobile"
+        class="globe-panel__dest-pill font-mono"
+        type="button"
+        @click="toggleRail"
+      >
+        <span v-if="selectedComparison" class="globe-panel__dest-pill-dot" />
+        {{ selectedComparison?.label ?? 'DEST' }} ↗
+      </button>
 
       <div class="globe-panel__overlay globe-panel__overlay--stats">
         <GlobeStatStrip
@@ -189,11 +227,11 @@ function formatSignedMinutes(value: number) {
   inset: 0;
   display: grid;
   place-items: center;
-  padding: clamp(3.6rem, 6vw, 4.8rem) clamp(1rem, 3vw, 2rem) clamp(9rem, 14vw, 11rem);
+  padding: clamp(3.8rem, 6vw, 4.8rem) clamp(1rem, 3vw, 2rem) clamp(9.6rem, 14vw, 11rem);
 }
 
 .globe-panel__globe {
-  width: min(76vw, 62rem);
+  width: min(78vw, 63rem);
   max-width: 100%;
   transform: translateY(-2.3rem);
 }
@@ -206,13 +244,13 @@ function formatSignedMinutes(value: number) {
 .globe-panel__overlay--intro {
   top: 1.25rem;
   left: 1.25rem;
-  width: min(21rem, 36vw);
+  width: min(16rem, 28vw);
 }
 
 .globe-panel__intro-slab {
   display: grid;
-  gap: 0.9rem;
-  padding: 1rem 1rem 1.05rem;
+  gap: 0.65rem;
+  padding: 0.85rem 0.85rem 0.9rem;
   border-radius: 1.2rem;
   border: 1px solid rgba(148, 163, 184, 0.14);
   background:
@@ -256,7 +294,7 @@ function formatSignedMinutes(value: number) {
   .globe-panel__overlay--intro {
     top: 1rem;
     left: 1rem;
-    width: min(15rem, calc(100% - 5.4rem));
+    width: min(14rem, calc(100% - 5.4rem));
   }
 
   .globe-panel__overlay--rail {
@@ -318,7 +356,7 @@ function formatSignedMinutes(value: number) {
   .globe-panel__overlay--intro {
     top: 0.75rem;
     left: 0.75rem;
-    width: min(14.75rem, calc(100% - 6rem));
+    width: min(13rem, calc(100% - 5.5rem));
   }
 
   .globe-panel__overlay--rail {
@@ -326,7 +364,7 @@ function formatSignedMinutes(value: number) {
     right: 0.75rem;
     bottom: auto;
     left: auto;
-    max-width: min(13.5rem, calc(100% - 5.5rem));
+    max-width: min(13rem, calc(100% - 5rem));
   }
 
   .globe-panel__overlay--stats {
@@ -335,6 +373,73 @@ function formatSignedMinutes(value: number) {
     bottom: 0.75rem;
     width: min(31rem, calc(100% - 1.5rem));
     transform: translateX(-50%);
+  }
+}
+
+/* ── Mobile (≤ 600px) ───────────────────────────────────────────────────── */
+
+@media (max-width: 600px) {
+  /* Orbital context card — full width strip */
+  .globe-panel__overlay--intro {
+    top: 0.75rem;
+    left: 0.75rem;
+    right: 0.75rem;
+    width: auto;
+  }
+
+  /* Comparison HUD — repositioned above pill when open */
+  .globe-panel__overlay--rail {
+    top: auto;
+    bottom: 6rem;
+    right: 0.75rem;
+    left: auto;
+    transform: none;
+    max-width: min(14rem, calc(100% - 1.5rem));
+    z-index: 2;
+  }
+
+  /* Globe stage — extra top padding to clear full-width intro card */
+  .globe-panel__stage {
+    padding-top: 5.5rem;
+  }
+
+  /* Destination pill — mobile-only floating toggle */
+  .globe-panel__dest-pill {
+    position: absolute;
+    z-index: 3;
+    bottom: 4.25rem;
+    right: 0.75rem;
+    display: flex;
+    align-items: center;
+    gap: 0.3rem;
+    padding: 0.32rem 0.6rem;
+    border: 1px solid rgba(148, 163, 184, 0.22);
+    border-radius: 999px;
+    background: rgba(7, 14, 27, 0.82);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    color: rgba(241, 245, 249, 0.9);
+    font-size: 0.55rem;
+    font-weight: 600;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    cursor: pointer;
+    appearance: none;
+  }
+
+  .globe-panel__dest-pill-dot {
+    width: 5px;
+    height: 5px;
+    border-radius: 50%;
+    background: rgba(255, 189, 118, 0.9);
+    flex-shrink: 0;
+  }
+}
+
+/* Pill is mobile-only — explicitly hidden on desktop */
+@media (min-width: 601px) {
+  .globe-panel__dest-pill {
+    display: none;
   }
 }
 </style>
