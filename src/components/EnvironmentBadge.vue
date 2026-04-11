@@ -49,10 +49,16 @@ const aqiColor = computed(() => {
 <style scoped>
 .env__grid {
   grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-items: stretch;
+}
+
+.env__item {
+  min-height: 4rem;
 }
 
 .env__val {
-  line-height: 1;
+  font-size: 0.86rem;
+  line-height: 1.08;
 }
 
 @media (max-width: 480px) {

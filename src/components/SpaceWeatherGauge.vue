@@ -56,3 +56,13 @@ const friendlyMessage = computed(() => {
     </div>
   </div>
 </template>
+
+<style scoped>
+.sw__metrics {
+  align-items: stretch;
+}
+
+.sw__metrics .telemetry-module__metric-value {
+  font-size: 0.86rem;
+}
+</style>

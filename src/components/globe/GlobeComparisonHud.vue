@@ -82,9 +82,9 @@ function handleSelect(destinationId: string) {
 .comparison-rail {
   display: flex;
   flex-direction: column;
-  gap: 0.85rem;
-  padding: 0.92rem 0.92rem 0.96rem;
-  max-width: 15rem;
+  gap: 0.72rem;
+  padding: 0.82rem 0.82rem 0.86rem;
+  max-width: 14.25rem;
   border: 1px solid rgba(148, 163, 184, 0.14);
   border-radius: 1.15rem;
   background:
@@ -98,7 +98,7 @@ function handleSelect(destinationId: string) {
 
 .comparison-rail__heading {
   display: grid;
-  gap: 0.22rem;
+  gap: 0.16rem;
 }
 
 .comparison-rail__eyebrow {
@@ -111,26 +111,26 @@ function handleSelect(destinationId: string) {
 
 .comparison-rail__title {
   margin: 0;
-  font-size: 0.9rem;
-  line-height: 1.2;
+  font-size: 0.86rem;
+  line-height: 1.12;
   letter-spacing: -0.01em;
 }
 
 .comparison-rail__list {
   display: grid;
-  gap: 0.55rem;
+  gap: 0.42rem;
 }
 
 .comparison-rail__item {
   appearance: none;
   border: 1px solid rgba(148, 163, 184, 0.14);
   border-radius: 0.95rem;
-  padding: 0.78rem 0.8rem;
+  padding: 0.66rem 0.68rem;
   background: rgba(4, 10, 21, 0.56);
   color: inherit;
   text-align: left;
   display: grid;
-  gap: 0.44rem;
+  gap: 0.34rem;
   cursor: pointer;
   transition:
     transform 140ms ease,
@@ -164,15 +164,15 @@ function handleSelect(destinationId: string) {
 
 .comparison-rail__row {
   display: flex;
-  align-items: start;
+  align-items: flex-start;
   justify-content: space-between;
-  gap: 0.44rem;
+  gap: 0.38rem;
 }
 
 .comparison-rail__label {
   min-width: 0;
   margin: 0;
-  font-size: 0.92rem;
+  font-size: 0.88rem;
   font-weight: 700;
   letter-spacing: 0.01em;
   overflow: hidden;
@@ -182,16 +182,16 @@ function handleSelect(destinationId: string) {
 
 .comparison-rail__delta {
   flex: none;
-  font-size: 0.74rem;
+  font-size: 0.7rem;
   font-weight: 700;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.06em;
   color: rgba(94, 234, 212, 0.96);
 }
 
 .comparison-rail__status {
   margin: 0;
-  font-size: 0.69rem;
-  line-height: 1.35;
+  font-size: 0.66rem;
+  line-height: 1.3;
   color: rgba(241, 245, 249, 0.82);
   display: -webkit-box;
   -webkit-line-clamp: 2;
@@ -203,13 +203,13 @@ function handleSelect(destinationId: string) {
   display: inline-flex;
   align-items: center;
   justify-self: start;
-  padding: 0.18rem 0.46rem;
+  padding: 0.16rem 0.4rem;
   border-radius: 999px;
   background: rgba(0, 212, 170, 0.12);
   border: 1px solid rgba(0, 212, 170, 0.22);
   color: rgba(160, 255, 231, 0.92);
-  font-size: 0.62rem;
-  letter-spacing: 0.12em;
+  font-size: 0.58rem;
+  letter-spacing: 0.1em;
   text-transform: uppercase;
 }
 

@@ -42,26 +42,29 @@ const status = computed(() => {
 .sjl__readout {
   display: inline-flex;
   align-items: baseline;
+  justify-self: start;
   gap: 0.35rem;
-  padding: 0.9rem 1rem;
+  padding: 0.78rem 0.88rem;
   border-radius: 1rem;
   border: 1px solid rgba(255, 189, 118, 0.24);
   background: rgba(19, 10, 8, 0.42);
 }
 
 .sjl__num {
-  font-size: 1.6rem;
+  font-size: 1.5rem;
   line-height: 1;
   font-weight: 800;
 }
 
 .sjl__unit {
-  font-size: 0.52rem;
-  letter-spacing: 0.16em;
+  font-size: 0.48rem;
+  letter-spacing: 0.14em;
   color: rgba(148, 163, 184, 0.74);
 }
 
 .sjl__desc {
-  max-width: 14rem;
+  max-width: 12.5rem;
+  font-size: 0.68rem;
+  line-height: 1.28;
 }
 </style>

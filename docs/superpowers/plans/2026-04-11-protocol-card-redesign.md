@@ -1,4 +1,274 @@
-<script setup lang="ts">
+# Protocol Card Redesign Implementation Plan
+
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+
+**Goal:** Replace the current ProtocolCard design (left accent bar, bar/tick data strip, plain-text status) with Swiss-style solid-tinted cards featuring icon-specific SVG visualisations, pill status buttons, and semi-interactive hover crosshairs.
+
+**Architecture:** Three files change in dependency order — `protocol.ts` adds `VizData` data, `ProtocolTimeline.vue` passes it as a prop, `ProtocolCard.vue` is fully rewritten to consume it and render icon-specific SVG visualisations. No new files are created.
+
+**Tech Stack:** Vue 3 `<script setup>` + TypeScript, Pinia, scoped CSS (no Tailwind arbitrary values — all custom values go in `<style scoped>`)
+
+**Spec:** `helios-app/docs/superpowers/specs/2026-04-11-protocol-card-redesign.md`
+**Reference mockup:** `helios-app/.superpowers/brainstorm/3322-1775877764/card-solid-v6.html`
+
+---
+
+## File Map
+
+| File | Change |
+|---|---|
+| `src/stores/protocol.ts` | Add `VizData` export interface; add `vizData?: VizData` to `ProtocolItem`; wire per-card values inside `dailyProtocol` computed |
+| `src/components/ProtocolTimeline.vue` | Add `:viz-data="item.vizData"` to the `<ProtocolCard>` binding |
+| `src/components/ProtocolCard.vue` | Full rewrite — new script (remove old computeds, add new), new template (SVG viz), new scoped CSS |
+
+---
+
+## Task 1: Add `VizData` to `protocol.ts`
+
+**Files:**
+- Modify: `src/stores/protocol.ts:14-22` (ProtocolItem interface) and `src/stores/protocol.ts:122-203` (dailyProtocol computed)
+
+**Context:** `protocol.ts` has no test file — verification is `npm run build` with zero TypeScript errors.
+
+- [ ] **Step 1: Add the `VizData` interface and `vizData` field to `ProtocolItem`**
+
+Open `src/stores/protocol.ts`. Insert the new `VizData` interface **before** the `ProtocolItem` interface (currently at line 14), and add `vizData?: VizData` as the last field of `ProtocolItem`:
+
+```typescript
+// Insert this block BEFORE the existing `export interface ProtocolItem {`
+export interface VizData {
+  supLabel: string       // superscript next to time: "AM" | "20 MIN" | "3H WIN" | "6H T½" | "90 MIN" | "LATE"
+  ringPct?: number       // 0–100, for ring cards (Wind-Down, Sleep Window)
+  ringCenter?: string    // text inside ring: "90" | alignment score string
+  ringUnit?: string      // unit below ring center: "MIN" | "ALIGN%"
+  stat1Label?: string
+  stat1Value?: string
+  stat2Label?: string
+  stat2Value?: string
+}
+
+export interface ProtocolItem {
+  key: string
+  title: string
+  time: Date
+  endTime?: Date
+  icon: string
+  citation: string
+  subtitle: string
+  vizData?: VizData      // ← new field
+}
+```
+
+The existing `ProtocolItem` block (lines 14–22) should be **replaced** with the version above that includes `vizData?: VizData`.
+
+- [ ] **Step 2: Wire `vizData` into each protocol item inside `dailyProtocol`**
+
+In the `dailyProtocol` computed (currently lines 122–203), add a `vizData` property to each of the six items. The values are computed from local refs that are already in scope (`wakeWindowTime`, `wakeWindowEnd`, `sleepTime`, `melatoninOnset`, `windDownStart`, `morningLightDurationMin`, `solar`, `fmt`).
+
+Replace the six items in the `return { ... }` block with this complete block:
+
+```typescript
+return {
+  wakeWindow: {
+    key: 'wakeWindow',
+    title: 'Wake Window',
+    time: wakeWindowTime.value,
+    endTime: wakeWindowEnd.value,
+    icon: 'Sunrise',
+    citation: 'Cortisol awakening response peaks within 30 min of solar elevation > 6 degrees',
+    subtitle: isNightOwlWake
+      ? `Rise at ${fmt(wakeWindowTime.value)} (8h sleep). Get sunlight within 30 min of waking.`
+      : `Rise between ${fmt(wakeWindowTime.value)} - ${fmt(wakeWindowEnd.value)} to anchor your circadian clock.`,
+    vizData: {
+      supLabel: 'AM',
+      stat1Label: 'Window',
+      stat1Value: `${Math.round((wakeWindowEnd.value.getTime() - wakeWindowTime.value.getTime()) / 60_000)} min`,
+      stat2Label: 'Sleep',
+      stat2Value: (() => {
+        const ms = wakeWindowTime.value.getTime() - sleepTime.value.getTime()
+        const h = Math.floor(ms / 3_600_000)
+        const m = Math.round((ms % 3_600_000) / 60_000)
+        return `${h}h ${m}m`
+      })(),
+    },
+  },
+
+  morningLight: {
+    key: 'morningLight',
+    title: 'Morning Light',
+    time: solar.wakeWindowEnd,
+    endTime: new Date(solar.wakeWindowEnd.getTime() + morningLightDurationMin.value * 60_000),
+    icon: 'Sun',
+    citation: 'NASA ISS protocol: timed bright light for circadian entrainment',
+    subtitle: `Get ${lightDuration} min of bright outdoor light starting at ${fmt(solar.wakeWindowStart)}${aqiWarning}.`,
+    vizData: {
+      supLabel: `${morningLightDurationMin.value} MIN`,
+    },
+  },
+
+  peakFocus: {
+    key: 'peakFocus',
+    title: 'Peak Focus',
+    time: peakFocusStart.value,
+    endTime: peakFocusEnd.value,
+    icon: 'Brain',
+    citation: 'Cognitive performance peaks in late afternoon/evening, paralleling core body temperature rhythm',
+    subtitle: `Recommended deep-work window: ${fmt(peakFocusStart.value)} - ${fmt(peakFocusEnd.value)}. The pre-sleep wake-maintenance zone is a separate alertness phenomenon, not your default best focus window.`,
+    vizData: {
+      supLabel: '3H WIN',
+    },
+  },
+
+  caffeineCutoff: {
+    key: 'caffeineCutoff',
+    title: 'Caffeine Cutoff',
+    time: caffeineCutoff.value,
+    icon: 'Coffee',
+    citation: 'Burke et al. (2015): caffeine 3h before bed delays melatonin by 40 min',
+    subtitle: getCaffeineCutoffNarrative(fmt(caffeineCutoff.value), fmt(sleepTime.value)),
+    vizData: {
+      supLabel: '6H T½',
+    },
+  },
+
+  windDown: {
+    key: 'windDown',
+    title: 'Wind-Down',
+    time: windDownStart.value,
+    endTime: sleepTime.value,
+    icon: 'Moon',
+    citation: 'Begin screen dimming 90 min before estimated melatonin onset',
+    subtitle: `Start dimming screens and lowering stimulation at ${fmt(windDownStart.value)}${windDownAdj}.`,
+    vizData: (() => {
+      const durationMin = Math.round(
+        (sleepTime.value.getTime() - windDownStart.value.getTime()) / 60_000
+      )
+      const h = Math.floor(durationMin / 60)
+      const m = durationMin % 60
+      return {
+        supLabel: `${durationMin} MIN`,
+        ringPct: Math.min(Math.round((durationMin / 180) * 100), 100),
+        ringCenter: String(durationMin),
+        ringUnit: 'MIN',
+        stat1Label: 'Until sleep',
+        stat1Value: h > 0 ? `${h}h${m > 0 ? ` ${m}m` : ''}` : `${m}m`,
+        stat2Label: 'Melatonin onset',
+        stat2Value: fmt(melatoninOnset.value),
+      }
+    })(),
+  },
+
+  sleepWindow: {
+    key: 'sleepWindow',
+    title: 'Sleep Window',
+    time: sleepTime.value,
+    icon: 'BedDouble',
+    citation: 'Optimal sleep onset aligned with solar cycle and chronotype',
+    subtitle: `Target sleep by ${fmt(sleepTime.value)} (${user.chronotype} chronotype).${solarAlignmentNote}`,
+    vizData: (() => {
+      const nadir = solar.nadir
+      const gapMs = Math.abs(sleepTime.value.getTime() - nadir.getTime())
+      const gapH = (gapMs / 3_600_000).toFixed(1)
+      const alignPct = Math.max(0, Math.round((1 - gapMs / (6 * 3_600_000)) * 100))
+      return {
+        supLabel: 'LATE',
+        ringPct: alignPct,
+        ringCenter: String(alignPct),
+        ringUnit: 'ALIGN%',
+        stat1Label: 'Solar gap',
+        stat1Value: `${gapH}h`,
+        stat2Label: 'Solar midnight',
+        stat2Value: fmt(nadir),
+      }
+    })(),
+  },
+}
+```
+
+- [ ] **Step 3: Build to verify zero TypeScript errors**
+
+```bash
+cd helios-app && npm run build
+```
+
+Expected: build completes with no errors. If TypeScript complains about `vizData` being unknown, confirm the `ProtocolItem` interface change from Step 1 was saved.
+
+- [ ] **Step 4: Commit**
+
+```bash
+git add helios-app/src/stores/protocol.ts
+git commit -m "feat(protocol): add VizData interface and wire per-card viz data"
+```
+
+---
+
+## Task 2: Pass `vizData` prop in `ProtocolTimeline.vue`
+
+**Files:**
+- Modify: `src/components/ProtocolTimeline.vue:54-64` (the `<ProtocolCard>` binding block)
+
+**Context:** `ProtocolTimeline.vue` renders 6 `<ProtocolCard>` items from `protocolItems`. It already passes `title`, `time`, `end-time`, `icon`, `citation`, `subtitle`, `status`. Add `:viz-data`.
+
+- [ ] **Step 1: Add the `:viz-data` binding**
+
+In `src/components/ProtocolTimeline.vue`, find the `<ProtocolCard>` template (lines 54–64) and add one line:
+
+```html
+<ProtocolCard
+  v-for="item in protocolItems"
+  :key="item.key"
+  :title="item.title"
+  :time="item.time"
+  :end-time="item.endTime"
+  :icon="item.icon"
+  :citation="item.citation"
+  :subtitle="item.subtitle"
+  :status="getStatus(item.time, item.endTime)"
+  :viz-data="item.vizData"
+/>
+```
+
+- [ ] **Step 2: Build to verify**
+
+```bash
+cd helios-app && npm run build
+```
+
+Expected: zero errors. TypeScript may warn about `vizData` being an unknown prop on `ProtocolCard` until Task 3 is done — that is expected.
+
+- [ ] **Step 3: Commit**
+
+```bash
+git add helios-app/src/components/ProtocolTimeline.vue
+git commit -m "feat(timeline): pass vizData prop to ProtocolCard"
+```
+
+---
+
+## Task 3: Rewrite `ProtocolCard.vue`
+
+**Files:**
+- Modify: `src/components/ProtocolCard.vue` (full rewrite of `<script setup>`, `<template>`, `<style scoped>`)
+
+**Context:** This is a complete visual redesign. The existing component has:
+- Left accent bar (`::before`), card border, hairline, bar/tick strip
+- Plain-text status label
+
+The new design has:
+- Solid accent-tinted background, no border, no `::before`, no hairline
+- Pill status button with semantic colours (green=active, red=passed, muted=upcoming)
+- Hero time with superscript label (`vizData.supLabel`)
+- Icon-specific SVG viz pill: clock arc (Wake), bell curve with crosshair (Light/Focus/Caffeine), ring progress (Wind-Down/Sleep)
+
+**Important CSS rule:** All pixel/rem values go in `<style scoped>`, never as Tailwind arbitrary bracket values.
+
+**Important SVG rule:** SVG `<linearGradient>` IDs must be unique per component instance to avoid DOM collisions when 6 cards render simultaneously. Use a `uid` string generated once per instance.
+
+- [ ] **Step 1: Replace the entire `<script setup>` block**
+
+Replace everything between `<script setup lang="ts">` and `</script>` with:
+
+```typescript
 import { computed, ref } from 'vue'
 import type { VizData } from '@/stores/protocol'
 
@@ -46,7 +316,7 @@ const isRingCard  = computed(() => ['Moon', 'BedDouble'].includes(props.icon))
 
 // ── Unique gradient ID suffix (prevents SVG id collisions) ─────────
 // 6 cards render simultaneously; each needs unique gradient element IDs
-const uid = Math.random().toString(36).slice(2, 8)  // 6 chars: 36^6 = 2.1B possibilities
+const uid = Math.random().toString(36).slice(2, 6)
 
 // ── Ring progress ──────────────────────────────────────────────────
 // Circumference of r=30 circle ≈ 188.5; dashoffset controls fill
@@ -69,7 +339,7 @@ const curvePathPoints: Record<string, [number, number][]> = {
 }
 
 const VB_W = 216
-const VB_H = 80
+const VB_H = 75
 
 function lerp(a: number, b: number, t: number) { return a + (b - a) * t }
 
@@ -94,8 +364,13 @@ function onCurveMouseMove(e: MouseEvent) {
   crosshairX.value = mx + PAD_L
   crosshairY.value = (svgY / VB_H) * innerH + PAD_T
 }
-</script>
+```
 
+- [ ] **Step 2: Replace the entire `<template>` block**
+
+Replace everything between `<template>` and `</template>` with:
+
+```html
 <template>
   <div
     class="card"
@@ -128,7 +403,7 @@ function onCurveMouseMove(e: MouseEvent) {
 
       <!-- Clock arc — Wake Window (Sunrise) -->
       <div v-if="isArcCard" class="pill-data-wrap">
-        <svg width="68" height="68" viewBox="0 0 72 72" style="flex-shrink:0" aria-hidden="true">
+        <svg width="68" height="68" viewBox="0 0 72 72" style="flex-shrink:0">
           <circle cx="36" cy="36" r="28" fill="none" stroke="rgba(255,246,233,0.07)" stroke-width="4"/>
           <path d="M36 8 A28 28 0 0 1 64 36" fill="none" stroke="rgba(255,246,233,0.09)" stroke-width="4" stroke-linecap="round"/>
           <path d="M64 36 A28 28 0 0 1 55.8 55.8" fill="none" :stroke="theme" stroke-width="5" stroke-linecap="round"/>
@@ -170,7 +445,7 @@ function onCurveMouseMove(e: MouseEvent) {
         />
 
         <!-- Morning Light: bell curve centred on solar noon, NOW marker at sunrise -->
-        <svg v-if="icon === 'Sun'" viewBox="0 0 216 80" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
+        <svg v-if="icon === 'Sun'" viewBox="0 0 216 75" preserveAspectRatio="xMidYMid meet">
           <defs>
             <linearGradient :id="`g-sun-${uid}`" x1="0" y1="0" x2="0" y2="1">
               <stop offset="0%" :stop-color="theme" stop-opacity="0.5"/>
@@ -189,7 +464,7 @@ function onCurveMouseMove(e: MouseEvent) {
         </svg>
 
         <!-- Peak Focus: bell curve with 15–18h window highlight -->
-        <svg v-else-if="icon === 'Brain'" viewBox="0 0 216 80" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
+        <svg v-else-if="icon === 'Brain'" viewBox="0 0 216 75" preserveAspectRatio="xMidYMid meet">
           <defs>
             <linearGradient :id="`g-foc-${uid}`" x1="0" y1="0" x2="0" y2="1">
               <stop offset="0%" :stop-color="theme" stop-opacity="0.5"/>
@@ -207,7 +482,7 @@ function onCurveMouseMove(e: MouseEvent) {
         </svg>
 
         <!-- Caffeine Cutoff: flat high → exponential decay at cutoff marker -->
-        <svg v-else-if="icon === 'Coffee'" viewBox="0 0 216 80" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
+        <svg v-else-if="icon === 'Coffee'" viewBox="0 0 216 75" preserveAspectRatio="xMidYMid meet">
           <defs>
             <linearGradient :id="`g-caf-${uid}`" x1="0" y1="0" x2="0" y2="1">
               <stop offset="0%" :stop-color="theme" stop-opacity="0.5"/>
@@ -228,7 +503,7 @@ function onCurveMouseMove(e: MouseEvent) {
 
       <!-- Ring progress — Wind-Down (Moon), Sleep Window (BedDouble) -->
       <div v-else-if="isRingCard" class="pill-data-wrap">
-        <svg width="64" height="64" viewBox="0 0 76 76" style="flex-shrink:0" aria-hidden="true">
+        <svg width="64" height="64" viewBox="0 0 76 76" style="flex-shrink:0">
           <circle cx="38" cy="38" r="30" fill="none" stroke="rgba(255,246,233,0.08)" stroke-width="5.5"/>
           <circle
             cx="38" cy="38" r="30"
@@ -263,8 +538,13 @@ function onCurveMouseMove(e: MouseEvent) {
 
   </div>
 </template>
+```
 
-<style scoped>
+- [ ] **Step 3: Replace the entire `<style scoped>` block**
+
+Replace everything between `<style scoped>` and `</style>` with:
+
+```css
 /* ── Card shell ─────────────────────────────────────────────────────── */
 .card {
   display: flex;
@@ -294,7 +574,6 @@ function onCurveMouseMove(e: MouseEvent) {
 }
 
 .card-dot {
-  display: block;
   width: 6px;
   height: 6px;
   border-radius: 50%;
@@ -369,7 +648,7 @@ function onCurveMouseMove(e: MouseEvent) {
   font-weight: 200;
   letter-spacing: -0.04em;
   color: #FFF6E9;
-  opacity: 0.55;
+  opacity: 0.18;
   margin: 0 0.5px;
 }
 
@@ -481,4 +760,53 @@ function onCurveMouseMove(e: MouseEvent) {
   font-size: 0.36rem;
   color: rgba(255,246,233,0.18);
 }
-</style>
+```
+
+- [ ] **Step 4: Build to verify zero errors**
+
+```bash
+cd helios-app && npm run build
+```
+
+Expected: zero TypeScript errors. If you see errors about missing `VizData` export, verify Task 1 exported the interface with `export interface VizData`.
+
+- [ ] **Step 5: Visual verification in dev server**
+
+```bash
+cd helios-app && npm run dev
+```
+
+Open the app in the browser. Check all 6 protocol cards:
+
+| Card | Expected viz |
+|---|---|
+| Wake Window | Clock arc SVG + "Window / Sleep" stats |
+| Morning Light | Bell curve SVG + NOW marker; hover → crosshair tracks mouse |
+| Peak Focus | Bell curve + 15–18h highlight; hover crosshair |
+| Caffeine Cutoff | Decay curve + cutoff marker; hover crosshair |
+| Wind-Down | Ring progress + "Until sleep / Melatonin onset" stats |
+| Sleep Window | Ring progress (alignment %) + "Solar gap / Solar midnight" |
+
+Also verify:
+- No left accent bar on any card
+- No card border
+- Status pills: green dot (active), red dot (passed), muted dot (upcoming)
+- Passed cards dim to 30% opacity
+- Responsive: at 900px → 2-col, at 500px → 1-col (grid is in ProtocolTimeline.vue, unchanged)
+
+- [ ] **Step 6: Commit**
+
+```bash
+git add helios-app/src/components/ProtocolCard.vue
+git commit -m "feat(card): redesign ProtocolCard with SVG viz, pill status, solid accent background"
+```
+
+---
+
+## Final verification
+
+```bash
+cd helios-app && npm run build
+```
+
+Zero errors = done. Push to `dev` branch when confirmed working.

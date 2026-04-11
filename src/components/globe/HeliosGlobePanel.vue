@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed } from 'vue'
+import GlobeHealthStrip from './GlobeHealthStrip.vue'
 import GlobeOrbitalContext from './GlobeOrbitalContext.vue'
 import GlobeProtocolCountdown from './GlobeProtocolCountdown.vue'
 import GlobeStatStrip from './GlobeStatStrip.vue'
@@ -68,13 +69,15 @@ function handleDestSelect(id: string | null) {
             :solar="localSolar"
             :route-label="selectedComparison?.label"
           />
-
-          <GlobeProtocolCountdown
-            :selected-comparison="selectedComparison"
-            :comparisons="comparisons"
-            @select-destination="handleDestSelect"
-          />
         </section>
+      </div>
+
+      <div class="globe-panel__overlay globe-panel__overlay--countdown">
+        <GlobeProtocolCountdown
+          :selected-comparison="selectedComparison"
+          :comparisons="comparisons"
+          @select-destination="handleDestSelect"
+        />
       </div>
 
       <div class="globe-panel__stage">
@@ -84,6 +87,10 @@ function handleDestSelect(id: string | null) {
           :comparisons="comparisons"
           :selected-destination-id="selectedDestinationId"
         />
+      </div>
+
+      <div class="globe-panel__overlay globe-panel__overlay--health">
+        <GlobeHealthStrip />
       </div>
 
       <div class="globe-panel__overlay globe-panel__overlay--stats">
@@ -147,7 +154,7 @@ function handleDestSelect(id: string | null) {
 
 .globe-panel__hero {
   position: relative;
-  min-height: clamp(34rem, 72vh, 52rem);
+  min-height: clamp(46rem, 88vh, 62rem);
   overflow: hidden;
   border-radius: 2rem;
   border: 1px solid rgba(148, 163, 184, 0.12);
@@ -211,10 +218,23 @@ function handleDestSelect(id: string | null) {
   width: min(16rem, 28vw);
 }
 
+.globe-panel__overlay--countdown {
+  top: 1.25rem;
+  right: 1.25rem;
+  width: min(15rem, 24vw);
+}
+
 .globe-panel__intro-slab {
   display: flex;
   flex-direction: column;
   gap: 0.6rem;
+}
+
+.globe-panel__overlay--health {
+  left: 1.25rem;
+  top: 52%;
+  width: min(18rem, 28vw);
+  z-index: 2;
 }
 
 .globe-panel__overlay--stats {
@@ -227,7 +247,7 @@ function handleDestSelect(id: string | null) {
 
 @media (max-width: 1100px) {
   .globe-panel__hero {
-    min-height: clamp(34rem, 92vw, 48rem);
+    min-height: clamp(44rem, 110vw, 58rem);
   }
 
   .globe-panel__stage {
@@ -238,6 +258,14 @@ function handleDestSelect(id: string | null) {
     top: 1rem;
     left: 1rem;
     width: min(14rem, calc(100% - 5.4rem));
+  }
+
+  .globe-panel__overlay--countdown {
+    top: auto;
+    right: 0.9rem;
+    bottom: 5.5rem;
+    transform: none;
+    width: min(13.6rem, 22vw);
   }
 
   .globe-panel__overlay--stats {
@@ -254,7 +282,7 @@ function handleDestSelect(id: string | null) {
 @media (max-width: 720px) {
   .globe-panel__hero {
     border-radius: 1.45rem;
-    min-height: clamp(34rem, 150vw, 43rem);
+    min-height: clamp(44rem, 180vw, 56rem);
   }
 
   .globe-panel__header {
@@ -286,6 +314,14 @@ function handleDestSelect(id: string | null) {
     top: 0.75rem;
     left: 0.75rem;
     width: min(13rem, calc(100% - 5.5rem));
+  }
+
+  .globe-panel__overlay--countdown {
+    top: 0.75rem;
+    right: 0.75rem;
+    bottom: auto;
+    transform: none;
+    width: min(13rem, 40vw);
   }
 
   .globe-panel__overlay--stats {

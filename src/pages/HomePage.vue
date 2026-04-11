@@ -138,7 +138,7 @@ const wearables = [
 }
 
 .data-section {
-  margin-top: 2.5rem;
+  margin-top: 5rem;
 }
 
 .data-grid {

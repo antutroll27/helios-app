@@ -193,7 +193,8 @@ const destSolarPhase = computed(() => {
 /* Card shell */
 .pcd-card {
   position: relative;
-  background: color-mix(in srgb, #9B8BFA 18%, #07111a);
+  background: color-mix(in srgb, #9B8BFA 32%, #07111a);
+  border: 1px solid rgba(155, 139, 250, 0.22);
   border-radius: 1rem;
   padding: 1rem 1rem 0.9rem;
   display: flex;
