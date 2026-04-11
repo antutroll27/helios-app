@@ -186,9 +186,7 @@ export function useCobeGlobeData(options: UseCobeGlobeDataOptions = {}) {
   })
 
   const destinations = shallowRef<GlobeDestination[]>(options.destinations ?? getDefaultDestinations())
-  const selectedDestinationId = shallowRef<string | null>(
-    getInitialSelectedDestinationId(destinations.value),
-  )
+  const selectedDestinationId = shallowRef<string | null>(null)
 
   const selectedDestination = computed<GlobeDestination | null>(
     () => destinations.value.find((destination) => destination.id === selectedDestinationId.value) ?? null,
@@ -241,6 +239,10 @@ export function useCobeGlobeData(options: UseCobeGlobeDataOptions = {}) {
     }
   }
 
+  function clearDestination() {
+    selectedDestinationId.value = null
+  }
+
   return {
     currentSnapshot,
     destinations: readonly(destinations),
@@ -251,5 +253,6 @@ export function useCobeGlobeData(options: UseCobeGlobeDataOptions = {}) {
     selectedComparison,
     orbitalContext,
     selectDestination,
+    clearDestination,
   }
 }
