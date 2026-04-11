@@ -271,6 +271,7 @@ export const useProtocolStore = defineStore('protocol', () => {
     caffeineHalfLifeHours,
     sleepTime,
     melatoninOnset,
+    wakeWindowTime,
     caffeineCutoff,
     peakFocusStart,
     peakFocusEnd,
