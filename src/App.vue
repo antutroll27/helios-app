@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onMounted } from 'vue'
+import { onMounted, onUnmounted } from 'vue'
 import { useGeoStore } from '@/stores/geo'
 import { useSpaceWeatherStore } from '@/stores/spaceWeather'
 import { useDonkiStore } from '@/stores/donki'
@@ -23,6 +23,10 @@ onMounted(async () => {
   ])
   // Start polling
   sw.startPolling()
+})
+
+onUnmounted(() => {
+  sw.stopPolling()
 })
 </script>
 
