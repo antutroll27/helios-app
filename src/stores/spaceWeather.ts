@@ -24,11 +24,12 @@ export const useSpaceWeatherStore = defineStore('spaceWeather', () => {
   const bzComponent = ref<number>(0)
   const flareClass = ref<string>('None')
   const activeAlerts = ref<NOAAAlert[]>([])
-  const gScaleRaw = ref<Record<string, any>>({})
+  const gScaleRaw = ref<Record<string, GScaleEntry>>({})
   const gScale = computed<number>(() => {
     try {
       // Try multiple paths the NOAA data might use
-      const raw = gScaleRaw.value
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const raw = gScaleRaw.value as any
       if (raw?.['0']?.G?.Scale !== undefined) return parseInt(raw['0'].G.Scale) || 0
       if (raw?.G?.Scale !== undefined) return parseInt(raw.G.Scale) || 0
       if (raw?.['24hr_observed']?.G?.Scale !== undefined) return parseInt(raw['24hr_observed'].G.Scale) || 0
