@@ -58,14 +58,14 @@ export const useSpaceWeatherStore = defineStore('spaceWeather', () => {
 
   const disruptionAdvisory = computed<string>(() => {
     const score = disruptionScore.value
-    if (score === 0) return 'Geomagnetic conditions are calm. Optimal for circadian health.'
-    if (score === 1) return 'Quiet geomagnetic activity. Minimal impact on wellbeing.'
-    if (score === 2) return 'Unsettled conditions. Sensitive individuals may notice slight fatigue.'
+    if (score === 0) return 'Geomagnetic conditions are calm. Observational context only; individual relevance is uncertain.'
+    if (score === 1) return 'Quiet geomagnetic activity is being observed. Individual sleep or wellbeing effects are uncertain.'
+    if (score === 2) return 'Unsettled geomagnetic conditions are being observed. Treat this as context only, not a personal health prediction.'
     if (score === 3)
-      return 'Geomagnetic storm in progress. Consider reducing screen time and stress.'
+      return 'Geomagnetic storm conditions are being observed. Individual relevance is uncertain and causal claims should be avoided.'
     if (score === 4)
-      return 'Severe storm. High risk of disrupted sleep and elevated cortisol. Rest and ground yourself.'
-    return 'Extreme geomagnetic storm. Significant biological stress risk. Prioritise rest and hydration.'
+      return 'Severe geomagnetic activity is being observed. Use this as observational context only.'
+    return 'Extreme geomagnetic activity is being observed. This is a space-weather reading, not a personal health forecast.'
   })
 
   // ─── Bz warning ──────────────────────────────────────────────────────────────
@@ -145,6 +145,18 @@ export const useSpaceWeatherStore = defineStore('spaceWeather', () => {
     }
 
     lastUpdated.value = new Date()
+
+    // Extract flare class from active NOAA alerts.
+    // NOAA flare alerts contain flare class strings (e.g. "M1.5", "X2.3") in the
+    // message body text, not in product_id (which uses WMO routing codes like "ALTK07").
+    const flareAlert = activeAlerts.value.find(
+      (a) => a.message?.toUpperCase().includes('FLARE')
+    )
+    // If a flare alert is found, attempt to extract the class from the message.
+    // Fall back to 'Active' if a flare message exists but class cannot be parsed.
+    flareClass.value = flareAlert
+      ? (flareAlert.message?.match(/\b([MXC]\d+\.?\d*)\b/)?.[1] ?? 'Active')
+      : 'None'
   }
 
   function startPolling(intervalMs = 5 * 60 * 1000): void {
