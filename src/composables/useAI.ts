@@ -5,6 +5,7 @@ import { useEnvironmentStore } from '@/stores/environment'
 import { useProtocolStore } from '@/stores/protocol'
 import { useUserStore } from '@/stores/user'
 import type { VisualCard } from '@/stores/chat'
+import { fmtTime as fmt } from '@/lib/timezoneUtils'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -26,23 +27,23 @@ interface ClaudeMessage {
 // ─── Provider registry ────────────────────────────────────────────────────────
 
 export const PROVIDERS = [
-  { id: 'openai', name: 'OpenAI', model: 'gpt-5.3', placeholder: 'sk-...' },
-  { id: 'claude', name: 'Claude', model: 'claude-opus-4-6 / claude-sonnet-4-6', placeholder: 'sk-ant-...' },
-  { id: 'kimi', name: 'Kimi 2.5 (DeepInfra)', model: 'moonshotai/Kimi-K2-Instruct', placeholder: 'ai335...' },
-  { id: 'glm', name: 'GLM-4', model: 'glm-4-flash', placeholder: '...' },
+  { id: 'openai',      name: 'OpenAI',      model: 'gpt-5.4',                          placeholder: 'sk-...' },
+  { id: 'claude',      name: 'Claude',       model: 'claude-sonnet-4-6',               placeholder: 'sk-ant-...' },
+  { id: 'gemini',      name: 'Gemini',       model: 'gemini-3.1-pro-preview',          placeholder: 'AIza...' },
+  { id: 'grok',        name: 'Grok',         model: 'grok-4.20-0309-non-reasoning',    placeholder: 'xai-...' },
+  { id: 'perplexity',  name: 'Perplexity',   model: 'sonar-pro',                       placeholder: 'pplx-...' },
+  { id: 'kimi',        name: 'Kimi',         model: 'moonshotai/Kimi-K2.5',            placeholder: 'ai335...' },
+  { id: 'glm',         name: 'GLM',          model: 'glm-5.1',                         placeholder: '...' },
 ] as const
 
 const PROVIDER_CONFIGS: Record<string, { baseUrl: string; model: string }> = {
-  openai: { baseUrl: 'https://api.openai.com/v1/chat/completions', model: 'gpt-5.3' },
-  kimi: { baseUrl: 'https://api.deepinfra.com/v1/openai/chat/completions', model: 'moonshotai/Kimi-K2-Instruct' },
-  glm: { baseUrl: 'https://open.bigmodel.cn/api/paas/v4/chat/completions', model: 'glm-4-flash' },
-  claude: { baseUrl: 'https://api.anthropic.com/v1/messages', model: 'claude-opus-4-6' },
-}
-
-// ─── Utility ──────────────────────────────────────────────────────────────────
-
-function fmt(date: Date): string {
-  return date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })
+  openai:     { baseUrl: 'https://api.openai.com/v1/chat/completions',                                    model: 'gpt-5.4' },
+  claude:     { baseUrl: 'https://api.anthropic.com/v1/messages',                                         model: 'claude-sonnet-4-6' },
+  gemini:     { baseUrl: 'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions',      model: 'gemini-3.1-pro-preview' },
+  grok:       { baseUrl: 'https://api.x.ai/v1/chat/completions',                                          model: 'grok-4.20-0309-non-reasoning' },
+  perplexity: { baseUrl: 'https://api.perplexity.ai/chat/completions',                                    model: 'sonar-pro' },
+  kimi:       { baseUrl: 'https://api.deepinfra.com/v1/openai/chat/completions',                          model: 'moonshotai/Kimi-K2.5' },
+  glm:        { baseUrl: 'https://open.bigmodel.cn/api/paas/v4/chat/completions',                         model: 'glm-5.1' },
 }
 
 // ─── Composable ───────────────────────────────────────────────────────────────
@@ -89,8 +90,6 @@ CURRENT PROTOCOL (computed from live data):
 
 USER PROFILE: Usual sleep time: ${user.usualSleepTime} | Chronotype: ${user.chronotype}
 
-TRAVEL SAFETY: You have access to US State Department travel advisories. When a user mentions traveling to a country, include the advisory level (1-4) and any relevant safety notes. Factor stress from high-risk destinations into the sleep protocol.
-
 PEER-REVIEWED SCIENTIFIC KNOWLEDGE BASE (use these exact findings):
 
 CAFFEINE & CIRCADIAN PHASE:
@@ -116,9 +115,9 @@ PEAK COGNITIVE PERFORMANCE:
 GEOMAGNETIC ACTIVITY & SLEEP:
 - Burch et al. (1999, 2008, Neuroscience Letters): Elevated Kp index correlates with reduced overnight 6-OHMS (melatonin metabolite) excretion. Two independent studies in utility workers.
 - Weydahl et al. (2001): Geomagnetic activity reduces melatonin at high latitudes (70°N) more than low latitudes.
-- The mechanism is CORRELATIONAL and population-level, possibly mediated by cryptochrome photoreceptors and/or magnetite nanoparticles. NOT deterministic at individual level.
+- The mechanism is observational and population-level. Individual relevance is uncertain and should not be treated as a personal health prediction.
 - 2024 study (Environment International): 1-IQR increase in Kp associated with 19% increase in odds of low cognitive scores in older adults.
-- IMPORTANT: Always label geomagnetic effects as "emerging research" — the evidence is suggestive but not settled. Never overclaim.
+- IMPORTANT: Keep geomagnetic language limited to observational context. Do not infer unsupported physiological effects from Kp/Bz alone.
 
 SOCIAL JET LAG:
 - Affects 70-80% of the population (≥1 hour). 30-40% experience ≥2 hours.
@@ -135,8 +134,8 @@ NASA ASTRONAUT SLEEP:
 
 RULES:
 1. Always ground your advice in the live data above — cite specific values and researcher names.
-2. When the user describes travel plans, generate a jet lag recovery schedule AND mention the travel advisory level.
-3. Explain how current space weather affects their sleep using Kp and Bz values. Always note this is "emerging research."
+2. When the user describes travel plans, generate a jet lag recovery schedule. Do not invent destination risk levels or unsupported safety notes.
+3. If space weather is relevant, describe it only as observational context with uncertain individual relevance. Do not explain personal sleep effects or unsupported causal mechanisms from Kp and Bz alone.
 4. Be scientifically precise. Use the exact findings above. Never fabricate citations or overstate evidence levels.
 5. Factor chronotype into all timing recommendations — morning types vs evening types have different peak windows.
 6. You MUST respond with valid JSON in this format:
@@ -159,7 +158,7 @@ Visual card data schemas:
 - space_weather: { kp, bz, speed, score, label, advisory }
 
 7. Always include at least one visualCard in your response.
-8. For health impacts, be specific about mechanisms (adenosine antagonism, SCN phase delay, HRV suppression, cortisol elevation).
+8. For health impacts, use only well-supported mechanisms that are directly relevant to the topic at hand. Do not use Kp/Bz as a shortcut for unsupported physiology claims.
 9. Never say "NASA endorses this app" or "approved by NASA." Say "powered by NASA APIs" or "data provided by NASA."`
   }
 
