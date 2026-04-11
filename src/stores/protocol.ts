@@ -11,6 +11,17 @@ import { useSolarStore } from '@/stores/solar'
 import { useSpaceWeatherStore } from '@/stores/spaceWeather'
 import { useUserStore } from '@/stores/user'
 
+export interface VizData {
+  supLabel: string       // superscript next to time: "AM" | "20 MIN" | "3H WIN" | "6H T½" | "90 MIN" | "LATE"
+  ringPct?: number       // 0–100, for ring cards (Wind-Down, Sleep Window)
+  ringCenter?: string    // text inside ring: "90" | alignment score string
+  ringUnit?: string      // unit below ring center: "MIN" | "ALIGN%"
+  stat1Label?: string
+  stat1Value?: string
+  stat2Label?: string
+  stat2Value?: string
+}
+
 export interface ProtocolItem {
   key: string
   title: string
@@ -19,6 +30,7 @@ export interface ProtocolItem {
   icon: string
   citation: string
   subtitle: string
+  vizData?: VizData
 }
 
 export interface DailyProtocol {
@@ -150,6 +162,18 @@ export const useProtocolStore = defineStore('protocol', () => {
         subtitle: isNightOwlWake
           ? `Rise at ${fmt(wakeWindowTime.value)} (8h sleep). Get sunlight within 30 min of waking.`
           : `Rise between ${fmt(wakeWindowTime.value)} - ${fmt(wakeWindowEnd.value)} to anchor your circadian clock.`,
+        vizData: {
+          supLabel: 'AM',
+          stat1Label: 'Window',
+          stat1Value: `${Math.round((wakeWindowEnd.value.getTime() - wakeWindowTime.value.getTime()) / 60_000)} min`,
+          stat2Label: 'Sleep',
+          stat2Value: (() => {
+            const ms = wakeWindowTime.value.getTime() - sleepTime.value.getTime()
+            const h = Math.floor(ms / 3_600_000)
+            const m = Math.round((ms % 3_600_000) / 60_000)
+            return `${h}h ${m}m`
+          })(),
+        },
       },
 
       morningLight: {
@@ -160,6 +184,9 @@ export const useProtocolStore = defineStore('protocol', () => {
         icon: 'Sun',
         citation: 'NASA ISS protocol: timed bright light for circadian entrainment',
         subtitle: `Get ${lightDuration} min of bright outdoor light starting at ${fmt(solar.wakeWindowStart)}${aqiWarning}.`,
+        vizData: {
+          supLabel: `${morningLightDurationMin.value} MIN`,
+        },
       },
 
       peakFocus: {
@@ -170,6 +197,9 @@ export const useProtocolStore = defineStore('protocol', () => {
         icon: 'Brain',
         citation: 'Cognitive performance peaks in late afternoon/evening, paralleling core body temperature rhythm',
         subtitle: `Recommended deep-work window: ${fmt(peakFocusStart.value)} - ${fmt(peakFocusEnd.value)}. The pre-sleep wake-maintenance zone is a separate alertness phenomenon, not your default best focus window.`,
+        vizData: {
+          supLabel: '3H WIN',
+        },
       },
 
       caffeineCutoff: {
@@ -179,6 +209,9 @@ export const useProtocolStore = defineStore('protocol', () => {
         icon: 'Coffee',
         citation: 'Burke et al. (2015): caffeine 3h before bed delays melatonin by 40 min',
         subtitle: getCaffeineCutoffNarrative(fmt(caffeineCutoff.value), fmt(sleepTime.value)),
+        vizData: {
+          supLabel: '6H T½',
+        },
       },
 
       windDown: {
@@ -189,6 +222,23 @@ export const useProtocolStore = defineStore('protocol', () => {
         icon: 'Moon',
         citation: 'Begin screen dimming 90 min before estimated melatonin onset',
         subtitle: `Start dimming screens and lowering stimulation at ${fmt(windDownStart.value)}${windDownAdj}.`,
+        vizData: (() => {
+          const durationMin = Math.round(
+            (sleepTime.value.getTime() - windDownStart.value.getTime()) / 60_000
+          )
+          const h = Math.floor(durationMin / 60)
+          const m = durationMin % 60
+          return {
+            supLabel: `${durationMin} MIN`,
+            ringPct: Math.min(Math.round((durationMin / 180) * 100), 100),
+            ringCenter: String(durationMin),
+            ringUnit: 'MIN',
+            stat1Label: 'Until sleep',
+            stat1Value: h > 0 ? `${h}h${m > 0 ? ` ${m}m` : ''}` : `${m}m`,
+            stat2Label: 'Melatonin onset',
+            stat2Value: fmt(melatoninOnset.value),
+          }
+        })(),
       },
 
       sleepWindow: {
@@ -198,6 +248,22 @@ export const useProtocolStore = defineStore('protocol', () => {
         icon: 'BedDouble',
         citation: 'Optimal sleep onset aligned with solar cycle and chronotype',
         subtitle: `Target sleep by ${fmt(sleepTime.value)} (${user.chronotype} chronotype).${solarAlignmentNote}`,
+        vizData: (() => {
+          const nadir = solar.nadir
+          const gapMs = Math.abs(sleepTime.value.getTime() - nadir.getTime())
+          const gapH = (gapMs / 3_600_000).toFixed(1)
+          const alignPct = Math.max(0, Math.round((1 - gapMs / (6 * 3_600_000)) * 100))
+          return {
+            supLabel: 'LATE',
+            ringPct: alignPct,
+            ringCenter: String(alignPct),
+            ringUnit: 'ALIGN%',
+            stat1Label: 'Solar gap',
+            stat1Value: `${gapH}h`,
+            stat2Label: 'Solar midnight',
+            stat2Value: fmt(nadir),
+          }
+        })(),
       },
     }
   })
