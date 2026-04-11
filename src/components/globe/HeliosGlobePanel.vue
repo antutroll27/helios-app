@@ -83,12 +83,11 @@ function onDestinationSelect(id: string) {
             <p class="globe-panel__status">{{ headerStatus }}</p>
           </header>
 
-          <div class="globe-panel__intro-rule" aria-hidden="true" />
-
           <GlobeOrbitalContext
             :context="orbitalContext"
             :current="currentSnapshot"
             :solar="localSolar"
+            :route-label="selectedComparison?.label"
           />
         </section>
       </div>
@@ -227,13 +226,13 @@ function onDestinationSelect(id: string) {
   inset: 0;
   display: grid;
   place-items: center;
-  padding: clamp(3.8rem, 6vw, 4.8rem) clamp(1rem, 3vw, 2rem) clamp(9.6rem, 14vw, 11rem);
+  padding: clamp(3.8rem, 6vw, 4.8rem) clamp(1rem, 3vw, 2rem) clamp(7rem, 11vw, 8.5rem);
 }
 
 .globe-panel__globe {
   width: min(78vw, 63rem);
   max-width: 100%;
-  transform: translateY(-2.3rem);
+  transform: translateY(-0.5rem);
 }
 
 .globe-panel__overlay {
@@ -248,23 +247,9 @@ function onDestinationSelect(id: string) {
 }
 
 .globe-panel__intro-slab {
-  display: grid;
-  gap: 0.65rem;
-  padding: 0.85rem 0.85rem 0.9rem;
-  border-radius: 1.2rem;
-  border: 1px solid rgba(148, 163, 184, 0.14);
-  background:
-    linear-gradient(180deg, rgba(7, 14, 27, 0.92), rgba(7, 14, 27, 0.72)),
-    radial-gradient(circle at top left, rgba(99, 228, 255, 0.08), transparent 42%);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.04),
-    0 22px 46px rgba(2, 8, 20, 0.26);
-  backdrop-filter: blur(18px);
-}
-
-.globe-panel__intro-rule {
-  height: 1px;
-  background: linear-gradient(90deg, rgba(148, 163, 184, 0.28), transparent);
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
 }
 
 .globe-panel__overlay--rail {
@@ -288,7 +273,7 @@ function onDestinationSelect(id: string) {
   }
 
   .globe-panel__stage {
-    padding: clamp(3.8rem, 8vw, 4.8rem) 0.85rem clamp(9rem, 17vw, 10.4rem);
+    padding: clamp(3.8rem, 8vw, 4.8rem) 0.85rem clamp(5rem, 10vw, 7rem);
   }
 
   .globe-panel__overlay--intro {
@@ -312,7 +297,7 @@ function onDestinationSelect(id: string) {
 
   .globe-panel__globe {
     width: min(100%, 50rem);
-    transform: translateY(-1.9rem);
+    transform: translateY(-0.5rem);
   }
 }
 
@@ -337,20 +322,14 @@ function onDestinationSelect(id: string) {
     letter-spacing: 0.09em;
   }
 
-  .globe-panel__intro-slab {
-    gap: 0.82rem;
-    padding: 0.92rem 0.92rem 0.98rem;
-    border-radius: 1.08rem;
-  }
-
   .globe-panel__stage {
-    padding: 4.5rem 0.4rem 8.9rem;
+    padding: 4.5rem 0.4rem 5.5rem;
   }
 
   .globe-panel__globe {
     width: min(110vw, 32.5rem);
     margin-left: -6vw;
-    transform: translateY(-1.15rem);
+    transform: translateY(-0.5rem);
   }
 
   .globe-panel__overlay--intro {
