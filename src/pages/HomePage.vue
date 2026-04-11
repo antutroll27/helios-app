@@ -27,10 +27,10 @@ const user = useUserStore()
 const { chatSectionRef, showGlobe, showChat } = useHomeDeferredSections()
 
 const wearables = [
-  { name: 'Garmin', icon: Watch, color: '#00B4D8' },
-  { name: 'Fitbit / Google', icon: Activity, color: '#00D4AA' },
-  { name: 'Samsung Health', icon: Smartphone, color: '#A78BFA' },
-  { name: 'Oura Ring', icon: Watch, color: '#FFBD76' },
+  { name: 'Garmin', icon: Watch, color: '#007CC3' },
+  { name: 'Fitbit / Google', icon: Activity, color: '#00B0B9' },
+  { name: 'Samsung Health', icon: Smartphone, color: '#00B140' },
+  { name: 'Oura Ring', icon: Watch, color: '#2F4A73', mix: 40 },
   { name: 'BCI — Brain-Computer Interface', icon: Activity, color: '#FF6B6B' },
 ]
 </script>
@@ -72,22 +72,13 @@ const wearables = [
             v-for="w in wearables"
             :key="w.name"
             class="integration-card"
+            :style="{ background: `color-mix(in srgb, ${w.color} ${w.mix ?? 20}%, #07111a)` }"
           >
             <component :is="w.icon" :size="18" :color="w.color" :stroke-width="1.5" />
-            <span class="font-display" style="font-size: 0.75rem; font-weight: 600; color: var(--text-primary);">
-              {{ w.name }}
-            </span>
+            <span class="int-name">{{ w.name }}</span>
             <span
-              class="font-mono"
-              :style="{
-                fontSize: '0.5rem',
-                letterSpacing: '0.1em',
-                padding: '0.15rem 0.4rem',
-                borderRadius: '3px',
-                background: `${w.color}12`,
-                color: w.color,
-                border: `1px solid ${w.color}25`,
-              }"
+              class="int-badge"
+              :style="{ color: w.color, background: `${w.color}18`, borderColor: `${w.color}35` }"
             >COMING SOON</span>
           </div>
         </div>
@@ -147,7 +138,7 @@ const wearables = [
 }
 
 .data-section {
-  margin-top: 0.5rem;
+  margin-top: 2.5rem;
 }
 
 .data-grid {
@@ -216,16 +207,32 @@ const wearables = [
   flex-direction: column;
   align-items: center;
   gap: 0.5rem;
-  padding: 1rem 0.5rem;
+  padding: 1.1rem 0.75rem;
   text-align: center;
-  background: var(--bg-card);
-  border: 1px solid var(--border-subtle);
-  border-radius: 6px;
-  transition: border-color 0.2s;
+  border-radius: 1rem;
+  transition: transform 0.2s;
 }
 
 .integration-card:hover {
-  border-color: var(--border-card);
+  transform: translateY(-2px);
+}
+
+.int-name {
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: rgba(255, 245, 225, 0.92);
+}
+
+.int-badge {
+  font-family: var(--font-mono);
+  font-size: 0.38rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  padding: 0.15rem 0.4rem;
+  border-radius: 4px;
+  border: 1px solid;
 }
 
 .attribution {
