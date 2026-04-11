@@ -19,6 +19,7 @@ interface Props {
   context: OrbitalContext
   current: CurrentAnchor
   solar: SolarAnchor
+  routeLabel?: string
 }
 
 const props = defineProps<Props>()
@@ -30,45 +31,66 @@ const elevationPct = computed(() => {
 })
 
 const isBelowHorizon = computed(() => props.solar.elevationDeg < 0)
+
+// Split elevation string for mixed-weight hero number
+const elevStr = computed(() => props.solar.elevationDeg.toFixed(1))
+const intPart = computed(() => elevStr.value.split('.')[0])
+const decPart = computed(() => elevStr.value.split('.')[1] ?? '0')
 </script>
 
 <template>
   <section class="orbital-card" aria-label="Orbital context HUD">
 
-    <!-- Header: label + rule + mode tag -->
-    <div class="orbital-header">
-      <span class="orbital-label font-mono">ORBITAL VIEW</span>
-      <div class="orbital-rule" />
-      <span class="orbital-mode font-mono">{{ context.label }}</span>
+    <!-- Top row: chip + solar phase pill -->
+    <div class="card-top">
+      <span class="card-chip">Solar Context</span>
+      <span class="pill">
+        <span class="pill-dot" aria-hidden="true" />
+        {{ solar.phase }}
+      </span>
     </div>
 
-    <!-- Location title -->
-    <h3 class="orbital-title">{{ current.label }}</h3>
-
-    <!-- Facts — instrument readout, hairlines only -->
-    <div class="orbital-facts">
-      <div class="orbital-fact">
-        <span class="orbital-fact-label font-mono">SOLAR PHASE</span>
-        <span class="orbital-fact-value font-mono">{{ solar.phase }}</span>
-      </div>
-      <div class="orbital-fact-divider" />
-      <div class="orbital-fact">
-        <span class="orbital-fact-label font-mono">ELEVATION</span>
-        <span
-          class="orbital-fact-value font-mono"
-          :class="{ 'orbital-fact-value--dim': isBelowHorizon }"
-        >
-          {{ solar.elevationDeg.toFixed(1) }}&deg;
-        </span>
-      </div>
+    <!-- Hero: elevation angle split into int/sep/dec/sym -->
+    <div class="elev-hero" :aria-label="`Solar elevation ${solar.elevationDeg.toFixed(1)} degrees`">
+      <span class="h-int">{{ intPart }}</span>
+      <span class="h-sep" aria-hidden="true">.</span>
+      <span class="h-dec">{{ decPart }}</span>
+      <span class="h-sym" aria-hidden="true">°</span>
     </div>
 
-    <!-- Elevation progress bar — solar arc tracker -->
-    <div class="orbital-elev-track" :aria-label="`Solar elevation: ${solar.elevationDeg.toFixed(1)}°`">
+    <!-- Sublabel -->
+    <p class="elev-sub">Solar Elevation · {{ current.label }}</p>
+
+    <!-- Hairline -->
+    <div class="hairline" aria-hidden="true" />
+
+    <!-- Elevation bar -->
+    <div
+      class="bar-track"
+      :aria-label="`Solar elevation: ${solar.elevationDeg.toFixed(1)}°`"
+    >
       <div
-        class="orbital-elev-fill"
+        class="bar-fill"
         :style="{ width: elevationPct + '%', opacity: isBelowHorizon ? 0.25 : 1 }"
       />
+    </div>
+
+    <!-- Stats -->
+    <div class="stats">
+      <div class="stat">
+        <span class="stat-label">Solar Phase</span>
+        <span class="stat-value">{{ solar.phase }}</span>
+      </div>
+      <div class="stat stat--right">
+        <template v-if="props.routeLabel">
+          <span class="stat-label">Route</span>
+          <span class="stat-value">→ {{ props.routeLabel }}</span>
+        </template>
+        <template v-else>
+          <span class="stat-label">Elevation</span>
+          <span class="stat-value">{{ solar.elevationDeg.toFixed(1) }}°</span>
+        </template>
+      </div>
     </div>
 
     <!-- Summary -->
@@ -78,145 +100,181 @@ const isBelowHorizon = computed(() => props.solar.elevationDeg < 0)
 </template>
 
 <style scoped>
+/* ── Card shell ─────────────────────────────────── */
 .orbital-card {
   display: flex;
   flex-direction: column;
-  gap: 0.5rem;
-  color: rgba(241, 245, 249, 0.92);
-  border-left: 2px solid rgba(255, 189, 118, 0.4);
-  padding-left: 0.75rem;
+  gap: 0;
+  background: color-mix(in srgb, #FFBD76 26%, #07111a);
+  border-radius: 1rem;
+  padding: 0.9rem 0.9rem 0.8rem 1rem;
 }
 
-/* ── Header ──────────────────────────────────────── */
-
-.orbital-header {
+/* ── Top row ────────────────────────────────────── */
+.card-top {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
+  justify-content: space-between;
+  margin-bottom: 0.6rem;
 }
 
-.orbital-label {
-  font-size: 0.42rem;
+.card-chip {
+  font-family: var(--font-mono);
+  font-size: 0.41rem;
   font-weight: 700;
-  letter-spacing: 0.22em;
+  letter-spacing: 0.18em;
   text-transform: uppercase;
-  color: rgba(148, 163, 184, 0.6);
+  color: rgba(255, 220, 160, 0.7);
+}
+
+.pill {
+  display: flex;
+  align-items: center;
+  gap: 0.28rem;
+  padding: 0.16rem 0.42rem;
+  border-radius: 20px;
+  background: rgba(255, 189, 118, 0.18);
+  color: #FFBD76;
+  font-family: var(--font-mono);
+  font-size: 0.39rem;
+  font-weight: 600;
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
+}
+
+.pill-dot {
+  display: inline-block;
+  width: 3.5px;
+  height: 3.5px;
+  border-radius: 50%;
+  background: currentColor;
   flex-shrink: 0;
 }
 
-.orbital-rule {
-  flex: 1;
+/* ── Hero elevation number ──────────────────────── */
+.elev-hero {
+  display: flex;
+  align-items: baseline;
+  gap: 0.08rem;
+  margin-bottom: 0.26rem;
+}
+
+.h-int,
+.h-dec {
+  font-family: var(--font-mono);
+  font-size: 2.2rem;
+  font-weight: 800;
+  letter-spacing: -0.04em;
+  color: rgba(255, 245, 225, 0.97);
+}
+
+.h-sep {
+  font-family: var(--font-mono);
+  font-size: 2.2rem;
+  font-weight: 300;
+  opacity: 0.22;
+  color: rgba(255, 245, 225, 0.97);
+}
+
+.h-sym {
+  font-family: var(--font-mono);
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: rgba(255, 220, 160, 0.65);
+  align-self: flex-end;
+  padding-bottom: 0.2rem;
+}
+
+/* ── Sublabel ───────────────────────────────────── */
+.elev-sub {
+  margin: 0 0 0.62rem;
+  font-family: var(--font-mono);
+  font-size: 0.4rem;
+  font-weight: 500;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: rgba(255, 220, 160, 0.55);
+}
+
+/* ── Hairline ───────────────────────────────────── */
+.hairline {
   height: 1px;
-  background: rgba(148, 163, 184, 0.18);
+  background: rgba(255, 189, 118, 0.15);
+  margin-bottom: 0.62rem;
 }
 
-.orbital-mode {
-  font-size: 0.4rem;
-  font-weight: 600;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  color: rgba(255, 189, 118, 0.85);
-  flex-shrink: 0;
-}
-
-/* ── Title ────────────────────────────────────────── */
-
-.orbital-title {
-  margin: 0;
-  font-size: 0.75rem;
-  font-weight: 600;
-  letter-spacing: -0.01em;
-  color: rgba(241, 245, 249, 0.95);
-  line-height: 1.1;
-}
-
-/* ── Facts — no boxes, just hairlines ─────────────── */
-
-.orbital-facts {
-  display: flex;
-  align-items: stretch;
-  border-top: 1px solid rgba(148, 163, 184, 0.14);
-  border-bottom: 1px solid rgba(148, 163, 184, 0.14);
-  padding: 0.5rem 0;
-}
-
-.orbital-fact {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  gap: 0.18rem;
-}
-
-.orbital-fact-divider {
-  width: 1px;
-  background: rgba(148, 163, 184, 0.14);
-  margin: 0 0.75rem;
-  flex-shrink: 0;
-}
-
-.orbital-fact-label {
-  font-size: 0.4rem;
-  font-weight: 700;
-  letter-spacing: 0.15em;
-  text-transform: uppercase;
-  color: rgba(148, 163, 184, 0.55);
-}
-
-.orbital-fact-value {
-  font-size: 0.72rem;
-  font-weight: 700;
-  letter-spacing: -0.02em;
-  color: rgba(241, 245, 249, 0.95);
-  transition: color 0.3s ease;
-}
-
-.orbital-fact-value--dim {
-  color: rgba(148, 163, 184, 0.55);
-}
-
-/* ── Elevation bar — solar arc tracker ────────────── */
-
-.orbital-elev-track {
-  width: 100%;
-  height: 3px;
-  border-radius: 1.5px;
-  background: rgba(148, 163, 184, 0.1);
+/* ── Elevation bar ──────────────────────────────── */
+.bar-track {
+  height: 4px;
+  border-radius: 2px;
+  background: rgba(255, 189, 118, 0.12);
+  margin-bottom: 0.68rem;
   overflow: hidden;
 }
 
-.orbital-elev-fill {
+.bar-fill {
   height: 100%;
-  border-radius: 1.5px;
-  background: linear-gradient(90deg, rgba(255, 189, 118, 0.35), rgba(255, 189, 118, 0.9));
+  border-radius: 2px;
+  background: linear-gradient(90deg, rgba(255, 189, 118, 0.5), #FFBD76);
   transition: width 1.2s ease, opacity 0.6s ease;
 }
 
-/* ── Summary ──────────────────────────────────────── */
-
-.orbital-summary {
-  margin: 0;
-  font-size: 0.65rem;
-  line-height: 1.4;
-  color: rgba(226, 232, 240, 0.55);
+/* ── Stats ──────────────────────────────────────── */
+.stats {
+  display: flex;
+  margin-bottom: 0.55rem;
 }
 
+.stat {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.14rem;
+}
+
+.stat--right {
+  border-left: 1px solid rgba(255, 189, 118, 0.12);
+  padding-left: 0.6rem;
+}
+
+.stat-label {
+  font-family: var(--font-mono);
+  font-size: 0.37rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: rgba(255, 220, 160, 0.52);
+}
+
+.stat-value {
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: rgba(255, 245, 225, 0.92);
+}
+
+/* ── Summary ────────────────────────────────────── */
+.orbital-summary {
+  margin: 0;
+  font-size: 0.58rem;
+  line-height: 1.45;
+  color: rgba(255, 220, 160, 0.38);
+}
+
+/* ── Responsive ─────────────────────────────────── */
 @media (max-width: 640px) {
-  .orbital-facts {
+  .stats {
     flex-direction: column;
     gap: 0.375rem;
-    border-bottom: none;
   }
-
-  .orbital-fact-divider {
-    display: none;
+  .stat--right {
+    border-left: none;
+    padding-left: 0;
   }
 }
 
 @media (max-width: 600px) {
-  .orbital-card {
-    gap: 0.35rem;
-  }
-
   .orbital-summary {
     display: none;
   }
