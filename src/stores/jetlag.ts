@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia'
 import { computed, ref } from 'vue'
 import SunCalc from 'suncalc'
+import { getTimezoneOffsetHours } from '@/lib/timezoneUtils'
 
 // ─── Interfaces ───────────────────────────────────────────────────────────────
 
@@ -58,37 +59,6 @@ export const TIMEZONE_CITIES: Record<string, CityMeta> = {
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 /**
- * Returns the UTC offset in hours for a given IANA timezone on a given date.
- * Uses Intl.DateTimeFormat to read the local time parts and compares with UTC
- * to derive the offset, handling DST automatically.
- */
-function getTzOffsetHours(tz: string, date: Date): number {
-  // Format the same instant in the target timezone and in UTC
-  const fmtOptions: Intl.DateTimeFormatOptions = {
-    timeZone: tz,
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-    second: '2-digit',
-    hour12: false
-  }
-
-  const parts = new Intl.DateTimeFormat('en-US', fmtOptions).formatToParts(date)
-  const get = (type: string): number => {
-    const p = parts.find((x) => x.type === type)
-    return p ? parseInt(p.value, 10) : 0
-  }
-
-  // Reconstruct local time as a UTC timestamp to find the offset
-  const localMs = Date.UTC(get('year'), get('month') - 1, get('day'), get('hour'), get('minute'), get('second'))
-  const offsetMs = localMs - date.getTime()
-  // Round to nearest quarter-hour to avoid floating-point noise
-  return Math.round((offsetMs / 3_600_000) * 4) / 4
-}
-
-/**
  * Build a Date on a specific calendar date (in local clock terms of the
  * destination timezone) at a given hour:minute.
  * Since JavaScript Dates are always UTC internally, we construct the value by
@@ -136,13 +106,14 @@ function toIsoDate(date: Date): string {
  * - Westward travel (negative offset delta) requires phase delay:
  *   bright evening light + later sleep each night.
  * - Caffeine is permitted from local wake time and cut off 6 h before the
- *   target sleep time to avoid melatonin suppression.
+ *   target sleep time as a conservative default to reduce residual caffeine
+ *   burden and possible sleep disruption or circadian phase delay.
  */
 function generateJetLagSchedule(input: TripInput): DayProtocol[] {
   const travelDate = new Date(input.travelDate + 'T12:00:00Z') // noon UTC anchor
 
-  const originOffset = getTzOffsetHours(input.originTz, travelDate)
-  const destOffset = getTzOffsetHours(input.destinationTz, travelDate)
+  const originOffset = getTimezoneOffsetHours(input.originTz, travelDate)
+  const destOffset = getTimezoneOffsetHours(input.destinationTz, travelDate)
 
   const totalShiftHours = destOffset - originOffset
 
@@ -239,7 +210,7 @@ function generateJetLagSchedule(input: TripInput): DayProtocol[] {
       lightWindowEnd = sunTimes.sunset
     }
 
-    // Caffeine: open at wake, close 6 h before target sleep
+    // Caffeine: open at wake, close 6 h before target sleep as the default conservative cutoff
     const caffeineOpen = targetWakeTime
     const caffeineClose = addHours(targetSleepTime, -6)
 
@@ -285,8 +256,8 @@ export const useJetLagStore = defineStore('jetlag', () => {
   const totalShiftHours = computed<number>(() => {
     if (!tripInput.value) return 0
     const anchor = new Date(tripInput.value.travelDate + 'T12:00:00Z')
-    const originOffset = getTzOffsetHours(tripInput.value.originTz, anchor)
-    const destOffset = getTzOffsetHours(tripInput.value.destinationTz, anchor)
+    const originOffset = getTimezoneOffsetHours(tripInput.value.originTz, anchor)
+    const destOffset = getTimezoneOffsetHours(tripInput.value.destinationTz, anchor)
     return Math.round((destOffset - originOffset) * 10) / 10
   })
 
