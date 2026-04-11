@@ -58,9 +58,9 @@ const progressPct = computed(() => {
   const nextT = nextEvent.value.time.getTime()
   const prevTimes = allTimes.filter(t => t <= now)
   const prevT = prevTimes.length > 0 ? prevTimes[prevTimes.length - 1] : allTimes[0]
-  const window = nextT - prevT
-  if (window <= 0) return 0
-  return Math.min(100, Math.round(((now - prevT) / window) * 100))
+  const windowMs = nextT - prevT
+  if (windowMs <= 0) return 0
+  return Math.min(100, Math.round(((now - prevT) / windowMs) * 100))
 })
 
 // Hours elapsed since wake — drives nap window logic
