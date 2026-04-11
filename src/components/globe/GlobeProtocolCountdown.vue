@@ -109,7 +109,12 @@ const destSolarPhase = computed(() => {
     <template v-if="props.selectedComparison">
       <div class="pcd-row pcd-row--space">
         <span class="pcd-chip">DESTINATION</span>
-        <span class="pcd-active-pill">● ACTIVE</span>
+        <button
+          class="pcd-dismiss"
+          type="button"
+          aria-label="Return to countdown"
+          @click="emit('select-destination', null)"
+        >✕</button>
       </div>
 
       <div class="pcd-city-row">
@@ -121,13 +126,6 @@ const destSolarPhase = computed(() => {
 
       <p class="pcd-solar-phase">{{ destSolarPhase }}</p>
       <p class="pcd-travel-readiness">{{ props.selectedComparison.travelReadiness }}</p>
-
-      <button
-        class="pcd-dismiss"
-        type="button"
-        aria-label="Return to countdown"
-        @click="emit('select-destination', null)"
-      >✕</button>
     </template>
 
     <!-- ── COUNTDOWN MODE (default) ────────────────────────────── -->
@@ -241,19 +239,6 @@ const destSolarPhase = computed(() => {
   background: #00D4AA;
   box-shadow: 0 0 5px #00D4AA;
   flex-shrink: 0;
-}
-
-/* Active pill (comparison mode) */
-.pcd-active-pill {
-  font-family: var(--font-mono);
-  font-size: 0.4rem;
-  font-weight: 700;
-  letter-spacing: 0.12em;
-  color: #00D4AA;
-  background: rgba(0, 212, 170, 0.12);
-  border: 1px solid rgba(0, 212, 170, 0.22);
-  border-radius: 20px;
-  padding: 0.18rem 0.4rem;
 }
 
 /* Sub-label above event name */
@@ -431,9 +416,6 @@ const destSolarPhase = computed(() => {
   font-family: var(--font-mono);
 }
 .pcd-dismiss {
-  position: absolute;
-  top: 0.6rem;
-  right: 0.7rem;
   font-size: 0.65rem;
   color: rgba(200, 190, 250, 0.4);
   background: none;
