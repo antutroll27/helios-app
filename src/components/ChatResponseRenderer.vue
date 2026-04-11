@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { type Component } from 'vue'
 import SpaceWeatherGauge from './SpaceWeatherGauge.vue'
 import ProtocolCard from './ProtocolCard.vue'
 import { Heart, Zap, Shield, Activity } from 'lucide-vue-next'
@@ -14,7 +15,7 @@ const props = defineProps<{
 }>()
 
 // Icon map for health metrics
-const healthIconMap: Record<string, object> = {
+const healthIconMap: Record<string, Component> = {
   heart: Heart,
   energy: Zap,
   immunity: Shield,
