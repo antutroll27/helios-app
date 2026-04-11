@@ -1,10 +1,12 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { useProtocolStore } from '@/stores/protocol'
+import { useSolarStore } from '@/stores/solar'
 import type { ProtocolItem } from '@/stores/protocol'
 import ProtocolCard from './ProtocolCard.vue'
 
 const protocol = useProtocolStore()
+const solar = useSolarStore()
 
 const protocolItems = computed<ProtocolItem[]>(() => {
   const p = protocol.dailyProtocol
@@ -18,14 +20,18 @@ const protocolItems = computed<ProtocolItem[]>(() => {
   ]
 })
 
-function getStatus(time: Date): 'upcoming' | 'active' | 'passed' {
-  const now = Date.now()
+function getStatus(time: Date, endTime?: Date): 'upcoming' | 'active' | 'passed' {
+  const now = solar.now.getTime()
   const t = time.getTime()
-  const diffMs = t - now
-  const diffMin = diffMs / 60_000
-
-  if (diffMs < 0) return 'passed'
-  if (diffMin <= 60) return 'active'
+  if (endTime) {
+    const e = endTime.getTime()
+    if (now > e) return 'passed'
+    if (now >= t) return 'active'
+    return 'upcoming'
+  }
+  // moment-based fallback: 60-min lookahead
+  if (t < now) return 'passed'
+  if ((t - now) / 60_000 <= 60) return 'active'
   return 'upcoming'
 }
 </script>
@@ -50,10 +56,11 @@ function getStatus(time: Date): 'upcoming' | 'active' | 'passed' {
         :key="item.key"
         :title="item.title"
         :time="item.time"
+        :end-time="item.endTime"
         :icon="item.icon"
         :citation="item.citation"
         :subtitle="item.subtitle"
-        :status="getStatus(item.time)"
+        :status="getStatus(item.time, item.endTime)"
       />
     </div>
   </div>
