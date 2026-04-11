@@ -67,8 +67,6 @@ export const useSolarStore = defineStore('solar', () => {
     const dawnMs = times.value.dawn.getTime()
     const duskMs = times.value.dusk.getTime()
     const nightMs = times.value.night.getTime()
-    const nightStartMs = times.value.nightEnd ? times.value.nightEnd.getTime() : 0
-
     if (el >= 60) return 'High Sun'
     if (el >= 15 && t > sunriseMs && t < sunsetMs) {
       if (Math.abs(t - noonMs) < 90 * 60 * 1000) return 'Solar Noon'
@@ -79,7 +77,6 @@ export const useSolarStore = defineStore('solar', () => {
     if (t > sunsetMs && t <= duskMs) return 'Civil Twilight'
     if (t > duskMs && t <= nightMs) return 'Nautical Twilight'
     if (t < dawnMs || t > nightMs) return 'Night'
-    if (nightStartMs && t >= nightStartMs && t < dawnMs) return 'Astronomical Night'
     return 'Night'
   })
 
