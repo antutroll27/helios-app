@@ -55,7 +55,7 @@ export const useProtocolStore = defineStore('protocol', () => {
 
   const wakeWindowTime = computed<Date>(() => {
     const idealWake = addHours(sleepTime.value, 8)
-    return idealWake > solar.wakeWindowStart ? idealWake : solar.wakeWindowStart
+    return idealWake.getTime() > solar.wakeWindowStart.getTime() ? idealWake : solar.wakeWindowStart
   })
 
   const wakeWindowEnd = computed<Date>(() => addMinutes(wakeWindowTime.value, 30))
