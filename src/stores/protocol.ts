@@ -249,19 +249,18 @@ export const useProtocolStore = defineStore('protocol', () => {
         citation: 'Optimal sleep onset aligned with solar cycle and chronotype',
         subtitle: `Target sleep by ${fmt(sleepTime.value)} (${user.chronotype} chronotype).${solarAlignmentNote}`,
         vizData: (() => {
-          const nadir = solar.nadir
-          const gapMs = Math.abs(sleepTime.value.getTime() - nadir.getTime())
-          const gapH = (gapMs / 3_600_000).toFixed(1)
-          const alignPct = Math.max(0, Math.round((1 - gapMs / (6 * 3_600_000)) * 100))
+          const gapMin = solarAlignmentGapMinutes.value  // already wrap-corrected and capped at 360 min
+          const alignPct = Math.max(0, Math.round((1 - gapMin / 360) * 100))
+          const gapH = (gapMin / 60).toFixed(1)
           return {
-            supLabel: 'LATE',
+            supLabel: alignPct >= 70 ? 'ALIGNED' : 'LATE',
             ringPct: alignPct,
             ringCenter: String(alignPct),
             ringUnit: 'ALIGN%',
             stat1Label: 'Solar gap',
             stat1Value: `${gapH}h`,
             stat2Label: 'Solar midnight',
-            stat2Value: fmt(nadir),
+            stat2Value: fmt(solar.nadir),
           }
         })(),
       },
