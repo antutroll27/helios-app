@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import { computed, ref, onMounted, onUnmounted } from 'vue'
-import GlobeComparisonHud from './GlobeComparisonHud.vue'
+import { computed } from 'vue'
 import GlobeOrbitalContext from './GlobeOrbitalContext.vue'
+import GlobeProtocolCountdown from './GlobeProtocolCountdown.vue'
 import GlobeStatStrip from './GlobeStatStrip.vue'
 import HeliosCobeGlobe from './HeliosCobeGlobe.vue'
 import { useCobeGlobeData } from '@/composables/useCobeGlobeData'
@@ -14,13 +14,13 @@ const {
   selectedDestinationId,
   orbitalContext,
   selectDestination,
+  clearDestination,
 } = useCobeGlobeData()
 
 const headerStatus = computed(() => {
   if (!selectedComparison.value) {
     return `${currentSnapshot.value.label} | ${localSolar.value.phase}`
   }
-
   return `${currentSnapshot.value.label} to ${selectedComparison.value.label}`
 })
 
@@ -29,44 +29,23 @@ const timingLabel = computed(() => {
   if (!comparison) {
     return `Sunrise ${localSolar.value.sunriseLabel} | Sunset ${localSolar.value.sunsetLabel}`
   }
-
   const sunriseDelta = formatSignedMinutes(comparison.sunriseDeltaMinutes)
   const sunsetDelta = formatSignedMinutes(comparison.sunsetDeltaMinutes)
-
   return `Sunrise ${sunriseDelta} | Sunset ${sunsetDelta}`
 })
 
 function formatSignedMinutes(value: number) {
   if (value === 0) return 'aligned'
-
   const direction = value > 0 ? '+' : '-'
   return `${direction}${Math.abs(value)}m`
 }
 
-// ── Mobile rail toggle ────────────────────────────────────────────────────
-const showRail = ref(false)
-const isMobile = ref(false)
-
-const handleResize = () => {
-  isMobile.value = window.innerWidth <= 600
-}
-
-onMounted(() => {
-  handleResize()
-  window.addEventListener('resize', handleResize)
-})
-
-onUnmounted(() => {
-  window.removeEventListener('resize', handleResize)
-})
-
-function toggleRail() {
-  showRail.value = !showRail.value
-}
-
-function onDestinationSelect(id: string) {
-  selectDestination(id)
-  showRail.value = false
+function handleDestSelect(id: string | null) {
+  if (id === null) {
+    clearDestination()
+  } else {
+    selectDestination(id)
+  }
 }
 </script>
 
@@ -89,6 +68,12 @@ function onDestinationSelect(id: string) {
             :solar="localSolar"
             :route-label="selectedComparison?.label"
           />
+
+          <GlobeProtocolCountdown
+            :selected-comparison="selectedComparison"
+            :comparisons="comparisons"
+            @select-destination="handleDestSelect"
+          />
         </section>
       </div>
 
@@ -100,26 +85,6 @@ function onDestinationSelect(id: string) {
           :selected-destination-id="selectedDestinationId"
         />
       </div>
-
-      <div class="globe-panel__overlay globe-panel__overlay--rail">
-        <GlobeComparisonHud
-          v-show="!isMobile || showRail"
-          :comparisons="comparisons"
-          :selected-destination-id="selectedDestinationId"
-          @select-destination="onDestinationSelect"
-        />
-      </div>
-
-      <!-- Mobile-only destination pill toggle -->
-      <button
-        v-if="isMobile"
-        class="globe-panel__dest-pill font-mono"
-        type="button"
-        @click="toggleRail"
-      >
-        <span v-if="selectedComparison" class="globe-panel__dest-pill-dot" />
-        {{ selectedComparison?.label ?? 'DEST' }} ↗
-      </button>
 
       <div class="globe-panel__overlay globe-panel__overlay--stats">
         <GlobeStatStrip
@@ -252,13 +217,6 @@ function onDestinationSelect(id: string) {
   gap: 0.6rem;
 }
 
-.globe-panel__overlay--rail {
-  top: 50%;
-  right: 1.25rem;
-  transform: translateY(-52%);
-  max-width: min(15rem, 24vw);
-}
-
 .globe-panel__overlay--stats {
   left: 50%;
   right: auto;
@@ -280,14 +238,6 @@ function onDestinationSelect(id: string) {
     top: 1rem;
     left: 1rem;
     width: min(14rem, calc(100% - 5.4rem));
-  }
-
-  .globe-panel__overlay--rail {
-    top: auto;
-    right: 0.9rem;
-    bottom: 6rem;
-    transform: none;
-    max-width: min(13.6rem, calc(100% - 1.8rem));
   }
 
   .globe-panel__overlay--stats {
@@ -338,14 +288,6 @@ function onDestinationSelect(id: string) {
     width: min(13rem, calc(100% - 5.5rem));
   }
 
-  .globe-panel__overlay--rail {
-    top: 4.7rem;
-    right: 0.75rem;
-    bottom: auto;
-    left: auto;
-    max-width: min(13rem, calc(100% - 5rem));
-  }
-
   .globe-panel__overlay--stats {
     left: 50%;
     right: auto;
@@ -355,10 +297,7 @@ function onDestinationSelect(id: string) {
   }
 }
 
-/* ── Mobile (≤ 600px) ───────────────────────────────────────────────────── */
-
 @media (max-width: 600px) {
-  /* Orbital context card — full width strip */
   .globe-panel__overlay--intro {
     top: 0.75rem;
     left: 0.75rem;
@@ -366,59 +305,8 @@ function onDestinationSelect(id: string) {
     width: auto;
   }
 
-  /* Comparison HUD — repositioned above pill when open */
-  .globe-panel__overlay--rail {
-    top: auto;
-    bottom: 6rem;
-    right: 0.75rem;
-    left: auto;
-    transform: none;
-    max-width: min(14rem, calc(100% - 1.5rem));
-    z-index: 2;
-  }
-
-  /* Globe stage — extra top padding to clear full-width intro card */
   .globe-panel__stage {
     padding-top: 5.5rem;
-  }
-
-  /* Destination pill — mobile-only floating toggle */
-  .globe-panel__dest-pill {
-    position: absolute;
-    z-index: 3;
-    bottom: 4.25rem;
-    right: 0.75rem;
-    display: flex;
-    align-items: center;
-    gap: 0.3rem;
-    padding: 0.32rem 0.6rem;
-    border: 1px solid rgba(148, 163, 184, 0.22);
-    border-radius: 999px;
-    background: rgba(7, 14, 27, 0.82);
-    backdrop-filter: blur(12px);
-    -webkit-backdrop-filter: blur(12px);
-    color: rgba(241, 245, 249, 0.9);
-    font-size: 0.55rem;
-    font-weight: 600;
-    letter-spacing: 0.12em;
-    text-transform: uppercase;
-    cursor: pointer;
-    appearance: none;
-  }
-
-  .globe-panel__dest-pill-dot {
-    width: 5px;
-    height: 5px;
-    border-radius: 50%;
-    background: rgba(255, 189, 118, 0.9);
-    flex-shrink: 0;
-  }
-}
-
-/* Pill is mobile-only — explicitly hidden on desktop */
-@media (min-width: 601px) {
-  .globe-panel__dest-pill {
-    display: none;
   }
 }
 </style>
