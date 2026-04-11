@@ -23,7 +23,7 @@ async function fullReload() {
   isReloading.value = true
   // Reset onboarding so judges can see it
   user.hasCompletedOnboarding = false
-  localStorage.removeItem('helios_onboarded')
+  localStorage.removeItem('helios_hasCompletedOnboarding')
   // Re-fetch all data
   await geo.requestLocation()
   await Promise.allSettled([
@@ -84,7 +84,7 @@ async function fullReload() {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0.6rem 1.25rem;
+  padding: 0.42rem 1.1rem;
   background: var(--glass-bg);
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
@@ -132,21 +132,21 @@ async function fullReload() {
   flex-direction: column;
   align-items: center;
   overflow: visible;
-  padding: 0.25rem 0;
+  padding: 0.12rem 0;
 }
 
 .nav-logo-svg {
-  height: 36px;
+  height: 30px;
   width: auto;
   color: var(--text-primary);
   display: block;
 }
 
 .nav-tagline {
-  font-size: 0.35rem;
-  letter-spacing: 0.25em;
+  font-size: 0.31rem;
+  letter-spacing: 0.22em;
   color: var(--text-muted);
-  margin-top: 0.1rem;
+  margin-top: 0.05rem;
 }
 
 /* Right */
