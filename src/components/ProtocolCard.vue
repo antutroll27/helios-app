@@ -46,7 +46,7 @@ const isRingCard  = computed(() => ['Moon', 'BedDouble'].includes(props.icon))
 
 // ── Unique gradient ID suffix (prevents SVG id collisions) ─────────
 // 6 cards render simultaneously; each needs unique gradient element IDs
-const uid = Math.random().toString(36).slice(2, 6)
+const uid = Math.random().toString(36).slice(2, 8)  // 6 chars: 36^6 = 2.1B possibilities
 
 // ── Ring progress ──────────────────────────────────────────────────
 // Circumference of r=30 circle ≈ 188.5; dashoffset controls fill
@@ -69,7 +69,7 @@ const curvePathPoints: Record<string, [number, number][]> = {
 }
 
 const VB_W = 216
-const VB_H = 75
+const VB_H = 80
 
 function lerp(a: number, b: number, t: number) { return a + (b - a) * t }
 
@@ -128,7 +128,7 @@ function onCurveMouseMove(e: MouseEvent) {
 
       <!-- Clock arc — Wake Window (Sunrise) -->
       <div v-if="isArcCard" class="pill-data-wrap">
-        <svg width="68" height="68" viewBox="0 0 72 72" style="flex-shrink:0">
+        <svg width="68" height="68" viewBox="0 0 72 72" style="flex-shrink:0" aria-hidden="true">
           <circle cx="36" cy="36" r="28" fill="none" stroke="rgba(255,246,233,0.07)" stroke-width="4"/>
           <path d="M36 8 A28 28 0 0 1 64 36" fill="none" stroke="rgba(255,246,233,0.09)" stroke-width="4" stroke-linecap="round"/>
           <path d="M64 36 A28 28 0 0 1 55.8 55.8" fill="none" :stroke="theme" stroke-width="5" stroke-linecap="round"/>
@@ -170,7 +170,7 @@ function onCurveMouseMove(e: MouseEvent) {
         />
 
         <!-- Morning Light: bell curve centred on solar noon, NOW marker at sunrise -->
-        <svg v-if="icon === 'Sun'" viewBox="0 0 216 75" preserveAspectRatio="xMidYMid meet">
+        <svg v-if="icon === 'Sun'" viewBox="0 0 216 80" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
           <defs>
             <linearGradient :id="`g-sun-${uid}`" x1="0" y1="0" x2="0" y2="1">
               <stop offset="0%" :stop-color="theme" stop-opacity="0.5"/>
@@ -189,7 +189,7 @@ function onCurveMouseMove(e: MouseEvent) {
         </svg>
 
         <!-- Peak Focus: bell curve with 15–18h window highlight -->
-        <svg v-else-if="icon === 'Brain'" viewBox="0 0 216 75" preserveAspectRatio="xMidYMid meet">
+        <svg v-else-if="icon === 'Brain'" viewBox="0 0 216 80" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
           <defs>
             <linearGradient :id="`g-foc-${uid}`" x1="0" y1="0" x2="0" y2="1">
               <stop offset="0%" :stop-color="theme" stop-opacity="0.5"/>
@@ -207,7 +207,7 @@ function onCurveMouseMove(e: MouseEvent) {
         </svg>
 
         <!-- Caffeine Cutoff: flat high → exponential decay at cutoff marker -->
-        <svg v-else-if="icon === 'Coffee'" viewBox="0 0 216 75" preserveAspectRatio="xMidYMid meet">
+        <svg v-else-if="icon === 'Coffee'" viewBox="0 0 216 80" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
           <defs>
             <linearGradient :id="`g-caf-${uid}`" x1="0" y1="0" x2="0" y2="1">
               <stop offset="0%" :stop-color="theme" stop-opacity="0.5"/>
@@ -228,7 +228,7 @@ function onCurveMouseMove(e: MouseEvent) {
 
       <!-- Ring progress — Wind-Down (Moon), Sleep Window (BedDouble) -->
       <div v-else-if="isRingCard" class="pill-data-wrap">
-        <svg width="64" height="64" viewBox="0 0 76 76" style="flex-shrink:0">
+        <svg width="64" height="64" viewBox="0 0 76 76" style="flex-shrink:0" aria-hidden="true">
           <circle cx="38" cy="38" r="30" fill="none" stroke="rgba(255,246,233,0.08)" stroke-width="5.5"/>
           <circle
             cx="38" cy="38" r="30"
@@ -294,6 +294,7 @@ function onCurveMouseMove(e: MouseEvent) {
 }
 
 .card-dot {
+  display: block;
   width: 6px;
   height: 6px;
   border-radius: 50%;
