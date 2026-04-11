@@ -61,6 +61,7 @@ function getStatus(time: Date, endTime?: Date): 'upcoming' | 'active' | 'passed'
         :citation="item.citation"
         :subtitle="item.subtitle"
         :status="getStatus(item.time, item.endTime)"
+        :viz-data="item.vizData"
       />
     </div>
   </div>
