@@ -65,10 +65,7 @@ const decPart = computed(() => elevStr.value.split('.')[1] ?? '0')
     <div class="hairline" aria-hidden="true" />
 
     <!-- Elevation bar -->
-    <div
-      class="bar-track"
-      :aria-label="`Solar elevation: ${solar.elevationDeg.toFixed(1)}°`"
-    >
+    <div class="bar-track" aria-hidden="true">
       <div
         class="bar-fill"
         :style="{ width: elevationPct + '%', opacity: isBelowHorizon ? 0.25 : 1 }"
@@ -104,7 +101,6 @@ const decPart = computed(() => elevStr.value.split('.')[1] ?? '0')
 .orbital-card {
   display: flex;
   flex-direction: column;
-  gap: 0;
   background: color-mix(in srgb, #FFBD76 26%, #07111a);
   border-radius: 1rem;
   padding: 0.9rem 0.9rem 0.8rem 1rem;
@@ -263,7 +259,7 @@ const decPart = computed(() => elevStr.value.split('.')[1] ?? '0')
 }
 
 /* ── Responsive ─────────────────────────────────── */
-@media (max-width: 640px) {
+@media (max-width: 600px) {
   .stats {
     flex-direction: column;
     gap: 0.375rem;
@@ -272,9 +268,6 @@ const decPart = computed(() => elevStr.value.split('.')[1] ?? '0')
     border-left: none;
     padding-left: 0;
   }
-}
-
-@media (max-width: 600px) {
   .orbital-summary {
     display: none;
   }
