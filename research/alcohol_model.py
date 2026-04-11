@@ -252,6 +252,8 @@ class AlcoholModel:
                 "(Pietila 2018)."
             )
 
+        advisory += " This is a citation-informed heuristic and individual response varies."
+
         return {
             "bac_at_bedtime": bac,
             "rmssd_pct_change": rmssd_pct_change,
@@ -259,6 +261,7 @@ class AlcoholModel:
             "deep_sleep_change": deep_sleep_change,
             "second_half_awakenings": second_half_awakenings,
             "rhr_increase_bpm": rhr_increase_bpm,
+            "model_type": "heuristic",
             "advisory": advisory,
         }
 

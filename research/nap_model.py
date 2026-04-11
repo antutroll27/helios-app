@@ -275,6 +275,8 @@ class NapModel:
                 f"by ~{night_sleep_impact_pct:.0f}% (Milner & Cote 2009)."
             )
 
+        advisory += " Nap findings are study-specific and should be treated as a heuristic, not a general personal prediction."
+
         return {
             "should_nap": should_nap,
             "optimal_nap_time_hours": optimal_nap_time,
@@ -283,6 +285,7 @@ class NapModel:
             "sleep_inertia_risk_min": sleep_inertia_risk_min,
             "night_sleep_impact_pct": night_sleep_impact_pct,
             "latest_safe_nap_hours": round(latest_safe_nap, 1),
+            "model_type": "heuristic",
             "advisory": advisory,
         }
 

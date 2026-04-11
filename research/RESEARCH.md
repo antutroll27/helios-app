@@ -1,7 +1,7 @@
 # HELIOS Research Roadmap
 
 ## Overview
-This document tracks peer-reviewed papers, open source libraries, data sources, and architecture decisions for the HELIOS circadian intelligence engine. Everything here is backed by citations and intended to be converted into Python algorithms.
+This document tracks peer-reviewed papers, open source libraries, data sources, and architecture decisions for the HELIOS circadian intelligence engine. Literature findings, current heuristic implementations, and future roadmap items are distinct: cited papers inform the models, but current code paths are not automatically validated for individual prediction.
 
 ---
 

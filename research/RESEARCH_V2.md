@@ -2,7 +2,7 @@
 
 ## 10 New Python Modules to Build
 
-Based on peer-reviewed quantitative models ready to convert to code.
+Based on peer-reviewed findings that can inform code, while current implementations may still require heuristic simplifications and are not automatically validated for individual prediction.
 
 ### Module 1: `alcohol_model.py` (Priority: HIGH — simplest math, high user demand)
 - **Pietilä et al. (2018, JMIR, n=4,098 nights)**: 1-2 drinks = -9.3% HRV, 3-4 = -24%, 5+ = -39.2%

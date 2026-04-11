@@ -233,16 +233,21 @@ class CircadianLightModel:
 
         # Advisory
         if suppression_pct < 10:
-            advisory = "Minimal melatonin suppression. Sleep onset should be unaffected."
+            advisory = (
+                "rough risk estimate: minimal melatonin suppression under this model. "
+                "Sleep effects may be small, but individual sensitivity varies."
+            )
         elif suppression_pct < 30:
             advisory = (
-                f"Moderate suppression ({suppression_pct:.0f}%). "
-                f"Expect ~{onset_delay_min:.0f} min delay in sleep onset."
+                f"rough risk estimate: moderate suppression ({suppression_pct:.0f}%) with "
+                f"an approximate {onset_delay_min:.0f} min sleep-onset delay. "
+                "This is a heuristic, not a validated personal forecast."
             )
         else:
             advisory = (
-                f"Significant suppression ({suppression_pct:.0f}%). "
-                f"Expect ~{onset_delay_min:.0f} min delay. Dim lights or use blue-blocking glasses."
+                f"rough risk estimate: higher suppression ({suppression_pct:.0f}%) with "
+                f"an approximate {onset_delay_min:.0f} min sleep-onset delay. "
+                "Treat this as a heuristic and dim lights if the exposure is avoidable."
             )
 
         return {
@@ -250,6 +255,7 @@ class CircadianLightModel:
             "onset_delay_min": onset_delay_min,
             "ed50_used": round(ed50, 1),
             "age_factor": round(age_f, 2),
+            "model_type": "heuristic",
             "advisory": advisory,
         }
 

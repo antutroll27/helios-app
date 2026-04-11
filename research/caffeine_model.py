@@ -310,8 +310,10 @@ class CaffeineModel:
             cutoff_dt = bedtime - timedelta(hours=hours_needed)
             recommended = cutoff_dt.strftime("%H:%M")
             advisory = (
-                f"With a {half_life:.1f}h half-life, a {dose_mg}mg dose needs "
-                f"{hours_needed:.1f}h to decay to {target_remaining_mg}mg. "
+                f"default conservative estimate: with a {half_life:.1f}h half-life, "
+                f"a {dose_mg}mg dose needs {hours_needed:.1f}h to decay to "
+                f"{target_remaining_mg}mg. This reduces residual caffeine burden near "
+                f"bedtime, but it is not a personalized safety promise for every dose or metabolism. "
                 f"Last coffee by {recommended} for a {bedtime.strftime('%H:%M')} bedtime."
             )
 
@@ -319,6 +321,7 @@ class CaffeineModel:
             "cutoff_times": cutoff_times,
             "recommended": recommended,
             "half_life_h": half_life,
+            "model_type": "heuristic",
             "advisory": advisory,
         }
 

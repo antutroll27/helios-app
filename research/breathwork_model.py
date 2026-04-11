@@ -232,11 +232,11 @@ class BreathworkModel:
             quality = "mild"
 
         advisory = (
-            f"{quality.capitalize()} HRV response predicted: +{rmssd_delta_ms}ms rMSSD "
+            f"rough estimate: {quality} HRV response of about +{rmssd_delta_ms}ms rMSSD "
             f"({pct_increase_final}% increase) during {duration_min}min {technique} breathing "
-            f"at {breaths_per_min} bpm. Post-session: +{post_delta}ms residual for "
-            f"~{post_hours}h (Laborde 2022). "
-            f"LF/HF shifts from ~2.5 to {lf_hf_during} (parasympathetic dominance)."
+            f"at {breaths_per_min} bpm. Post-session residual may be about +{post_delta}ms "
+            f"for ~{post_hours}h (Laborde 2022). This is a citation-informed heuristic, "
+            f"not a validated personal prediction."
         )
 
         return {
@@ -246,6 +246,7 @@ class BreathworkModel:
             "post_duration_hours": post_hours,
             "lf_hf_during": lf_hf_during,
             "optimal_rate_bpm": optimal_bpm,
+            "model_type": "heuristic",
             "advisory": advisory,
         }
 

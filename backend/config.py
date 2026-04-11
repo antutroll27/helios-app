@@ -39,18 +39,30 @@ CORS_ORIGINS = os.environ.get(
 PROVIDER_CONFIGS = {
     "openai": {
         "base_url": "https://api.openai.com/v1/chat/completions",
-        "model": "gpt-5.3",
+        "model": "gpt-5.4",
     },
     "claude": {
         "base_url": "https://api.anthropic.com/v1/messages",
-        "model": "claude-opus-4-6",
+        "model": "claude-sonnet-4-6",
+    },
+    "gemini": {
+        "base_url": "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions",
+        "model": "gemini-3.1-pro-preview",
+    },
+    "grok": {
+        "base_url": "https://api.x.ai/v1/chat/completions",
+        "model": "grok-4.20-0309-non-reasoning",
+    },
+    "perplexity": {
+        "base_url": "https://api.perplexity.ai/chat/completions",
+        "model": "sonar-pro",
     },
     "kimi": {
         "base_url": "https://api.deepinfra.com/v1/openai/chat/completions",
-        "model": "moonshotai/Kimi-K2-Instruct",
+        "model": "moonshotai/Kimi-K2.5",
     },
     "glm": {
         "base_url": "https://open.bigmodel.cn/api/paas/v4/chat/completions",
-        "model": "glm-4-flash",
+        "model": "glm-5.1",
     },
 }
