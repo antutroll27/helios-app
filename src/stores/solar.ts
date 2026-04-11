@@ -1,5 +1,5 @@
 import { defineStore } from 'pinia'
-import { computed, ref, onUnmounted } from 'vue'
+import { computed, ref, onScopeDispose } from 'vue'
 import SunCalc from 'suncalc'
 import { useGeoStore } from './geo'
 
@@ -15,7 +15,7 @@ export const useSolarStore = defineStore('solar', () => {
 
   // Auto-refresh every 60 seconds; cleared when the store is disposed
   const _nowInterval = setInterval(refreshNow, 60_000)
-  onUnmounted(() => clearInterval(_nowInterval))
+  onScopeDispose(() => clearInterval(_nowInterval))
 
   // ─── SunCalc raw data ────────────────────────────────────────────────────────
 
