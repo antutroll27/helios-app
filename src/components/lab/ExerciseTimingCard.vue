@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { computed } from 'vue'
 import { useExerciseTiming } from '../../composables/lab/useExerciseTiming'
 import type { Chronotype } from '../../composables/lab/useExerciseTiming'
 import LabCard from './LabCard.vue'
@@ -16,12 +17,10 @@ function formatHour(h: number): string {
   return `${h.toString().padStart(2, '0')}:00`
 }
 
-// Dynamic evidence effect string
-function effectLabel(): string {
-  const ct = chronotype.value
-  const h  = hour.value
-  return `${result.value.label} (${ct} chronotype, ${formatHour(h)})`
-}
+// Dynamic evidence effect string — computed so reactivity is explicit
+const effectLabel = computed(() =>
+  `${result.value.label} (${chronotype.value} chronotype, ${formatHour(hour.value)})`
+)
 </script>
 
 <template>
@@ -102,7 +101,7 @@ function effectLabel(): string {
     <!-- ── Evidence ── -->
     <template #evidence>
       <LabEvidenceBlock
-        :effect="effectLabel()"
+        :effect="effectLabel"
         population="Human PRC exercise studies (Youngstedt 2019), Thomas 2020 n=51"
         caveat="Chronotype and training status change the magnitude of the shift"
       />
