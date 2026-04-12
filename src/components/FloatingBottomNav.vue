@@ -38,7 +38,7 @@ function isActive(to: string) {
       :aria-current="isActive(item.to) ? 'page' : undefined"
       @click="router.push(item.to)"
     >
-      <component :is="item.icon" :size="16" class="fnav-icon" />
+      <component :is="item.icon" :size="20" class="fnav-icon" />
       <span class="fnav-label">{{ item.label }}</span>
     </button>
   </nav>
@@ -47,27 +47,33 @@ function isActive(to: string) {
 <style scoped>
 .fnav {
   position: fixed;
-  bottom: 1.5rem;
+  /* env() accounts for iPhone home bar / Android gesture strip */
+  bottom: calc(1.5rem + env(safe-area-inset-bottom, 0px));
   left: 50%;
   transform: translateX(-50%);
-  z-index: 100;
+  z-index: 9999;
   display: flex;
   align-items: center;
-  gap: 0.2rem;
-  padding: 0.3rem;
+  gap: 0.25rem;
+  padding: 0.4rem;
   background: var(--glass-bg);
-  backdrop-filter: blur(24px);
-  -webkit-backdrop-filter: blur(24px);
+  backdrop-filter: blur(28px);
+  -webkit-backdrop-filter: blur(28px);
   border: 1px solid var(--glass-border);
   border-radius: 999px;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.45), 0 2px 8px rgba(0, 0, 0, 0.25);
+  /* Layered shadow: ambient depth + tight contact shadow + outer glow */
+  box-shadow:
+    0 2px 4px  rgba(0, 0, 0, 0.35),
+    0 8px 24px rgba(0, 0, 0, 0.55),
+    0 20px 48px rgba(0, 0, 0, 0.4),
+    0 0 0 1px rgba(255, 246, 233, 0.04);
 }
 
 .fnav-btn {
   display: flex;
   align-items: center;
   gap: 0;
-  padding: 0.52rem 0.65rem;
+  padding: 0.7rem 0.85rem;
   border: none;
   background: transparent;
   border-radius: 999px;
@@ -88,8 +94,8 @@ function isActive(to: string) {
 }
 
 .fnav-btn--active {
-  padding: 0.52rem 1rem;
-  gap: 0.42rem;
+  padding: 0.7rem 1.2rem;
+  gap: 0.5rem;
 }
 
 .fnav-icon {
@@ -98,7 +104,7 @@ function isActive(to: string) {
 }
 
 .fnav-label {
-  font-size: 0.6rem;
+  font-size: 0.7rem;
   font-weight: 600;
   letter-spacing: 0.03em;
   max-width: 0;
@@ -110,7 +116,14 @@ function isActive(to: string) {
 }
 
 .fnav-btn--active .fnav-label {
-  max-width: 90px;
+  max-width: 100px;
   opacity: 1;
+}
+
+/* Guarantee it clears page content on all screens */
+@media (max-width: 640px) {
+  .fnav {
+    bottom: calc(1.25rem + env(safe-area-inset-bottom, 0px));
+  }
 }
 </style>

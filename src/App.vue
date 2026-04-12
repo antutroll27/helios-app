@@ -40,9 +40,16 @@ onUnmounted(() => {
     }"
   >
     <NavBar />
-    <main>
+    <main class="main-content">
       <RouterView />
     </main>
     <FloatingBottomNav />
   </div>
 </template>
+
+<style>
+/* Give every page breathing room above the floating nav */
+.main-content {
+  padding-bottom: calc(5rem + env(safe-area-inset-bottom, 0px));
+}
+</style>
