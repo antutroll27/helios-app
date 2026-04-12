@@ -13,6 +13,12 @@ from backend.memory.memory_service import MemoryService
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    """Initialize shared resources on startup; clean up on shutdown."""
+    if not SUPABASE_URL or not SUPABASE_KEY:
+        raise RuntimeError(
+            "[helios] SUPABASE_URL and SUPABASE_KEY must be set. "
+            "Add them to backend/.env (see schema.sql for the project URL)."
+        )
     # Startup
     supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
     app.state.supabase = supabase
