@@ -120,7 +120,7 @@ async def send_message(
     parsed = parse_ai_response(raw_response)
 
     # --- Session persistence ---
-    enc_key = encrypt_api_key(api_key)  # always encrypt; decrypt in end_session for Hermes
+    enc_key = encrypt_api_key(api_key) if not using_shared else None
 
     if not body.session_id:
         # New session — create row in DB
@@ -191,6 +191,10 @@ async def end_session(
 
     session_row = session_result.data[0]
 
+    # Guard: prevent double-processing if already ended (inactivity timer + unmount race)
+    if session_row.get("ended_at"):
+        return {"status": "already_ended", "session_id": session_id}
+
     # Mark session ended
     supabase.table("chat_sessions") \
         .update({"ended_at": datetime.now(UTC).isoformat()}) \
@@ -198,10 +202,10 @@ async def end_session(
 
     # Count messages to decide whether Hermes should run
     count_result = supabase.table("chat_messages") \
-        .select("id") \
+        .select("id", count="exact") \
         .eq("session_id", session_id) \
         .execute()
-    message_count = len(count_result.data) if count_result.data else 0
+    message_count = count_result.count or 0
 
     hermes_queued = False
     if message_count >= 4:
