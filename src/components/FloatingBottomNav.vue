@@ -55,7 +55,7 @@ function isActive(to: string) {
   display: flex;
   align-items: center;
   gap: 0.25rem;
-  padding: 0.4rem;
+  padding: 0.4rem 0.55rem;
   background: var(--glass-bg);
   backdrop-filter: blur(28px);
   -webkit-backdrop-filter: blur(28px);
@@ -73,7 +73,7 @@ function isActive(to: string) {
   display: flex;
   align-items: center;
   gap: 0;
-  padding: 0.7rem 0.85rem;
+  padding: 0.7rem 1.1rem;
   border: none;
   background: transparent;
   border-radius: 999px;
@@ -94,7 +94,7 @@ function isActive(to: string) {
 }
 
 .fnav-btn--active {
-  padding: 0.7rem 1.2rem;
+  padding: 0.7rem 1.5rem;
   gap: 0.5rem;
 }
 
