@@ -16,10 +16,13 @@ export const useAuthStore = defineStore('auth', () => {
   const isAuthenticated = computed(() => user.value !== null)
 
   function init() {
+    if (_subscription) return  // already initialized — prevent duplicate listeners
     loading.value = true
     supabase.auth.getSession().then(({ data }) => {
       session.value = data.session
       user.value    = data.session?.user ?? null
+      loading.value = false
+    }).catch(() => {
       loading.value = false
     })
 
@@ -54,7 +57,8 @@ export const useAuthStore = defineStore('auth', () => {
     // Create public.users row — Supabase Auth only creates auth.users automatically
     const { error: insertError } = await supabase.from('users').insert({ id: data.user!.id })
     // Swallow duplicate-key errors (prior signup attempt before email confirmation)
-    if (insertError && !insertError.message.includes('duplicate')) {
+    if (insertError && insertError.code !== '23505') {
+      // '23505' = PostgreSQL unique_violation (duplicate key) — expected on re-signup before confirmation
       console.warn('[auth] public.users insert failed:', insertError.message)
     }
   }
