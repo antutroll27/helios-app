@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { onMounted } from 'vue'
+import NapCalcCard from '../components/lab/NapCalcCard.vue'
 onMounted(() => { document.title = 'HELIOS · Lab' })
 </script>
 
@@ -11,7 +12,7 @@ onMounted(() => { document.title = 'HELIOS · Lab' })
       <p class="lab-page__sub">Peer-reviewed calculators. Every output cites its source.</p>
     </div>
     <div class="lab-grid">
-      <!-- cards added per task -->
+      <NapCalcCard />
     </div>
   </div>
 </template>
