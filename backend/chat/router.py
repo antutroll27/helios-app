@@ -166,96 +166,107 @@ async def send_message(
 
 # ─── Session end → Hermes learns ────────────────────────────────────────────
 
-async def _hermes_background_task(session_id: str):
-    """
-    Background task: Hermes processes the session transcript,
-    extracts circadian insights, and updates the user's memory.md.
-    Uses the user's own LLM key — zero extra cost.
-    """
-    messages = _sessions.get(session_id, [])
-    meta = _session_meta.get(session_id, {})
-
-    if not messages or len(messages) < 4:  # Need at least 2 exchanges
-        return
-
-    user_id = meta.get("user_id", "")
-    provider = meta.get("provider", "")
-    api_key = meta.get("api_key", "")
-
-    if not user_id or not api_key:
-        return
-
-    # TODO: Replace with MemoryService when Supabase is connected
-    # For now, use in-memory store
-    from backend.memory.hermes_learner import DEFAULT_MEMORY
-    current_memory = _user_memories.get(user_id, DEFAULT_MEMORY)
-
-    learner = HermesLearner()
-    updated_memory = await learner.process_session(
-        messages=messages,
-        current_memory=current_memory,
-        provider=provider,
-        api_key=api_key,
-    )
-
-    _user_memories[user_id] = updated_memory
-    print(f"Hermes updated memory for user {user_id[:8]}... ({len(messages)} messages processed)")
-
-    # Cleanup session data
-    _sessions.pop(session_id, None)
-    _session_meta.pop(session_id, None)
-
-
 @router.post("/end-session")
 async def end_session(
     session_id: str,
+    request: Request,
     background_tasks: BackgroundTasks,
     user_id: str = Depends(get_current_user),
 ):
     """
     End a chat session and trigger Hermes background learning.
-    Hermes analyzes the conversation, extracts insights, and updates
-    the user's memory.md — all using the user's own LLM key.
+    Fetches provider+key from the session row — no credentials needed from client.
     """
-    messages = _sessions.get(session_id, [])
-    has_enough = len(messages) >= 4
+    supabase = request.app.state.supabase
+    memory_service = request.app.state.memory_service
 
-    if has_enough:
-        background_tasks.add_task(_hermes_background_task, session_id)
+    # Fetch session row (verify ownership + get credentials for Hermes)
+    session_result = supabase.table("chat_sessions") \
+        .select("provider, encrypted_api_key, ended_at") \
+        .eq("id", session_id).eq("user_id", user_id) \
+        .execute()
+
+    if not session_result.data:
+        raise HTTPException(status_code=404, detail="Session not found")
+
+    session_row = session_result.data[0]
+
+    # Mark session ended
+    supabase.table("chat_sessions") \
+        .update({"ended_at": datetime.now(UTC).isoformat()}) \
+        .eq("id", session_id).execute()
+
+    # Count messages to decide whether Hermes should run
+    count_result = supabase.table("chat_messages") \
+        .select("id") \
+        .eq("session_id", session_id) \
+        .execute()
+    message_count = len(count_result.data) if count_result.data else 0
+
+    hermes_queued = False
+    if message_count >= 4:
+        provider = session_row.get("provider", SHARED_LLM_PROVIDER)
+        enc_key = session_row.get("encrypted_api_key")
+        try:
+            api_key = decrypt_api_key(enc_key) if enc_key else SHARED_LLM_KEY
+        except Exception:
+            api_key = SHARED_LLM_KEY  # fallback if decryption fails
+
+        background_tasks.add_task(
+            memory_service.process_session,
+            user_id, session_id, provider, api_key,
+        )
+        hermes_queued = True
 
     return {
         "status": "ok",
         "session_id": session_id,
-        "messages_in_session": len(messages),
-        "hermes_queued": has_enough,
+        "messages_in_session": message_count,
+        "hermes_queued": hermes_queued,
     }
 
 
 @router.get("/history")
 async def get_history(
     session_id: str,
+    request: Request,
     user_id: str = Depends(get_current_user),
 ):
-    """Get messages for a chat session."""
-    messages = _sessions.get(session_id, [])
-    return {"session_id": session_id, "messages": messages}
+    """Get messages for a chat session from Supabase."""
+    supabase = request.app.state.supabase
+
+    # Verify session ownership
+    session_check = supabase.table("chat_sessions").select("id") \
+        .eq("id", session_id).eq("user_id", user_id).execute()
+    if not session_check.data:
+        raise HTTPException(status_code=404, detail="Session not found")
+
+    result = supabase.table("chat_messages") \
+        .select("role, content, timestamp") \
+        .eq("session_id", session_id) \
+        .order("timestamp") \
+        .execute()
+
+    return {"session_id": session_id, "messages": result.data or []}
 
 
 @router.get("/memory")
 async def get_user_memory(
+    request: Request,
     user_id: str = Depends(get_current_user),
 ):
-    """Get the user's current memory file (what Hermes has learned)."""
-    from backend.memory.hermes_learner import DEFAULT_MEMORY
-    memory = _user_memories.get(user_id, DEFAULT_MEMORY)
-    return {"user_id": user_id, "memory_md": memory}
+    """Get the user's current Hermes memory file."""
+    memory_service = request.app.state.memory_service
+    memory_md = await memory_service.get_memory(user_id)
+    return {"user_id": user_id, "memory_md": memory_md}
 
 
 @router.delete("/memory")
 async def reset_user_memory(
+    request: Request,
     user_id: str = Depends(get_current_user),
 ):
     """Reset the user's memory (GDPR delete / fresh start)."""
-    from backend.memory.hermes_learner import DEFAULT_MEMORY
-    _user_memories[user_id] = DEFAULT_MEMORY
+    memory_service = request.app.state.memory_service
+    await memory_service.reset_memory(user_id)
     return {"status": "ok", "message": "Memory reset to default."}
