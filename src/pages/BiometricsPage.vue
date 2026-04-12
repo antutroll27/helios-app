@@ -12,6 +12,7 @@ import ProtocolAdherenceTimeline from '@/components/biometrics/ProtocolAdherence
 import CircadianInsightsPanel from '@/components/biometrics/CircadianInsightsPanel.vue'
 import WearableUploadZone from '@/components/biometrics/WearableUploadZone.vue'
 import BiometricsEmptyState from '@/components/biometrics/BiometricsEmptyState.vue'
+import ProtocolIntelligenceSection from '@/components/biometrics/ProtocolIntelligenceSection.vue'
 
 const biometrics = useBiometricsStore()
 onMounted(() => biometrics.loadMockData())
@@ -23,47 +24,50 @@ function triggerFileInput() { document.getElementById('wearable-file-input')?.cl
     <div class="bio-container">
       <BiometricsHeader @upload-click="triggerFileInput" />
 
-      <div v-if="biometrics.logs.length > 0" class="bento mt-4">
-        <HRVHeroCell class="bento__hrv-hero" />
-        <SleepScoreHeroCell class="bento__sleep-hero" />
+      <template v-if="biometrics.logs.length > 0">
+        <div class="bento mt-4">
+          <HRVHeroCell class="bento__hrv-hero" />
+          <SleepScoreHeroCell class="bento__sleep-hero" />
 
-        <MetricSummaryTile
-          class="bento__resting"
-          label="RESTING HR"
-          :value="biometrics.avgRestingHR != null ? String(biometrics.avgRestingHR) : '—'"
-          unit="bpm"
-          accent="#FFBD76"
-        />
-        <MetricSummaryTile
-          class="bento__total-sleep"
-          label="TOTAL SLEEP"
-          :value="biometrics.avgTotalSleepH != null ? String(biometrics.avgTotalSleepH) : '—'"
-          unit="hrs"
-          accent="#38BDF8"
-        />
+          <MetricSummaryTile
+            class="bento__resting"
+            label="RESTING HR"
+            :value="biometrics.avgRestingHR != null ? String(biometrics.avgRestingHR) : '—'"
+            unit="bpm"
+            accent="#FFBD76"
+          />
+          <MetricSummaryTile
+            class="bento__total-sleep"
+            label="TOTAL SLEEP"
+            :value="biometrics.avgTotalSleepH != null ? String(biometrics.avgTotalSleepH) : '—'"
+            unit="hrs"
+            accent="#38BDF8"
+          />
 
-        <div class="bento__trend bento-card">
-          <HRVTrendChart />
+          <div class="bento__trend bento-card">
+            <HRVTrendChart />
+          </div>
+
+          <div class="bento__arch bento-card">
+            <SleepArchitectureChart />
+          </div>
+
+          <div class="bento__protocol bento-card">
+            <ProtocolAdherenceTimeline />
+          </div>
+
+          <div class="bento__skin bento-card">
+            <SkinTempChart />
+          </div>
+
+          <div class="bento__insights bento-card">
+            <CircadianInsightsPanel />
+          </div>
+
+          <WearableUploadZone class="bento__upload" />
         </div>
-
-        <div class="bento__arch bento-card">
-          <SleepArchitectureChart />
-        </div>
-
-        <div class="bento__protocol bento-card">
-          <ProtocolAdherenceTimeline />
-        </div>
-
-        <div class="bento__skin bento-card">
-          <SkinTempChart />
-        </div>
-
-        <div class="bento__insights bento-card">
-          <CircadianInsightsPanel />
-        </div>
-
-        <WearableUploadZone class="bento__upload" />
-      </div>
+        <ProtocolIntelligenceSection />
+      </template>
 
       <BiometricsEmptyState v-else class="mt-4" @upload-click="triggerFileInput" />
     </div>
