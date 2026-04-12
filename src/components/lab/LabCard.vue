@@ -25,13 +25,17 @@ const showEvidence = ref(false)
       <slot name="output" />
       <button
         v-if="slots.evidence"
+        type="button"
         class="lab-card__evidence-toggle"
+        :aria-expanded="showEvidence"
+        :aria-controls="'evidence-' + label"
         @click="showEvidence = !showEvidence"
       >
         {{ showEvidence ? '▾' : '▸' }} Research basis
       </button>
       <div
         v-if="slots.evidence"
+        :id="'evidence-' + label"
         class="lab-card__evidence-wrap"
         :class="{ 'lab-card__evidence-wrap--open': showEvidence }"
       >
