@@ -4,6 +4,7 @@ import NapCalcCard from '../components/lab/NapCalcCard.vue'
 import AlcoholImpactCard from '../components/lab/AlcoholImpactCard.vue'
 import BreathworkCard from '../components/lab/BreathworkCard.vue'
 import MealWindowCard from '../components/lab/MealWindowCard.vue'
+import ExerciseTimingCard from '../components/lab/ExerciseTimingCard.vue'
 onMounted(() => { document.title = 'HELIOS · Lab' })
 </script>
 
@@ -19,6 +20,7 @@ onMounted(() => { document.title = 'HELIOS · Lab' })
       <AlcoholImpactCard />
       <BreathworkCard />
       <MealWindowCard />
+      <ExerciseTimingCard />
     </div>
   </div>
 </template>
