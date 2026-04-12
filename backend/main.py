@@ -6,18 +6,21 @@ Circadian intelligence engine with persistent memory and learning.
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-
-from backend.config import CORS_ORIGINS
+from supabase import create_client, Client
+from backend.config import CORS_ORIGINS, SUPABASE_URL, SUPABASE_KEY
+from backend.memory.memory_service import MemoryService
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """Startup and shutdown events."""
-    # Startup: initialize clients
-    print("HELIOS Backend starting...")
+    # Startup
+    supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
+    app.state.supabase = supabase
+    app.state.memory_service = MemoryService(supabase)
+    print("[helios] Supabase client initialized")
     yield
-    # Shutdown: cleanup
-    print("HELIOS Backend shutting down...")
+    # Shutdown — nothing to teardown for Supabase client
+    print("[helios] Shutting down")
 
 
 app = FastAPI(
