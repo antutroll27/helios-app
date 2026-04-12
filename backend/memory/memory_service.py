@@ -55,29 +55,43 @@ class MemoryService:
     async def process_session(
         self,
         user_id: str,
-        messages: list[dict],
+        session_id: str,
         provider: str,
         api_key: str,
-    ) -> str:
+    ) -> str | None:
         """
-        Process a completed chat session:
-        1. Fetch current memory
-        2. Run Hermes to extract insights
-        3. Save updated memory
-        4. Return the updated memory markdown
+        Process a completed chat session by fetching messages from Supabase.
+        Skips sessions with fewer than 4 messages (2 full exchanges).
+        Marks the session hermes_processed=True when done.
 
         Uses the user's own LLM key — zero extra cost.
         """
-        current_memory = await self.get_memory(user_id)
+        # Fetch messages from DB — `timestamp` column defined in backend/schema.sql
+        result = self.db.table("chat_messages") \
+            .select("role, content") \
+            .eq("session_id", session_id) \
+            .order("timestamp") \
+            .execute()
+        messages = result.data  # [{"role": "user", "content": "..."}, ...]
 
+        if len(messages) < 4:  # Need at least 2 full exchanges
+            return None
+
+        current_memory = await self.get_memory(user_id)
         updated_memory = await self.learner.process_session(
             messages=messages,
             current_memory=current_memory,
             provider=provider,
             api_key=api_key,
         )
-
         await self.save_memory(user_id, updated_memory)
+
+        # Mark session as hermes-processed
+        self.db.table("chat_sessions") \
+            .update({"hermes_processed": True}) \
+            .eq("id", session_id) \
+            .execute()
+
         return updated_memory
 
     async def get_section(self, user_id: str, section: str) -> list[str]:
