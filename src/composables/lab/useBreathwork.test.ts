@@ -12,7 +12,8 @@ describe('calculateBreathworkResponse', () => {
     // box baseBoost(20) × 0.75 × 1.0 = 15
     const withBonus    = calculateBreathworkResponse('resonance', 10)
     const withoutBonus = calculateBreathworkResponse('box', 10)
-    expect(withBonus.rmssdBoost).toBeGreaterThan(withoutBonus.rmssdBoost)
+    expect(withBonus.rmssdBoost).toBe(26)
+    expect(withoutBonus.rmssdBoost).toBe(15)
   })
   it('bpm matches technique constant', () => {
     const r = calculateBreathworkResponse('resonance', 20)

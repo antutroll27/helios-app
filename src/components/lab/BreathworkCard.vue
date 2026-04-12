@@ -76,7 +76,7 @@ const techniqueKeys = Object.keys(TECHNIQUES) as Technique[]
 
     <template #evidence>
       <LabEvidenceBlock
-        :effect="`+${result.rmssdBoost} ms rMSSD (resonance at 5.5 bpm)`"
+        :effect="`+${result.rmssdBoost} ms rMSSD (${TECHNIQUES[technique].label} at ${result.bpm} bpm)`"
         population="meta-analysis / adult lab studies"
         caveat="Output is a protocol estimate, not a personal biometric prediction. Acute response varies individually."
       />
@@ -131,7 +131,7 @@ const techniqueKeys = Object.keys(TECHNIQUES) as Technique[]
 .bw-pill--active {
   background: rgba(0, 212, 170, 0.15);
   border-color: rgba(0, 212, 170, 0.55);
-  color: #00D4AA;
+  color: var(--card-accent);
 }
 
 /* Output */
