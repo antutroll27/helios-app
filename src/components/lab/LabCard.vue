@@ -1,11 +1,16 @@
 <script setup lang="ts">
+import { ref, useSlots } from 'vue'
+
 defineProps<{
-  label: string       // e.g. "NAP CALCULATOR"
-  title: string       // e.g. "Nap Timing"
-  accent: string      // hex color
-  citation: string    // e.g. "Rosekind 1995 · NASA"
+  label:     string
+  title:     string
+  accent:    string
+  citation:  string
   hasOutput: boolean
 }>()
+
+const slots        = useSlots()
+const showEvidence = ref(false)
 </script>
 
 <template>
@@ -15,9 +20,24 @@ defineProps<{
       <h2 class="lab-card__title">{{ title }}</h2>
     </div>
     <slot name="inputs" />
-    <div v-if="hasOutput" class="lab-card__divider" />
-    <slot v-if="hasOutput" name="output" />
-    <slot v-if="hasOutput" name="evidence" />
+    <template v-if="hasOutput">
+      <div class="lab-card__divider" />
+      <slot name="output" />
+      <button
+        v-if="slots.evidence"
+        class="lab-card__evidence-toggle"
+        @click="showEvidence = !showEvidence"
+      >
+        {{ showEvidence ? '▾' : '▸' }} Research basis
+      </button>
+      <div
+        v-if="slots.evidence"
+        class="lab-card__evidence-wrap"
+        :class="{ 'lab-card__evidence-wrap--open': showEvidence }"
+      >
+        <slot name="evidence" />
+      </div>
+    </template>
     <div class="lab-card__citation">{{ citation }}</div>
   </div>
 </template>
@@ -54,5 +74,32 @@ defineProps<{
   font-style: italic;
   margin-top: auto;
   padding-top: 0.4rem;
+}
+
+/* Evidence toggle */
+.lab-card__evidence-toggle {
+  align-self: flex-start;
+  background: none;
+  border: none;
+  padding: 0;
+  margin-top: 0.35rem;
+  font-family: 'Geist Mono', monospace;
+  font-size: var(--font-size-3xs);
+  letter-spacing: var(--tracking-fine);
+  color: rgba(255, 246, 233, 0.35);
+  cursor: pointer;
+  transition: color 0.15s;
+}
+.lab-card__evidence-toggle:hover {
+  color: var(--card-accent);
+}
+
+/* Evidence body — hidden by default, shown via class */
+.lab-card__evidence-wrap {
+  display: none;
+  margin-top: 0.25rem;
+}
+.lab-card__evidence-wrap--open {
+  display: block;
 }
 </style>
