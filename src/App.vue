@@ -1,20 +1,28 @@
 <script setup lang="ts">
-import { onMounted, onUnmounted } from 'vue'
+import { onMounted, onUnmounted, computed } from 'vue'
+import { useRoute } from 'vue-router'
 import { useGeoStore } from '@/stores/geo'
 import { useSpaceWeatherStore } from '@/stores/spaceWeather'
 import { useDonkiStore } from '@/stores/donki'
 import { useEnvironmentStore } from '@/stores/environment'
+import { useAuthStore } from '@/stores/auth'
 import { useTheme } from '@/composables/useTheme'
 import NavBar from '@/components/NavBar.vue'
 import FloatingBottomNav from '@/components/FloatingBottomNav.vue'
+// import AuthBanner from '@/components/AuthBanner.vue'  // TODO: uncomment when Task 8 creates this component
 
-const geo = useGeoStore()
-const sw = useSpaceWeatherStore()
+const geo   = useGeoStore()
+const sw    = useSpaceWeatherStore()
 const donki = useDonkiStore()
-const env = useEnvironmentStore()
+const env   = useEnvironmentStore()
+const auth  = useAuthStore()
+const route = useRoute()
 const { isDark } = useTheme()
 
+const isAuthRoute = computed(() => route.name === 'auth')
+
 onMounted(async () => {
+  auth.init()  // non-blocking — resolves auth state in background
   await geo.requestLocation()
   // Fetch all live data in parallel once we have GPS
   await Promise.allSettled([
@@ -28,6 +36,7 @@ onMounted(async () => {
 
 onUnmounted(() => {
   sw.stopPolling()
+  auth.dispose()
 })
 </script>
 
@@ -39,11 +48,12 @@ onUnmounted(() => {
       color: 'var(--text-primary)'
     }"
   >
-    <NavBar />
+    <NavBar            v-if="!isAuthRoute" />
+    <!-- <AuthBanner v-if="!isAuthRoute && !auth.loading" /> -->
     <main class="main-content">
       <RouterView />
     </main>
-    <FloatingBottomNav />
+    <FloatingBottomNav v-if="!isAuthRoute" />
   </div>
 </template>
 
