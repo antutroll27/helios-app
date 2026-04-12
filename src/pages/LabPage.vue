@@ -18,9 +18,9 @@ onMounted(() => { document.title = 'HELIOS · Lab' })
 
 <style scoped>
 .lab-page { padding: 5rem 1.5rem 2rem; max-width: 1000px; margin: 0 auto; }
-.lab-page__breadcrumb { font-family: 'Geist Mono', monospace; font-size: 0.45rem; letter-spacing: 0.15em; color: var(--text-muted); margin-bottom: 0.3rem; }
+.lab-page__breadcrumb { font-family: 'Geist Mono', monospace; font-size: var(--font-size-3xs); letter-spacing: var(--tracking-label); color: var(--text-muted); margin-bottom: 0.3rem; }
 .lab-page__title { font-size: 1.8rem; font-weight: 800; letter-spacing: -0.04em; }
-.lab-page__sub { font-size: 0.55rem; color: var(--text-muted); margin-top: 0.3rem; }
+.lab-page__sub { font-size: var(--font-size-xs3); color: var(--text-muted); margin-top: 0.3rem; }
 .lab-header { margin-bottom: 1.5rem; }
 .lab-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.75rem; }
 @media (max-width: 900px) { .lab-grid { grid-template-columns: repeat(2, 1fr); } }
