@@ -7,6 +7,7 @@ const router = createRouter({
     { path: '/settings', component: () => import('@/pages/SettingsPage.vue') },
     { path: '/biometrics', component: () => import('@/pages/BiometricsPage.vue') },
     { path: '/lab', component: () => import('@/pages/LabPage.vue') },
+    { path: '/auth', name: 'auth', component: () => import('@/pages/AuthPage.vue') },
   ]
 })
 
