@@ -8,9 +8,9 @@ const route  = useRoute()
 const router = useRouter()
 const { isDark } = useTheme()
 
-const activeColor = computed(() => isDark.value ? '#00D4AA' : '#FFBD76')
+const activeColor = computed(() => isDark.value ? '#9B8BFA' : '#FFBD76')
 const activeBg    = computed(() => isDark.value
-  ? 'rgba(0, 212, 170, 0.13)'
+  ? 'rgba(155, 139, 250, 0.15)'
   : 'rgba(255, 189, 118, 0.18)'
 )
 
