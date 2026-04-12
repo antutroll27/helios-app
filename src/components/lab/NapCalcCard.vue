@@ -21,11 +21,12 @@ function boostLabel(minutes: number): string {
     <template #inputs>
       <div class="nap-inputs">
         <div class="nap-slider-row">
-          <label class="nap-slider-label">
+          <label class="nap-slider-label" for="nap-hours-awake">
             <span class="nap-slider-name">Hours awake</span>
             <span class="nap-slider-value">{{ hoursAwake }}h</span>
           </label>
           <input
+            id="nap-hours-awake"
             v-model.number="hoursAwake"
             type="range"
             min="0"
@@ -35,11 +36,12 @@ function boostLabel(minutes: number): string {
           />
         </div>
         <div class="nap-slider-row">
-          <label class="nap-slider-label">
+          <label class="nap-slider-label" for="nap-sleep-debt">
             <span class="nap-slider-name">Sleep debt</span>
             <span class="nap-slider-value">{{ sleepDebtMin }} min</span>
           </label>
           <input
+            id="nap-sleep-debt"
             v-model.number="sleepDebtMin"
             type="range"
             min="0"

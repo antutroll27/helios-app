@@ -1,4 +1,4 @@
-import { ref, computed } from 'vue'
+import { ref, computed, onUnmounted } from 'vue'
 
 export type NapCalcInput = {
   hoursAwake: number
@@ -27,7 +27,7 @@ export function calculateNapRecommendation(input: NapCalcInput): NapCalcResult {
 
   const idealStart = currentHour < 13 ? '13:00' : currentHour > 15 ? 'now (expect some night impact)' : 'now'
   const nightPenalty = currentHour > 15 ? Math.round((currentHour - 15) * 4) : 0
-  const boostMinutes = duration === 10 ? 155 : duration === 26 ? 180 : 480
+  const boostMinutes = duration === 10 ? 120 : duration === 26 ? 180 : 480
   const coffeeNap = duration <= 26
 
   return { duration, durationLabel, idealStart, nightPenalty, boostMinutes, inWindow, coffeeNap }
@@ -36,7 +36,13 @@ export function calculateNapRecommendation(input: NapCalcInput): NapCalcResult {
 export function useNapCalc() {
   const hoursAwake   = ref(6)
   const sleepDebtMin = ref(0)
+  // Refreshed every minute so the 13:00–15:00 window and penalty calculations
+  // stay accurate during extended page sessions (critical at the 15:00 boundary)
   const currentHour  = ref(new Date().getHours())
+  const timer = setInterval(() => {
+    currentHour.value = new Date().getHours()
+  }, 60_000)
+  onUnmounted(() => clearInterval(timer))
 
   const result = computed(() =>
     calculateNapRecommendation({
@@ -46,5 +52,5 @@ export function useNapCalc() {
     })
   )
 
-  return { hoursAwake, sleepDebtMin, currentHour, result }
+  return { hoursAwake, sleepDebtMin, result }
 }
