@@ -10,6 +10,7 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@supabase/supabase-js": "^2.103.0",
     "@vueuse/core": "^14.2.1",
     "cobe": "^0.6.4",
     "date-fns": "^4.1.0",
