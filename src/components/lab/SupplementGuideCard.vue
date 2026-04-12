@@ -87,6 +87,12 @@ function opacityForScore(score: number): number {
 }
 
 /* ── Header ── */
+.sg-header {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+}
+
 .sg-label {
   font-family: 'Geist Mono', monospace;
   font-size: var(--font-size-3xs);
