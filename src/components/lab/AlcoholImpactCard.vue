@@ -41,18 +41,18 @@ function evidenceEffect(): string {
 
         <!-- Drinks stepper -->
         <div class="alc-row">
-          <label class="alc-label" for="alc-drinks">
-            <span class="alc-name">Drinks tonight</span>
+          <div class="alc-label">
+            <span class="alc-name" id="alc-drinks-label">Drinks tonight</span>
             <span class="alc-value">{{ drinks }}</span>
-          </label>
-          <div class="alc-stepper" id="alc-drinks">
+          </div>
+          <div class="alc-stepper" role="group" aria-labelledby="alc-drinks-label">
             <button
               class="alc-step-btn"
               :disabled="drinks <= 0"
               @click="drinks = Math.max(0, drinks - 1)"
               aria-label="Decrease drinks"
             >&#8722;</button>
-            <span class="alc-step-count">{{ drinks }}</span>
+            <span class="alc-step-count" aria-hidden="true">{{ drinks }}</span>
             <button
               class="alc-step-btn"
               :disabled="drinks >= 8"
@@ -82,15 +82,17 @@ function evidenceEffect(): string {
         <!-- Sex toggle -->
         <div class="alc-row">
           <span class="alc-name">Biological sex</span>
-          <div class="alc-toggle">
+          <div class="alc-toggle" role="group" aria-label="Biological sex">
             <button
               class="alc-toggle-btn"
               :class="{ 'alc-toggle-btn--active': sex === 'male' }"
+              :aria-pressed="sex === 'male'"
               @click="sex = 'male'"
             >Male</button>
             <button
               class="alc-toggle-btn"
               :class="{ 'alc-toggle-btn--active': sex === 'female' }"
+              :aria-pressed="sex === 'female'"
               @click="sex = 'female'"
             >Female</button>
           </div>
