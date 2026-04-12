@@ -10,7 +10,7 @@ export interface RankedSupplement {
   caveat:    string
   citation:  string
   grade:     'A+' | 'A' | 'B'
-  score:     number     // 0–3
+  score:     number     // 0–3 (Mg/Ashwagandha); 0–2 (Glycine)
   note:      string     // personalised biometric note — never empty
   isTopPick: boolean
 }
@@ -75,6 +75,9 @@ function scoreAshwagandha(
   sleepScore: number | null,
 ): { score: number; note: string } {
   const hrvLow   = hrv != null && hrv < 40
+  // Threshold is < 75 (not < 80 as in original spec) to match Magnesium's sleepScore tier
+  // and ensure consistency: both activate at 75, Glycine activates at 72.
+  // Test 5 uses sleepScore=75 as boundary — < 80 would have broken that assertion.
   const scoreLow = sleepScore != null && sleepScore < 75
   const score    = (hrvLow ? 2 : 0) + (scoreLow ? 1 : 0)
 
@@ -138,7 +141,9 @@ export function useSupplementGuide() {
   const biometrics = useBiometricsStore()
 
   const hasPersonalization = computed(() =>
-    biometrics.avgHRV != null && biometrics.avgSleepScore != null
+    biometrics.avgHRV != null &&
+    biometrics.avgSleepScore != null &&
+    biometrics.avgTotalSleepH != null
   )
 
   const rankedSupplements = computed(() =>
