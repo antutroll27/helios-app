@@ -75,7 +75,7 @@ const currentPhase = computed(() => {
   if (isInArc(props.nowAngle, props.data.sleepWindowStart, props.data.sleepWindowEnd)) {
     const h = hoursUntil(props.nowAngle, props.data.sleepWindowEnd)
     return {
-      emoji:   '💤',
+      emoji:   '🛌',
       heading: 'Sleep time',
       detail:  `Wake up in ${h.toFixed(0)}h`,
       color:   '#9B8BFA',
@@ -85,7 +85,7 @@ const currentPhase = computed(() => {
   if (isInArc(props.nowAngle, props.data.peakAlertStart, props.data.peakAlertEnd)) {
     const h = hoursUntil(props.nowAngle, props.data.peakAlertEnd)
     return {
-      emoji:   '⚡',
+      emoji:   '🧠',
       heading: 'Peak focus time',
       detail:  `${h.toFixed(0)}h of focus left today`,
       color:   '#00D4AA',
@@ -96,7 +96,7 @@ const currentPhase = computed(() => {
   const hToDlmo = hoursUntil(props.nowAngle, props.data.dlmoAngle)
   if (hToDlmo <= 2) {
     return {
-      emoji:   '🌙',
+      emoji:   '🕯️',
       heading: 'Wind-down time',
       detail:  `Dim your lights, slow down`,
       color:   '#9B8BFA',
@@ -106,7 +106,7 @@ const currentPhase = computed(() => {
   // General recovery / build-up
   const hToSleep = hoursUntil(props.nowAngle, props.data.sleepWindowStart)
   return {
-    emoji:   '🕐',
+    emoji:   '☀️',
     heading: 'Daytime phase',
     detail:  `Bedtime in ${hToSleep.toFixed(0)}h`,
     color:   'rgba(255,246,233,0.55)',
@@ -178,12 +178,12 @@ const hourLabels = [
           fill="#9B8BFA" stroke="rgba(10,23,29,0.85)" stroke-width="2">
           <title>Dim your lights at {{ windDownTime }}</title>
         </circle>
-        <!-- Small moon emoji label near the dot -->
+        <!-- Candle emoji near DLMO dot — signals "dim the lights" -->
         <text v-if="dlmoDot"
           :x="angleToXY(data!.dlmoAngle, R - 18).x"
           :y="angleToXY(data!.dlmoAngle, R - 18).y"
           text-anchor="middle" dominant-baseline="middle"
-          font-size="9">🌙</text>
+          font-size="9">🕯️</text>
 
         <!-- Hour labels — human readable -->
         <text v-for="h in hourLabels" :key="h.label"
@@ -216,13 +216,13 @@ const hourLabels = [
       <!-- Arc hover overlay — center of dial -->
       <Transition name="tip-fade">
         <div v-if="hoveredArc === 'sleep' && data" class="dial-overlay">
-          <span class="dial-overlay__emoji">💤</span>
+          <span class="dial-overlay__emoji">🛌</span>
           <div class="dial-overlay__heading">Sleep window</div>
           <div class="dial-overlay__time">{{ bedtime }} → {{ wakeTime }}</div>
           <div class="dial-overlay__hint">Your average sleep time<br>based on 30 nights</div>
         </div>
         <div v-else-if="hoveredArc === 'peak' && data" class="dial-overlay">
-          <span class="dial-overlay__emoji">⚡</span>
+          <span class="dial-overlay__emoji">🧠</span>
           <div class="dial-overlay__heading">Focus window</div>
           <div class="dial-overlay__hint">Your brain is most alert<br>during the teal arc</div>
         </div>
@@ -244,21 +244,21 @@ const hourLabels = [
     <!-- Plain-English time strip -->
     <div v-if="data" class="dial-strip">
       <div class="dial-strip__item">
-        <div class="dial-strip__icon" style="background:rgba(155,139,250,0.15);color:#9B8BFA">💤</div>
+        <div class="dial-strip__icon" style="background:rgba(155,139,250,0.15);color:#9B8BFA">🛌</div>
         <div>
           <div class="dial-strip__key">Bedtime</div>
           <div class="dial-strip__val">{{ bedtime }}</div>
         </div>
       </div>
       <div class="dial-strip__item">
-        <div class="dial-strip__icon" style="background:rgba(255,189,118,0.12);color:#FFBD76">⏰</div>
+        <div class="dial-strip__icon" style="background:rgba(255,189,118,0.12);color:#FFBD76">🌅</div>
         <div>
           <div class="dial-strip__key">Wake up</div>
           <div class="dial-strip__val">{{ wakeTime }}</div>
         </div>
       </div>
       <div class="dial-strip__item">
-        <div class="dial-strip__icon" style="background:rgba(155,139,250,0.12);color:#9B8BFA">🌙</div>
+        <div class="dial-strip__icon" style="background:rgba(155,139,250,0.12);color:#9B8BFA">🕯️</div>
         <div>
           <div class="dial-strip__key">Dim lights</div>
           <div class="dial-strip__val">{{ windDownTime }}</div>
