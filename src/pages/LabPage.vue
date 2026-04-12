@@ -2,6 +2,7 @@
 import { onMounted } from 'vue'
 import NapCalcCard from '../components/lab/NapCalcCard.vue'
 import AlcoholImpactCard from '../components/lab/AlcoholImpactCard.vue'
+import BreathworkCard from '../components/lab/BreathworkCard.vue'
 onMounted(() => { document.title = 'HELIOS · Lab' })
 </script>
 
@@ -15,6 +16,7 @@ onMounted(() => { document.title = 'HELIOS · Lab' })
     <div class="lab-grid">
       <NapCalcCard />
       <AlcoholImpactCard />
+      <BreathworkCard />
     </div>
   </div>
 </template>
