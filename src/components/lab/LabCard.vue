@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import { ref, useSlots } from 'vue'
+import { ref, useSlots, computed } from 'vue'
 
-defineProps<{
+const props = defineProps<{
   label:     string
   title:     string
   accent:    string
@@ -11,6 +11,9 @@ defineProps<{
 
 const slots        = useSlots()
 const showEvidence = ref(false)
+const evidenceId   = computed(() =>
+  'evidence-' + props.label.toLowerCase().replace(/\s+/g, '-')
+)
 </script>
 
 <template>
@@ -28,14 +31,14 @@ const showEvidence = ref(false)
         type="button"
         class="lab-card__evidence-toggle"
         :aria-expanded="showEvidence"
-        :aria-controls="'evidence-' + label"
+        :aria-controls="evidenceId"
         @click="showEvidence = !showEvidence"
       >
         {{ showEvidence ? '▾' : '▸' }} Research basis
       </button>
       <div
         v-if="slots.evidence"
-        :id="'evidence-' + label"
+        :id="evidenceId"
         class="lab-card__evidence-wrap"
         :class="{ 'lab-card__evidence-wrap--open': showEvidence }"
       >
