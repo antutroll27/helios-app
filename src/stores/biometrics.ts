@@ -1,5 +1,6 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
+import { useSolarStore } from './solar'
 
 export interface SleepLog {
   date: string              // "YYYY-MM-DD"
@@ -522,6 +523,71 @@ export const useBiometricsStore = defineStore('biometrics', () => {
   const uploadError = ref<string | null>(null)
   const dataSource = ref<'mock' | 'uploaded'>('mock')
 
+  // ---------------------------------------------------------------------------
+  // Helpers (store-scoped, not exported)
+  // ---------------------------------------------------------------------------
+
+  // Parses "HH:MM" or ISO datetime ("2026-03-14T23:10:00.000Z") → minutes since midnight
+  function timeToMinutes(s: string): number {
+    const hhmm = s.length > 5 ? s.slice(11, 16) : s
+    const [h, m] = hhmm.split(':').map(Number)
+    return h * 60 + m
+  }
+
+  // Minutes since midnight → "HH:MM", wraps at 1440
+  function minutesToTime(min: number): string {
+    const wrapped = ((min % 1440) + 1440) % 1440
+    const h = Math.floor(wrapped / 60).toString().padStart(2, '0')
+    const m = Math.floor(wrapped % 60).toString().padStart(2, '0')
+    return `${h}:${m}`
+  }
+
+  function helperAvg(nums: number[]): number {
+    return nums.reduce((a, b) => a + b, 0) / nums.length
+  }
+
+  // ---------------------------------------------------------------------------
+  // Live now-angle (updates every 60s for the body clock dial needle)
+  // ---------------------------------------------------------------------------
+  const nowAngle = ref<number>(
+    ((new Date().getHours() * 60 + new Date().getMinutes()) / 1440) * 360
+  )
+  // Keep the handle so Vitest tests can call clearInterval(_nowTimer) to avoid leaks
+  const _nowTimer = setInterval(() => {
+    nowAngle.value = ((new Date().getHours() * 60 + new Date().getMinutes()) / 1440) * 360
+  }, 60_000)
+
+  // Instantiate solar store at setup level (not inside computed) for testability
+  const solarStore = useSolarStore()
+
+  // ---------------------------------------------------------------------------
+  // Phase A — scalar circadian timing computeds
+  // ---------------------------------------------------------------------------
+
+  // DLMO estimate: avg sleep onset − 2h (Czeisler & Gooley 2007)
+  const dlmoEstimate = computed<string>(() => {
+    const valid = logs.value.filter(l => l.sleep_onset)
+    if (valid.length < 3) return '--:--'
+    const avgOnsetMin = helperAvg(valid.map(l => timeToMinutes(l.sleep_onset)))
+    return minutesToTime(avgOnsetMin - 120)
+  })
+
+  // Caffeine cutoff: avg sleep onset − 6h (Drake et al. 2013)
+  const caffeineCutoff = computed<string>(() => {
+    const valid = logs.value.filter(l => l.sleep_onset)
+    if (valid.length < 3) return '--:--'
+    const avgOnsetMin = helperAvg(valid.map(l => timeToMinutes(l.sleep_onset)))
+    return minutesToTime(avgOnsetMin - 360)
+  })
+
+  // Nap window: avg wake time + 7h (Dinges 1992 post-lunch dip)
+  const napWindow = computed<string>(() => {
+    const valid = logs.value.filter(l => l.wake_time)
+    if (valid.length < 3) return '--:--'
+    const avgWakeMin = helperAvg(valid.map(l => timeToMinutes(l.wake_time)))
+    return minutesToTime(avgWakeMin + 420)
+  })
+
   // Last N calendar days
   const windowedLogs = computed<SleepLog[]>(() => {
     return logs.value.slice(-dateRange.value)
@@ -757,6 +823,7 @@ export const useBiometricsStore = defineStore('biometrics', () => {
     sleepScoreSeries, restingHRSeries, skinTempSeries,
     avgHRV, avgSleepScore, avgRestingHR, avgTotalSleepH,
     protocolAdherence, avgAdherencePct, insights,
+    nowAngle, dlmoEstimate, caffeineCutoff, napWindow,
     setDateRange, loadMockData, ingestParsedLogs, setUploadStatus
   }
 })
