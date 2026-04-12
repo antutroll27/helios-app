@@ -29,8 +29,10 @@ async function submit() {
   loading.value = true
   try {
     await auth.signIn(email.value, password.value)
-    const redirect = route.query.redirect as string | undefined
-    router.push(redirect ?? '/')
+    const raw = route.query.redirect as string | undefined
+    // Validate redirect is a relative path (no protocol) to prevent open redirect
+    const redirect = raw && raw.startsWith('/') && !raw.startsWith('//') ? raw : '/'
+    router.push(redirect)
   } catch {
     // error is set on auth store — displayed below
   } finally {
