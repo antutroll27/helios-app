@@ -1,8 +1,9 @@
 <script setup lang="ts">
-import { ref, computed, nextTick, watch, onMounted } from 'vue'
+import { ref, computed, nextTick, watch, onMounted, onUnmounted } from 'vue'
 import { useChatStore } from '@/stores/chat'
 import { useUserStore } from '@/stores/user'
 import { useAI, PROVIDERS } from '@/composables/useAI'
+import { useAuthStore } from '@/stores/auth'
 import ChatMessage from '@/components/ChatMessage.vue'
 import { ChevronUp, ChevronDown, Send } from 'lucide-vue-next'
 
@@ -14,6 +15,12 @@ const isExpanded = ref(false)
 const inputText = ref('')
 const messagesContainer = ref<HTMLElement | null>(null)
 const inputRef = ref<HTMLTextAreaElement | null>(null)
+
+const auth = useAuthStore()
+const BACKEND_URL = import.meta.env.VITE_BACKEND_URL
+
+const sessionId = ref<string | null>(null)
+let inactivityTimer: ReturnType<typeof setTimeout> | null = null
 
 const WELCOME_MESSAGE =
   "I'm HELIOS. I have access to live NASA satellite data and your local solar conditions right now. Ask me anything about your sleep, circadian rhythm, or travel plans."
@@ -30,6 +37,11 @@ onMounted(() => {
   if (chat.messages.length === 0) {
     chat.addAssistantMessage(WELCOME_MESSAGE)
   }
+})
+
+onUnmounted(() => {
+  if (inactivityTimer) clearTimeout(inactivityTimer)
+  endSession()
 })
 
 // Auto-scroll to bottom when messages change
@@ -59,6 +71,18 @@ function handleKeydown(e: KeyboardEvent) {
     e.preventDefault()
     sendMessage()
   }
+}
+
+async function endSession() {
+  // Guard: clear immediately to prevent double-call (inactivity timer + unmount racing)
+  if (!sessionId.value || !BACKEND_URL) return
+  const id = sessionId.value
+  sessionId.value = null
+  if (!auth.session) return
+  fetch(`${BACKEND_URL}/api/chat/end-session?session_id=${id}`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${auth.session.access_token}` },
+  }).catch(() => {})  // fire-and-forget, never block unmount
 }
 
 async function sendMessage() {
@@ -94,8 +118,18 @@ async function sendMessage() {
       text,
       user.provider,
       user.apiKey,
-      history
+      history,
+      sessionId.value ?? undefined,
     )
+
+    // Capture session_id from backend response and reset inactivity timer
+    if (response.sessionId) {
+      sessionId.value = response.sessionId
+    }
+    if (BACKEND_URL && auth.session) {
+      if (inactivityTimer) clearTimeout(inactivityTimer)
+      inactivityTimer = setTimeout(endSession, 10 * 60 * 1000)
+    }
 
     // 4. Finalise
     chat.finaliseMessage(loadingId, response.message, response.visualCards)
