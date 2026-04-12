@@ -5,8 +5,7 @@ import { useSpaceWeatherStore } from '@/stores/spaceWeather'
 import { useEnvironmentStore } from '@/stores/environment'
 import { useDonkiStore } from '@/stores/donki'
 import { useTheme } from '@/composables/useTheme'
-import { Sun, Moon, Settings, RotateCcw, MapPin, Activity } from 'lucide-vue-next'
-import { useRouter } from 'vue-router'
+import { Sun, Moon, RotateCcw, MapPin } from 'lucide-vue-next'
 import { ref } from 'vue'
 
 const geo = useGeoStore()
@@ -15,7 +14,6 @@ const sw = useSpaceWeatherStore()
 const env = useEnvironmentStore()
 const donki = useDonkiStore()
 const { isDark, toggle } = useTheme()
-const router = useRouter()
 
 const isReloading = ref(false)
 
@@ -66,12 +64,6 @@ async function fullReload() {
       <button class="nav-btn" @click="toggle" :title="isDark ? 'Light mode' : 'Dark mode'">
         <Sun v-if="isDark" :size="15" style="color: var(--text-secondary)" />
         <Moon v-else :size="15" style="color: var(--text-secondary)" />
-      </button>
-      <button class="nav-btn" @click="router.push('/biometrics')" title="Biometrics">
-        <Activity :size="15" style="color: var(--text-secondary)" />
-      </button>
-      <button class="nav-btn" @click="router.push('/settings')" title="Settings">
-        <Settings :size="15" style="color: var(--text-secondary)" />
       </button>
     </div>
   </nav>

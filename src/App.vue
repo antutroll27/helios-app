@@ -6,6 +6,7 @@ import { useDonkiStore } from '@/stores/donki'
 import { useEnvironmentStore } from '@/stores/environment'
 import { useTheme } from '@/composables/useTheme'
 import NavBar from '@/components/NavBar.vue'
+import FloatingBottomNav from '@/components/FloatingBottomNav.vue'
 
 const geo = useGeoStore()
 const sw = useSpaceWeatherStore()
@@ -42,5 +43,6 @@ onUnmounted(() => {
     <main>
       <RouterView />
     </main>
+    <FloatingBottomNav />
   </div>
 </template>
