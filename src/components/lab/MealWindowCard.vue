@@ -25,7 +25,7 @@ function formatWindow(h: number): string {
     label="MEAL WINDOW"
     title="TRF Score"
     citation="Sutton 2018 · Cell Metabolism · Manoogian 2022"
-    :hasOutput="true"
+    :hasOutput="result.valid"
   >
     <template #inputs>
       <div class="mw-inputs">
@@ -83,18 +83,17 @@ function formatWindow(h: number): string {
             aria-label="Sleep time"
           />
         </div>
+        <!-- Invalid state: error banner (inside inputs so it shows when hasOutput is false) -->
+        <div v-if="!result.valid" class="mw-error" role="alert">
+          <span class="mw-error__icon">&#9888;</span>
+          {{ result.error }}
+        </div>
       </div>
     </template>
 
     <template #output>
-      <!-- Invalid state: error banner -->
-      <div v-if="!result.valid" class="mw-error" role="alert">
-        <span class="mw-error__icon">&#9888;</span>
-        {{ result.error }}
-      </div>
-
       <!-- Valid state: score output -->
-      <div v-else class="mw-output">
+      <div class="mw-output">
         <div class="mw-score-row">
           <div class="mw-score-block">
             <span class="mw-score-key">TRF Score</span>
