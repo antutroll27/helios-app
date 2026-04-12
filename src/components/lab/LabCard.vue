@@ -32,7 +32,7 @@ defineProps<{
 .lab-card__label {
   font-family: 'Geist Mono', monospace;
   font-size: var(--font-size-3xs);
-  letter-spacing: 0.12em;
+  letter-spacing: var(--tracking-label);
   color: var(--card-accent);
   font-weight: 700;
   text-transform: uppercase;
@@ -49,7 +49,7 @@ defineProps<{
   margin: 0.25rem 0;
 }
 .lab-card__citation {
-  font-size: 0.38rem;
+  font-size: var(--font-size-4xs);
   color: rgba(255,246,233,0.2);
   font-style: italic;
   margin-top: auto;

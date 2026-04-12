@@ -34,13 +34,13 @@ defineProps<{
   display: flex;
   gap: 0.4rem;
   align-items: baseline;
-  font-size: 0.42rem;
+  font-size: var(--font-size-3xs);
   line-height: 1.5;
 }
 .lab-evidence__key {
   font-family: 'Geist Mono', monospace;
-  font-size: 0.38rem;
-  letter-spacing: 0.06em;
+  font-size: var(--font-size-4xs);
+  letter-spacing: var(--tracking-fine);
   color: var(--text-muted);
   text-transform: uppercase;
   flex-shrink: 0;
