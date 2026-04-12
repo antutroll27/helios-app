@@ -1,38 +1,18 @@
 <script setup lang="ts">
-const supplements = [
-  {
-    name: 'Melatonin',
-    dose: '0.5–1 mg',
-    timing: '60–90 min before bed',
-    effect: '-7 min sleep latency',
-    caveat: 'Best for circadian misalignment (jet lag, shift work). Higher doses cause receptor desensitisation — more is not better.',
-    grade: 'B',
-    citation: 'Fatemeh 2022, k=23 RCTs',
-  },
-  {
-    name: 'Mg Glycinate',
-    dose: '225–400 mg',
-    timing: '30–60 min before bed',
-    effect: '-17 min latency, +16 min TST',
-    caveat: 'Studies mostly in elderly adults with insomnia. Effect in healthy young adults is likely much smaller.',
-    grade: 'C',
-    citation: 'Mah 2021, BMC meta-analysis',
-  },
-  {
-    name: 'Glycine',
-    dose: '3 g',
-    timing: '30 min before bed',
-    effect: '-10 min latency, -0.1–0.2°C core temp',
-    caveat: 'Mechanism is well-understood (peripheral vasodilation lowers core temp). Fewest side effects of the three.',
-    grade: 'B',
-    citation: 'Bannai 2012',
-  },
-] as const
+import { useSupplementGuide } from '../../composables/lab/useSupplementGuide'
+
+const { rankedSupplements, hasPersonalization } = useSupplementGuide()
 
 const GRADE_COLOR: Record<string, string> = {
-  A: '#00D4AA',
-  B: '#9B8BFA',
-  C: '#FFBD76',
+  'A+': '#00D4AA',
+  A:    '#9B8BFA',
+  B:    '#FFBD76',
+}
+
+function opacityForScore(score: number): number {
+  if (score >= 2) return 1
+  if (score === 1) return 0.85
+  return 0.65
 }
 </script>
 
@@ -48,13 +28,21 @@ const GRADE_COLOR: Record<string, string> = {
     <!-- Sub-card grid -->
     <div class="sg-grid">
       <div
-        v-for="s in supplements"
-        :key="s.name"
+        v-for="s in rankedSupplements"
+        :key="s.key"
         class="sg-sub"
-        :style="{ '--grade-color': GRADE_COLOR[s.grade] }"
+        :style="{
+          '--grade-color': GRADE_COLOR[s.grade],
+          opacity: hasPersonalization ? opacityForScore(s.score) : 1,
+        }"
       >
-        <!-- Grade badge -->
-        <div class="sg-grade-badge">GRADE {{ s.grade }}</div>
+        <!-- Grade badge + Recommended badge -->
+        <div class="sg-badge-row">
+          <div class="sg-grade-badge">GRADE {{ s.grade }}</div>
+          <div v-if="hasPersonalization && s.isTopPick" class="sg-recommended-badge">
+            Recommended ✓
+          </div>
+        </div>
 
         <!-- Name -->
         <div class="sg-name">{{ s.name }}</div>
@@ -69,11 +57,20 @@ const GRADE_COLOR: Record<string, string> = {
         <!-- Effect -->
         <div class="sg-effect">{{ s.effect }}</div>
 
-        <!-- Caveat — always visible -->
+        <!-- Caveat -->
         <p class="sg-caveat">{{ s.caveat }}</p>
 
         <!-- Citation -->
         <div class="sg-citation">{{ s.citation }}</div>
+
+        <!-- Personalized note (only when biometrics are available) -->
+        <div
+          v-if="hasPersonalization"
+          class="sg-note"
+          :class="s.score >= 1 ? 'sg-note--triggered' : 'sg-note--fallback'"
+        >
+          {{ s.note }}
+        </div>
       </div>
     </div>
 
@@ -128,6 +125,15 @@ const GRADE_COLOR: Record<string, string> = {
   display: flex;
   flex-direction: column;
   gap: 0.35rem;
+  transition: opacity 0.2s;
+}
+
+/* Badge row */
+.sg-badge-row {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  flex-wrap: wrap;
 }
 
 /* Grade badge */
@@ -143,6 +149,20 @@ const GRADE_COLOR: Record<string, string> = {
   background: var(--grade-color);
   border-radius: 3px;
   padding: 0.15rem 0.4rem;
+}
+
+/* Recommended badge */
+.sg-recommended-badge {
+  font-family: 'Geist Mono', monospace;
+  font-size: var(--font-size-3xs);
+  letter-spacing: var(--tracking-fine);
+  text-transform: uppercase;
+  color: #00D4AA;
+  background: rgba(0, 212, 170, 0.1);
+  border: 1px solid rgba(0, 212, 170, 0.3);
+  border-radius: 4px;
+  padding: 0.2rem 0.45rem;
+  white-space: nowrap;
 }
 
 /* Name */
@@ -178,7 +198,7 @@ const GRADE_COLOR: Record<string, string> = {
   letter-spacing: var(--tracking-fine);
 }
 
-/* Caveat — always visible, amber tint */
+/* Caveat */
 .sg-caveat {
   font-size: var(--font-size-xs3);
   font-style: italic;
@@ -198,5 +218,27 @@ const GRADE_COLOR: Record<string, string> = {
   font-style: italic;
   margin-top: auto;
   padding-top: 0.2rem;
+}
+
+/* Personalized note */
+.sg-note {
+  font-size: var(--font-size-xs3);
+  line-height: 1.4;
+  border-left: 2px solid;
+  padding: 0.3rem 0.5rem;
+  border-radius: 0 3px 3px 0;
+  margin-top: 0.1rem;
+}
+
+.sg-note--triggered {
+  color: #00D4AA;
+  background: rgba(0, 212, 170, 0.07);
+  border-left-color: rgba(0, 212, 170, 0.35);
+}
+
+.sg-note--fallback {
+  color: rgba(255, 246, 233, 0.35);
+  background: none;
+  border-left-color: rgba(255, 246, 233, 0.1);
 }
 </style>
