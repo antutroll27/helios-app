@@ -304,7 +304,7 @@ export const useAuthStore = defineStore('auth', () => {
 npx vitest run src/stores/auth.test.ts
 ```
 
-Expected: 5/5 PASS.
+Expected: 6/6 PASS.
 
 - [ ] **Step 5: Run full test suite — confirm no regressions**
 
@@ -1244,16 +1244,26 @@ function dismiss() {
 </style>
 ```
 
-**Note on `margin-top`:** The NavBar is `position: fixed` so it doesn't push down page content. The AuthBanner uses `var(--navbar-height, 50px)` to clear it. To wire this properly, add `--navbar-height: <measured value>px` to the `:root` block in `src/style.css` (or wherever global CSS variables live) after measuring the rendered NavBar height in the browser. The default fallback of 50px is approximate.
+**Note on `margin-top`:** The NavBar is `position: fixed` so it doesn't push down page content. The AuthBanner uses `var(--navbar-height, 50px)` to clear it. The 50px fallback is approximate — complete the step below to wire it precisely.
 
-- [ ] **Step 2: Verify**
+- [ ] **Step 2: Define `--navbar-height` in `src/style.css`**
 
-- Guest user: AuthBanner appears below NavBar with the copy and dismiss button.
+Open the dev server, inspect the NavBar height with browser DevTools, then add to the `:root` block in `src/style.css`:
+
+```css
+--navbar-height: <measured value>px;   /* e.g. --navbar-height: 52px */
+```
+
+This lets `.auth-banner { margin-top: var(--navbar-height, 50px) }` clear the fixed NavBar precisely.
+
+- [ ] **Step 3: Verify**
+
+- Guest user: AuthBanner appears immediately below NavBar with no gap or overlap.
 - Click ×: banner disappears and stays gone after page reload.
 - Sign in: banner disappears because `auth.isAuthenticated` becomes true.
 - Navigate to `/auth`: banner does not appear (gated by `!isAuthRoute && !auth.loading` in App.vue).
 
-- [ ] **Step 3: Run full test suite**
+- [ ] **Step 4: Run full test suite**
 
 ```bash
 npx vitest run
@@ -1261,10 +1271,10 @@ npx vitest run
 
 Expected: all tests pass.
 
-- [ ] **Step 4: Commit**
+- [ ] **Step 5: Commit**
 
 ```bash
-git add src/components/AuthBanner.vue
+git add src/components/AuthBanner.vue src/style.css
 git commit -m "feat(auth): add AuthBanner soft prompt with localStorage dismiss"
 ```
 
