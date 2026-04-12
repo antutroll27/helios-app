@@ -183,7 +183,7 @@ export function scoreSupplements(
 | Magnesium Glycinate | `sleepHours` | `< 7.0` | +2 | `"Your ${sleepHours.toFixed(1)}h avg is below the 7h threshold — Mg supports slow-wave sleep depth"` |
 | Magnesium Glycinate | `sleepScore` | `< 75` | +1 | Appended as `" · sleep score ${sleepScore} also flags low recovery"` if sleepHours also triggered; standalone `"Sleep score ${sleepScore} suggests reduced recovery — Mg glycinate supports deep sleep quality"` if sleepHours did not trigger |
 | Ashwagandha KSM-66 | `hrv` | `< 40` | +2 | `"HRV ${hrv.toFixed(1)}ms suggests elevated stress load — KSM-66 reduces cortisol ~15% (Chandrasekhar 2012)"` |
-| Ashwagandha KSM-66 | `sleepScore` | `< 80` | +1 | Appended as `" · sleep score also supports prioritising cortisol reduction"` if HRV also triggered; standalone `"Sleep score ${sleepScore} suggests stress-related sleep disruption — consider Ashwagandha"` if HRV did not trigger |
+| Ashwagandha KSM-66 | `sleepScore` | `< 75` | +1 | Appended as `" · sleep score also supports prioritising cortisol reduction"` if HRV also triggered; standalone `"Sleep score ${sleepScore} suggests stress-related sleep disruption — consider Ashwagandha"` if HRV did not trigger |
 | Glycine | `sleepScore` | `< 72` | +1 | `"Sleep score ${sleepScore} suggests onset or fragmentation — glycine lowers core body temperature"` |
 | Glycine | `sleepHours` | `< 6.5` | +1 | Appended as `" · combined with short sleep (${sleepHours.toFixed(1)}h), sleep onset is the likely bottleneck"` if sleepScore also triggered; standalone `"Short sleep (${sleepHours.toFixed(1)}h) may reflect slow sleep onset — glycine reduces latency ~10 min"` if sleepScore did not trigger |
 
@@ -197,7 +197,7 @@ export function scoreSupplements(
 
 **Tie-breaking:** When two supplements share the same score, maintain stable order: Magnesium > Ashwagandha > Glycine. `isTopPick` is assigned to the first supplement in the sorted list.
 
-**`hasPersonalization`** — `true` when `avgHRV != null && avgSleepScore != null`. When `false`, `SupplementGuideCard` renders the static layout (no reordering, no badges, no personalized notes).
+**`hasPersonalization`** — `true` when `avgHRV != null && avgSleepScore != null && avgTotalSleepH != null`. All three must be non-null: without `avgTotalSleepH`, Magnesium and Glycine signals would silently score 0 while the UI still shows badges and notes, producing misleading rankings. When `false`, `SupplementGuideCard` renders the static layout (no reordering, no badges, no personalized notes).
 
 ### Modified File: `src/components/lab/SupplementGuideCard.vue`
 
