@@ -9,7 +9,7 @@ import { useAuthStore } from '@/stores/auth'
 import { useTheme } from '@/composables/useTheme'
 import NavBar from '@/components/NavBar.vue'
 import FloatingBottomNav from '@/components/FloatingBottomNav.vue'
-// import AuthBanner from '@/components/AuthBanner.vue'  // TODO: uncomment when Task 8 creates this component
+import AuthBanner from '@/components/AuthBanner.vue'
 
 const geo   = useGeoStore()
 const sw    = useSpaceWeatherStore()
@@ -49,7 +49,7 @@ onUnmounted(() => {
     }"
   >
     <NavBar            v-if="!isAuthRoute" />
-    <!-- <AuthBanner v-if="!isAuthRoute && !auth.loading" /> -->
+    <AuthBanner v-if="!isAuthRoute && !auth.loading" />
     <main class="main-content">
       <RouterView />
     </main>

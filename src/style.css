@@ -62,6 +62,7 @@ body {
 }
 
 :root {
+  --navbar-height: 52px;
   --bg-primary: #0A171D;
   --bg-card: #15242E;
   --bg-card-hover: #1A2E38;
