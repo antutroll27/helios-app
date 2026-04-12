@@ -4,24 +4,18 @@ Handles chat messages with Hermes memory enrichment.
 """
 
 import uuid
-from datetime import datetime
+from datetime import datetime, UTC
 from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks
+from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks, Request
 from pydantic import BaseModel
 
-from backend.auth.supabase_auth import get_current_user
+from backend.auth.supabase_auth import get_current_user, encrypt_api_key, decrypt_api_key
 from backend.chat.llm_proxy import call_llm, parse_ai_response
 from backend.chat.prompt_builder import build_system_prompt
-from backend.memory.hermes_learner import HermesLearner
+from backend.config import SHARED_LLM_PROVIDER, SHARED_LLM_KEY, SHARED_LLM_RATE_LIMIT
 
 router = APIRouter()
-
-
-# ─── In-memory session store (Phase 1 — move to Supabase in production) ─────
-
-_sessions: dict[str, list[dict]] = {}  # session_id -> messages
-_session_meta: dict[str, dict] = {}    # session_id -> {user_id, provider, api_key}
 
 
 # ─── Request / Response Models ───────────────────────────────────────────────
@@ -53,7 +47,6 @@ _shared_key_usage: dict[str, dict] = {}  # user_id -> {date: str, count: int}
 
 def _check_shared_rate_limit(user_id: str) -> bool:
     """Check if user is within the shared key daily rate limit."""
-    from backend.config import SHARED_LLM_RATE_LIMIT
     today = datetime.now().strftime("%Y-%m-%d")
     usage = _shared_key_usage.get(user_id, {})
     if usage.get("date") != today:
@@ -73,29 +66,21 @@ def _increment_shared_usage(user_id: str):
 
 @router.post("/send", response_model=ChatResponse)
 async def send_message(
-    request: ChatRequest,
+    body: ChatRequest,
+    request: Request,
+    background_tasks: BackgroundTasks,
     user_id: str = Depends(get_current_user),
 ):
     """
     Main chat endpoint with Hermes memory injection.
-
-    Supports two modes:
-    - BYOK (Bring Your Own Key): user provides provider + api_key
-    - Shared key: no provider/key → uses the house model (rate-limited)
-
-    Flow:
-    1. Resolve provider + key (own or shared)
-    2. Fetch user's memory.md (learned insights from past sessions)
-    3. Build enriched system prompt (scientific KB + live data + memories)
-    4. Proxy to LLM
-    5. Store messages in session for later Hermes processing
+    Supports BYOK (user provides provider+key) or shared key (rate-limited).
+    Messages are persisted to Supabase for Hermes learning on session end.
     """
-    from backend.config import SHARED_LLM_PROVIDER, SHARED_LLM_KEY
-
-    session_id = request.session_id or str(uuid.uuid4())
+    supabase = request.app.state.supabase
+    memory_service = request.app.state.memory_service
 
     # Resolve provider + key
-    using_shared = not request.api_key or not request.provider
+    using_shared = not body.api_key or not body.provider
     if using_shared:
         if not SHARED_LLM_KEY:
             raise HTTPException(status_code=503, detail="Shared AI is not configured. Please add your own API key in Settings.")
@@ -105,23 +90,23 @@ async def send_message(
         api_key = SHARED_LLM_KEY
         _increment_shared_usage(user_id)
     else:
-        provider = request.provider
-        api_key = request.api_key
+        provider = body.provider
+        api_key = body.api_key
 
     # Fetch user's memory for prompt enrichment
-    memory_block = ""  # TODO: Wire to MemoryService when Supabase is connected
+    memory_block = await memory_service.get_memory_for_prompt(user_id)
 
     # Build enriched system prompt
     system_prompt = build_system_prompt(
-        lat=request.context.lat,
-        lng=request.context.lng,
-        timezone=request.context.timezone,
+        lat=body.context.lat,
+        lng=body.context.lng,
+        timezone=body.context.timezone,
         user_id=user_id,
         memory_block=memory_block,
     )
 
     # Build conversation
-    messages = request.history + [{"role": "user", "content": request.message}]
+    messages = body.history + [{"role": "user", "content": body.message}]
 
     # Call LLM
     try:
@@ -134,19 +119,44 @@ async def send_message(
     except Exception as e:
         raise HTTPException(status_code=502, detail=f"LLM provider error: {e}")
 
-    # Parse response
     parsed = parse_ai_response(raw_response)
 
-    # Store in session for Hermes processing on end-session
-    if session_id not in _sessions:
-        _sessions[session_id] = []
-        _session_meta[session_id] = {
+    # --- Session persistence ---
+    enc_key = encrypt_api_key(api_key)  # always encrypt; decrypt in end_session for Hermes
+
+    if not body.session_id:
+        # New session — create row in DB
+        session_result = supabase.table("chat_sessions").insert({
             "user_id": user_id,
             "provider": provider,
-            "api_key": api_key,
-        }
-    _sessions[session_id].append({"role": "user", "content": request.message})
-    _sessions[session_id].append({"role": "assistant", "content": parsed["message"]})
+            "encrypted_api_key": enc_key,
+        }).execute()
+        session_id = session_result.data[0]["id"]
+    else:
+        # Verify session exists in DB (client may send stale session_id after server restart)
+        existing = supabase.table("chat_sessions").select("id") \
+            .eq("id", body.session_id).eq("user_id", user_id).execute()
+        if existing.data:
+            session_id = body.session_id
+        else:
+            # Session not found — create a fresh one
+            session_result = supabase.table("chat_sessions").insert({
+                "user_id": user_id,
+                "provider": provider,
+                "encrypted_api_key": enc_key,
+            }).execute()
+            session_id = session_result.data[0]["id"]
+
+    # Persist user message + assistant response
+    # Failures are logged but not surfaced — LLM response already returned
+    try:
+        supabase.table("chat_messages").insert([
+            {"session_id": session_id, "role": "user", "content": body.message},
+            {"session_id": session_id, "role": "assistant", "content": parsed["message"],
+             "visual_cards": parsed["visual_cards"]},
+        ]).execute()
+    except Exception as e:
+        print(f"[helios] chat_messages insert failed: {e}")
 
     return ChatResponse(
         message=parsed["message"],
@@ -196,10 +206,6 @@ async def _hermes_background_task(session_id: str):
     # Cleanup session data
     _sessions.pop(session_id, None)
     _session_meta.pop(session_id, None)
-
-
-# In-memory user memories (move to Supabase in production)
-_user_memories: dict[str, str] = {}
 
 
 @router.post("/end-session")
