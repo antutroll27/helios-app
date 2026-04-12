@@ -6,6 +6,7 @@ const router = createRouter({
     { path: '/', component: () => import('@/pages/HomePage.vue') },
     { path: '/settings', component: () => import('@/pages/SettingsPage.vue') },
     { path: '/biometrics', component: () => import('@/pages/BiometricsPage.vue') },
+    { path: '/lab', component: () => import('@/pages/LabPage.vue') },
   ]
 })
 

@@ -2,7 +2,7 @@
 import { computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useTheme } from '@/composables/useTheme'
-import { Home, Activity, Settings } from 'lucide-vue-next'
+import { Home, Activity, Settings, FlaskConical } from 'lucide-vue-next'
 
 const route  = useRoute()
 const router = useRouter()
@@ -15,9 +15,10 @@ const activeBg    = computed(() => isDark.value
 )
 
 const items = [
-  { to: '/',            icon: Home,     label: 'Home'       },
-  { to: '/biometrics',  icon: Activity, label: 'Biometrics' },
-  { to: '/settings',    icon: Settings, label: 'Settings'   },
+  { to: '/',           icon: Home,         label: 'Home'       },
+  { to: '/biometrics', icon: Activity,     label: 'Biometrics' },
+  { to: '/lab',        icon: FlaskConical, label: 'Lab'        },
+  { to: '/settings',   icon: Settings,     label: 'Settings'   },
 ]
 
 function isActive(to: string) {
