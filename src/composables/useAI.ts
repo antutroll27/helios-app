@@ -181,7 +181,7 @@ Visual card data schemas:
     const auth = useAuthStore()
     const BACKEND_URL = import.meta.env.VITE_BACKEND_URL
 
-    if (auth.session && BACKEND_URL) {
+    if (auth.isAuthenticated && auth.session && BACKEND_URL) {
       const geo = useGeoStore()
       const response = await fetch(`${BACKEND_URL}/api/chat/send`, {
         method: 'POST',
