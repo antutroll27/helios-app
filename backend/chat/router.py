@@ -3,7 +3,6 @@ HELIOS Backend — Chat Router
 Handles chat messages with Hermes memory enrichment.
 """
 
-import uuid
 from datetime import datetime, UTC
 from typing import Optional
 
@@ -68,7 +67,6 @@ def _increment_shared_usage(user_id: str):
 async def send_message(
     body: ChatRequest,
     request: Request,
-    background_tasks: BackgroundTasks,
     user_id: str = Depends(get_current_user),
 ):
     """
