@@ -97,7 +97,7 @@ function onMouseLeave() {
             stroke-opacity="0.45" stroke-dasharray="2 2"
           />
           <circle
-            :cx="hoverPoint.x" :cy="hoverPoint.y"
+            :cx="hoverPoint.x ?? undefined" :cy="hoverPoint.y ?? undefined"
             r="3" fill="#0A171D" opacity="0.75"
           />
         </template>

@@ -1,9 +1,13 @@
 <script setup lang="ts">
+import { computed } from 'vue'
 import { useMealWindow } from '../../composables/lab/useMealWindow'
 import LabCard from './LabCard.vue'
 import LabEvidenceBlock from './LabEvidenceBlock.vue'
 
 const { firstMealHour, lastMealHour, sleepHour, result } = useMealWindow()
+
+// Narrowed computed so TypeScript can resolve the valid-branch properties in the template
+const validResult = computed(() => result.value.valid ? result.value : null)
 
 // Format a decimal hour as HH:MM (handles overflow 24=0:00, 25=1:00, 26=2:00)
 function formatHour(h: number): string {
@@ -92,14 +96,14 @@ function formatWindow(h: number): string {
     </template>
 
     <template #output>
-      <!-- Valid state: score output -->
-      <div class="mw-output">
+      <!-- validResult is non-null here because hasOutput=result.valid gates this slot -->
+      <div v-if="validResult" class="mw-output">
         <div class="mw-score-row">
           <div class="mw-score-block">
             <span class="mw-score-key">TRF Score</span>
-            <span class="mw-score-val">{{ result.score }}<span class="mw-score-denom">/100</span></span>
+            <span class="mw-score-val">{{ validResult.score }}<span class="mw-score-denom">/100</span></span>
           </div>
-          <div v-if="result.earlyTRF" class="mw-badge-early">
+          <div v-if="validResult.earlyTRF" class="mw-badge-early">
             Early TRF &#10003;
           </div>
         </div>
@@ -107,17 +111,17 @@ function formatWindow(h: number): string {
         <div class="mw-stats-grid">
           <div class="mw-stat-cell">
             <span class="mw-stat-key">Eating window</span>
-            <span class="mw-stat-val">{{ formatWindow(result.windowHours) }}</span>
+            <span class="mw-stat-val">{{ formatWindow(validResult.windowHours) }}</span>
           </div>
           <div class="mw-stat-cell">
             <span class="mw-stat-key">Before sleep</span>
-            <span class="mw-stat-val">{{ formatWindow(result.hoursBeforeSleep) }}</span>
+            <span class="mw-stat-val">{{ formatWindow(validResult.hoursBeforeSleep) }}</span>
           </div>
         </div>
 
-        <div v-if="result.glucoseBenefit" class="mw-glucose-note">
+        <div v-if="validResult.glucoseBenefit" class="mw-glucose-note">
           <span class="mw-glucose-icon">&#128200;</span>
-          {{ result.glucoseBenefit }}
+          {{ validResult.glucoseBenefit }}
         </div>
       </div>
     </template>
