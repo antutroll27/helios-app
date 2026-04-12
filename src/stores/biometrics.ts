@@ -589,6 +589,93 @@ export const useBiometricsStore = defineStore('biometrics', () => {
     return minutesToTime(avgWakeMin + 420)
   })
 
+  // ---------------------------------------------------------------------------
+  // Phase B — Sleep Regularity Index (adapted from Windred et al. 2024)
+  // ---------------------------------------------------------------------------
+
+  // SRI scalar: 0–100. Null if fewer than 7 nights.
+  const sri = computed<number | null>(() => {
+    const valid = logs.value.filter(l => l.sleep_onset && l.wake_time)
+    if (valid.length < 7) return null
+    const midpoints = valid.map(l => (timeToMinutes(l.sleep_onset) + timeToMinutes(l.wake_time)) / 2)
+    const meanMid = helperAvg(midpoints)
+    const mad = helperAvg(midpoints.map(m => Math.abs(m - meanMid)))
+    return Math.max(0, Math.round(100 - (mad / 120) * 100))
+  })
+
+  // SRI 30-day series — sliding 7-night window, one value per day
+  const sriSeries = computed<{ date: string; value: number | null }[]>(() => {
+    const all = logs.value.filter(l => l.sleep_onset && l.wake_time)
+    const startIdx = Math.max(0, all.length - 30)
+    const last30 = all.slice(startIdx)
+    return last30.map((entry, i) => {
+      const absIdx = startIdx + i
+      const window = all.slice(Math.max(0, absIdx - 6), absIdx + 1)
+      if (window.length < 7) return { date: entry.date, value: null }
+      const midpoints = window.map(l => (timeToMinutes(l.sleep_onset) + timeToMinutes(l.wake_time)) / 2)
+      const meanMid = helperAvg(midpoints)
+      const mad = helperAvg(midpoints.map(m => Math.abs(m - meanMid)))
+      return { date: entry.date, value: Math.max(0, Math.round(100 - (mad / 120) * 100)) }
+    })
+  })
+
+  // ---------------------------------------------------------------------------
+  // Phase B — Sleep Debt (rolling 14-day, always uses raw logs not windowedLogs)
+  // ---------------------------------------------------------------------------
+
+  const SLEEP_TARGET_MIN = 480  // 8 hours
+
+  // Total accumulated debt over the last 14 nights (positive = surplus, negative = deficit)
+  const sleepDebtMin = computed<number>(() => {
+    return logs.value.slice(-14).reduce((acc, l) => acc + (l.total_sleep_min - SLEEP_TARGET_MIN), 0)
+  })
+
+  // Per-night deviation series for sparkline
+  const sleepDebtSeries = computed<{ date: string; value: number }[]>(() => {
+    return logs.value.slice(-14).map(l => ({
+      date: l.date,
+      value: l.total_sleep_min - SLEEP_TARGET_MIN
+    }))
+  })
+
+  // ---------------------------------------------------------------------------
+  // Phase B — Body Clock Dial data
+  // ---------------------------------------------------------------------------
+
+  interface DialData {
+    sleepWindowStart: number
+    sleepWindowEnd:   number
+    peakAlertStart:   number
+    peakAlertEnd:     number
+    dlmoAngle:        number
+    solarNoonAngle:   number
+  }
+
+  const dialData = computed<DialData | null>(() => {
+    if (dlmoEstimate.value === '--:--') return null
+    const validOnset = logs.value.filter(l => l.sleep_onset)
+    const validWake  = logs.value.filter(l => l.wake_time)
+    if (validOnset.length < 3 || validWake.length < 3) return null
+
+    const toAngle = (min: number) => (min / 1440) * 360
+    const avgOnsetMin = helperAvg(validOnset.map(l => timeToMinutes(l.sleep_onset)))
+    const avgWakeMin  = helperAvg(validWake.map(l => timeToMinutes(l.wake_time)))
+
+    const solarNoonDate = solarStore.solarNoon
+    const solarNoonMin  = solarNoonDate instanceof Date
+      ? solarNoonDate.getUTCHours() * 60 + solarNoonDate.getUTCMinutes()
+      : 720  // fallback: noon
+
+    return {
+      sleepWindowStart: toAngle(avgOnsetMin),
+      sleepWindowEnd:   toAngle(avgWakeMin),
+      peakAlertStart:   toAngle(avgWakeMin + 120),
+      peakAlertEnd:     toAngle(avgWakeMin + 600),
+      dlmoAngle:        toAngle(timeToMinutes(dlmoEstimate.value)),
+      solarNoonAngle:   toAngle(solarNoonMin),
+    }
+  })
+
   // Last N calendar days
   const windowedLogs = computed<SleepLog[]>(() => {
     return logs.value.slice(-dateRange.value)
@@ -824,7 +911,10 @@ export const useBiometricsStore = defineStore('biometrics', () => {
     sleepScoreSeries, restingHRSeries, skinTempSeries,
     avgHRV, avgSleepScore, avgRestingHR, avgTotalSleepH,
     protocolAdherence, avgAdherencePct, insights,
-    nowAngle, dlmoEstimate, caffeineCutoff, napWindow,
+    // Phase A
+    dlmoEstimate, caffeineCutoff, napWindow,
+    // Phase B
+    sri, sriSeries, sleepDebtMin, sleepDebtSeries, dialData, nowAngle,
     setDateRange, loadMockData, ingestParsedLogs, setUploadStatus
   }
 })
