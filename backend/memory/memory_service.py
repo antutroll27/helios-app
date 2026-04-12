@@ -67,12 +67,16 @@ class MemoryService:
         Uses the user's own LLM key — zero extra cost.
         """
         # Fetch messages from DB — `timestamp` column defined in backend/schema.sql
-        result = self.db.table("chat_messages") \
-            .select("role, content") \
-            .eq("session_id", session_id) \
-            .order("timestamp") \
-            .execute()
-        messages = result.data  # [{"role": "user", "content": "..."}, ...]
+        try:
+            result = self.db.table("chat_messages") \
+                .select("role, content") \
+                .eq("session_id", session_id) \
+                .order("timestamp") \
+                .execute()
+            messages = result.data or []  # supabase-py returns None (not []) for empty results
+        except Exception as e:
+            print(f"[hermes] Failed to fetch messages for session {session_id}: {e}")
+            return None
 
         if len(messages) < 4:  # Need at least 2 full exchanges
             return None
@@ -87,10 +91,13 @@ class MemoryService:
         await self.save_memory(user_id, updated_memory)
 
         # Mark session as hermes-processed
-        self.db.table("chat_sessions") \
-            .update({"hermes_processed": True}) \
-            .eq("id", session_id) \
-            .execute()
+        try:
+            self.db.table("chat_sessions") \
+                .update({"hermes_processed": True}) \
+                .eq("id", session_id) \
+                .execute()
+        except Exception as e:
+            print(f"[hermes] Failed to mark session {session_id} processed: {e}")
 
         return updated_memory
 

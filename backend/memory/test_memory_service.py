@@ -51,6 +51,8 @@ async def test_process_session_skips_under_4_messages():
     result = await service.process_session("uid-1", "sess-1", "kimi", "key-1")
 
     assert result is None
+    db._memories_mock.upsert.assert_not_called()
+    db._sessions_mock.update.assert_not_called()
 
 
 @pytest.mark.asyncio

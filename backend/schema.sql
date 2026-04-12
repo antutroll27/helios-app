@@ -37,6 +37,11 @@ CREATE TABLE IF NOT EXISTS public.chat_sessions (
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
+-- Added in migration: add_provider_and_encrypted_api_key_to_chat_sessions
+ALTER TABLE public.chat_sessions
+  ADD COLUMN IF NOT EXISTS provider TEXT,
+  ADD COLUMN IF NOT EXISTS encrypted_api_key TEXT;
+
 CREATE INDEX idx_chat_sessions_user ON public.chat_sessions(user_id);
 
 -- ─── Chat Messages ──────────────────────────────────────────────────────────
