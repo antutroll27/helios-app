@@ -1,4 +1,5 @@
 import { useGeoStore } from '@/stores/geo'
+import { useAuthStore } from '@/stores/auth'
 import { useSolarStore } from '@/stores/solar'
 import { useSpaceWeatherStore } from '@/stores/spaceWeather'
 import { useEnvironmentStore } from '@/stores/environment'
@@ -12,6 +13,10 @@ import { fmtTime as fmt } from '@/lib/timezoneUtils'
 export interface AIResponse {
   message: string
   visualCards: VisualCard[]
+}
+
+export interface BackendAIResponse extends AIResponse {
+  sessionId?: string
 }
 
 interface OpenAIMessage {
@@ -170,8 +175,43 @@ Visual card data schemas:
     provider: string,
     apiKey: string,
     conversationHistory: ClaudeMessage[] = [],
-    proxyUrl?: string
-  ): Promise<AIResponse> {
+    sessionId?: string,
+  ): Promise<BackendAIResponse> {
+    // Authenticated path — route through backend
+    const auth = useAuthStore()
+    const BACKEND_URL = import.meta.env.VITE_BACKEND_URL
+
+    if (auth.isAuthenticated && auth.session && BACKEND_URL) {
+      const geo = useGeoStore()
+      const response = await fetch(`${BACKEND_URL}/api/chat/send`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${auth.session.access_token}`,
+        },
+        body: JSON.stringify({
+          message:    userMessage,
+          provider,
+          api_key:    apiKey,
+          session_id: sessionId ?? null,
+          context: {
+            lat:      geo.lat,
+            lng:      geo.lng,
+            timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+          },
+          history: conversationHistory,
+        }),
+      })
+      if (!response.ok) throw new Error(`Backend error: ${response.status}`)
+      const data = await response.json()
+      return {
+        message:     data.message,
+        visualCards: data.visual_cards ?? [],
+        sessionId:   data.session_id,
+      }
+    }
+
+    // Guest path — direct LLM call (unchanged)
     const systemPrompt = buildSystemPrompt()
     const config = PROVIDER_CONFIGS[provider]
 
@@ -223,14 +263,10 @@ Visual card data schemas:
         { role: 'user', content: userMessage },
       ]
 
-      const url = proxyUrl ?? config.baseUrl
+      const url = config.baseUrl
       const headers: Record<string, string> = {
         'Content-Type': 'application/json',
         Authorization: `Bearer ${apiKey}`,
-      }
-
-      if (proxyUrl) {
-        headers['X-Provider'] = provider
       }
 
       const response = await fetch(url, {
@@ -254,7 +290,7 @@ Visual card data schemas:
     }
 
     // ── Parse structured JSON response ─────────────────────────────────────
-    return parseAIResponse(responseText)
+    return { ...parseAIResponse(responseText), sessionId: undefined }
   }
 
   return {
