@@ -1,5 +1,5 @@
 import { defineStore } from 'pinia'
-import { ref, computed } from 'vue'
+import { ref, computed, onScopeDispose } from 'vue'
 import { useSolarStore } from './solar'
 
 export interface SleepLog {
@@ -556,6 +556,7 @@ export const useBiometricsStore = defineStore('biometrics', () => {
   const _nowTimer = setInterval(() => {
     nowAngle.value = ((new Date().getHours() * 60 + new Date().getMinutes()) / 1440) * 360
   }, 60_000)
+  onScopeDispose(() => clearInterval(_nowTimer))
 
   // Instantiate solar store at setup level (not inside computed) for testability
   const solarStore = useSolarStore()
