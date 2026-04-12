@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { onMounted } from 'vue'
 import NapCalcCard from '../components/lab/NapCalcCard.vue'
+import AlcoholImpactCard from '../components/lab/AlcoholImpactCard.vue'
 onMounted(() => { document.title = 'HELIOS · Lab' })
 </script>
 
@@ -13,6 +14,7 @@ onMounted(() => { document.title = 'HELIOS · Lab' })
     </div>
     <div class="lab-grid">
       <NapCalcCard />
+      <AlcoholImpactCard />
     </div>
   </div>
 </template>
