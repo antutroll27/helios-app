@@ -24,6 +24,8 @@ import numpy as np
 from dataclasses import dataclass
 from typing import Optional
 
+from research.evidence_contract import EvidenceProfile, merge_evidence
+
 
 @dataclass
 class LightReading:
@@ -38,6 +40,16 @@ class LightProfile:
     """User light sensitivity profile for age-adjusted models."""
     age: int = 30
     light_sensitive: bool = False  # user override for higher sensitivity
+
+
+LIGHT_MELATONIN_PROFILE = EvidenceProfile(
+    evidence_tier="B",
+    effect_summary="Estimated melatonin suppression and onset delay under melanopic exposure",
+    population_summary="Controlled lab light-exposure studies in healthy adults and adolescents",
+    main_caveat="Suppression is modeled from dose-response curves and individual delay varies",
+    uncertainty_factors=["age", "sensitivity", "duration", "spectral composition"],
+    claim_boundary="Heuristic for light-risk planning, not an exact personal forecast",
+)
 
 
 # ─── Circadian Light Model ──────────────────────────────────────────────────
@@ -250,14 +262,17 @@ class CircadianLightModel:
                 "Treat this as a heuristic and dim lights if the exposure is avoidable."
             )
 
-        return {
+        return merge_evidence(
+            {
             "suppression_pct": suppression_pct,
             "onset_delay_min": onset_delay_min,
             "ed50_used": round(ed50, 1),
             "age_factor": round(age_f, 2),
             "model_type": "heuristic",
             "advisory": advisory,
-        }
+            },
+            LIGHT_MELATONIN_PROFILE,
+        )
 
     def screen_impact(
         self,

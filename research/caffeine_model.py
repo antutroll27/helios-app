@@ -22,6 +22,8 @@ from dataclasses import dataclass
 from typing import Optional
 import math
 
+from research.evidence_contract import EvidenceProfile, merge_evidence
+
 
 @dataclass
 class CaffeineProfile:
@@ -38,6 +40,16 @@ class CaffeineDose:
     """Single caffeine intake event."""
     mg: float
     time: datetime
+
+
+CAFFEINE_SLEEP_PROFILE = EvidenceProfile(
+    evidence_tier="B",
+    effect_summary="Sleep-latency and efficiency estimates based on dose timing studies",
+    population_summary="Healthy adults in mostly controlled laboratory sleep studies",
+    main_caveat="Remaining caffeine is modeled directly, but sleep disruption is still a heuristic mapping",
+    uncertainty_factors=["CYP1A2 variability", "ADORA2A sensitivity", "oral contraceptives", "smoking"],
+    claim_boundary="Use for conservative bedtime planning, not a deterministic personal forecast",
+)
 
 
 # ─── Caffeine Pharmacokinetics Engine ───────────────────────────────────────────
@@ -226,13 +238,16 @@ class CaffeineModel:
         if is_sensitive and remaining_mg > mod_threshold:
             advisory += " (ADORA2A-sensitive: using lower thresholds per Retey 2007)"
 
-        return {
+        return merge_evidence(
+            {
             "impact_level": impact_level,
             "remaining_mg": remaining_mg,
             "sleep_latency_increase_min": latency_increase,
             "fragmentation_risk": fragmentation_risk,
             "advisory": advisory,
-        }
+            },
+            CAFFEINE_SLEEP_PROFILE,
+        )
 
     def optimal_cutoff(
         self,

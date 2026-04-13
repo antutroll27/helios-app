@@ -2,7 +2,7 @@ from datetime import datetime
 
 from research.alcohol_model import AlcoholModel
 from research.breathwork_model import BreathworkModel
-from research.caffeine_model import CaffeineModel, CaffeineProfile
+from research.caffeine_model import CaffeineDose, CaffeineModel, CaffeineProfile
 from research.light_model import CircadianLightModel
 from research.nap_model import NapModel
 
@@ -11,6 +11,8 @@ def test_alcohol_sleep_impact_is_labeled_heuristic():
     result = AlcoholModel().sleep_impact(3, 4, 80.0, "male")
     assert result["model_type"] == "heuristic"
     assert "individual response varies" in result["advisory"]
+    assert result["evidence_profile"]["evidence_tier"] == "B"
+    assert "widmark" in result["method_summary"].lower()
 
 
 def test_breathwork_response_does_not_claim_validated_personal_prediction():
@@ -27,10 +29,22 @@ def test_caffeine_cutoff_uses_default_conservative_language():
     assert "guarantee" not in result["advisory"].lower()
 
 
+def test_caffeine_sleep_impact_keeps_heuristic_boundary():
+    result = CaffeineModel().sleep_impact(
+        [CaffeineDose(mg=200, time=datetime(2026, 4, 5, 14, 0))],
+        datetime(2026, 4, 5, 23, 0),
+        CaffeineProfile(),
+    )
+    assert result["evidence_profile"]["evidence_tier"] == "B"
+    assert "healthy adults" in result["evidence_profile"]["population_summary"].lower()
+    assert "heuristic mapping" in result["evidence_profile"]["main_caveat"].lower()
+
+
 def test_light_model_uses_risk_band_language():
     result = CircadianLightModel().melatonin_suppression(100, 2.0)
     assert result["model_type"] == "heuristic"
     assert "rough risk estimate" in result["advisory"]
+    assert "heuristic" in result["evidence_profile"]["claim_boundary"].lower()
 
 
 def test_nap_recommendation_does_not_treat_study_results_as_universal():
