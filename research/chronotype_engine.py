@@ -168,16 +168,7 @@ class ChronotypeEngine:
         """
         warnings = self._schedule_warnings(logs)
 
-        if work_days is None:
-            return self._chronotype_error_response(
-                error="No reliable free-day proxy",
-                data_days=len(logs),
-                warnings=warnings,
-                wearable_support=self._wearable_support(logs),
-                day_classification={"method": "none", "work_count": 0, "free_count": 0},
-            )
-
-        if len(logs) < 3:
+        if work_days is not None and len(logs) < 3:
             return self._chronotype_error_response(
                 error="Need at least 3 days of data",
                 data_days=len(logs),
