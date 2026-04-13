@@ -21,6 +21,7 @@ class SleepLog:
     sleep_onset: datetime
     wake_time: datetime
     total_sleep_min: int
+    alarm_used: Optional[bool] = None
     deep_sleep_min: Optional[int] = None
     rem_sleep_min: Optional[int] = None
     hrv_avg: Optional[float] = None
@@ -165,17 +166,40 @@ class ChronotypeEngine:
         Returns:
             dict with chronotype analysis results
         """
-        if work_days is None:
-            work_days = {0, 1, 2, 3, 4}
-
         if len(logs) < 3:
-            return {"error": "Need at least 3 days of data", "confidence": "low"}
+            return self._chronotype_error_response(
+                error="Need at least 3 days of data",
+                data_days=len(logs),
+                warnings=[],
+                wearable_support=self._wearable_support(logs),
+                day_classification={"method": "none", "work_count": 0, "free_count": 0},
+            )
 
-        work_logs = [l for l in logs if datetime.strptime(l.date, "%Y-%m-%d").weekday() in work_days]
-        free_logs = [l for l in logs if datetime.strptime(l.date, "%Y-%m-%d").weekday() not in work_days]
+        day_classification = self._classify_day_types(logs, work_days)
+        if day_classification["method"] == "none":
+            error = "No reliable free-day proxy" if work_days is None else "Need both work and free day data"
+            return self._chronotype_error_response(
+                error=error,
+                data_days=len(logs),
+                warnings=[],
+                wearable_support=self._wearable_support(logs),
+                day_classification=day_classification,
+            )
 
+        work_logs = day_classification["work_logs"]
+        free_logs = day_classification["free_logs"]
         if not work_logs or not free_logs:
-            return {"error": "Need both work and free day data", "confidence": "low"}
+            return self._chronotype_error_response(
+                error="Need both work and free day data",
+                data_days=len(logs),
+                warnings=[],
+                wearable_support=self._wearable_support(logs),
+                day_classification={
+                    "method": day_classification["method"],
+                    "work_count": len(work_logs),
+                    "free_count": len(free_logs),
+                },
+            )
 
         # Average work-day timing
         avg_work_onset = self._average_time([l.sleep_onset for l in work_logs])
@@ -191,6 +215,8 @@ class ChronotypeEngine:
         sjl = self.social_jet_lag_hours(avg_work_onset, avg_work_wake, avg_free_onset, avg_free_wake)
 
         msf_hour = msf_sc.hour + msf_sc.minute / 60
+        warnings = self._schedule_warnings(logs)
+        confidence_score = self._confidence_score(len(logs), day_classification["method"], warnings)
 
         return {
             "chronotype": self.chronotype_label(msf_hour),
@@ -202,7 +228,16 @@ class ChronotypeEngine:
             "avg_work_wake": avg_work_wake.strftime("%H:%M"),
             "avg_free_sleep": avg_free_onset.strftime("%H:%M"),
             "avg_free_wake": avg_free_wake.strftime("%H:%M"),
-            "confidence": "high" if len(logs) >= 14 else "moderate" if len(logs) >= 7 else "low",
+            "confidence": "high" if confidence_score >= 0.75 else "moderate" if confidence_score >= 0.55 else "low",
+            "confidence_score": confidence_score,
+            "warnings": warnings,
+            "day_classification": {
+                "method": day_classification["method"],
+                "work_count": day_classification["work_count"],
+                "free_count": day_classification["free_count"],
+            },
+            "data_sufficiency": "adequate" if len(logs) >= 6 else "limited",
+            "wearable_support": self._wearable_support(logs),
             "data_days": len(logs),
         }
 
@@ -219,6 +254,171 @@ class ChronotypeEngine:
             avg_angle += 2 * np.pi
         avg_minutes = int((avg_angle / (2 * np.pi)) * 1440) % 1440
         return times[0].replace(hour=avg_minutes // 60, minute=avg_minutes % 60, second=0)
+
+    def _classify_day_types(
+        self,
+        logs: list[SleepLog],
+        work_days: Optional[set[int]] = None,
+    ) -> dict:
+        """
+        Classify logs into work/free days using the strongest available proxy.
+
+        Priority:
+        - alarm_used if present on any log
+        - declared work_days if provided
+        - wake-gap heuristic fallback
+        - otherwise no reliable proxy
+        """
+        alarm_logs = [log for log in logs if log.alarm_used is not None]
+        if alarm_logs:
+            work_logs = [log for log in alarm_logs if log.alarm_used]
+            free_logs = [log for log in alarm_logs if not log.alarm_used]
+            return {
+                "method": "alarm_used",
+                "work_logs": work_logs,
+                "free_logs": free_logs,
+                "work_count": len(work_logs),
+                "free_count": len(free_logs),
+            }
+
+        if work_days is not None:
+            work_logs = [log for log in logs if datetime.strptime(log.date, "%Y-%m-%d").weekday() in work_days]
+            free_logs = [log for log in logs if datetime.strptime(log.date, "%Y-%m-%d").weekday() not in work_days]
+            return {
+                "method": "work_days",
+                "work_logs": work_logs,
+                "free_logs": free_logs,
+                "work_count": len(work_logs),
+                "free_count": len(free_logs),
+            }
+
+        wake_gap_classification = self._classify_by_wake_gap(logs)
+        if wake_gap_classification is not None:
+            return wake_gap_classification
+
+        return {
+            "method": "none",
+            "work_logs": [],
+            "free_logs": [],
+            "work_count": 0,
+            "free_count": 0,
+        }
+
+    def _classify_by_wake_gap(self, logs: list[SleepLog]) -> Optional[dict]:
+        """
+        Split days using the largest gap between wake times.
+
+        This is a fallback proxy for distinguishing work and free days when
+        neither alarm flags nor declared work days are available.
+        """
+        if len(logs) < 3:
+            return None
+
+        wake_minutes = sorted(
+            (
+                (log.wake_time.hour * 60 + log.wake_time.minute, log)
+                for log in logs
+            ),
+            key=lambda item: item[0],
+        )
+        if len(wake_minutes) < 2:
+            return None
+
+        best_gap = -1
+        split_index = None
+        for idx in range(len(wake_minutes) - 1):
+            gap = wake_minutes[idx + 1][0] - wake_minutes[idx][0]
+            if gap > best_gap:
+                best_gap = gap
+                split_index = idx
+
+        wrap_gap = (wake_minutes[0][0] + 1440) - wake_minutes[-1][0]
+        if wrap_gap > best_gap:
+            best_gap = wrap_gap
+            split_index = len(wake_minutes) - 1
+
+        if best_gap < 90 or split_index is None:
+            return None
+
+        if split_index == len(wake_minutes) - 1:
+            free_logs = [log for _, log in wake_minutes]
+            work_logs = []
+        else:
+            work_logs = [log for _, log in wake_minutes[: split_index + 1]]
+            free_logs = [log for _, log in wake_minutes[split_index + 1 :]]
+
+        if not work_logs or not free_logs:
+            return None
+
+        return {
+            "method": "wake_gap",
+            "work_logs": work_logs,
+            "free_logs": free_logs,
+            "work_count": len(work_logs),
+            "free_count": len(free_logs),
+        }
+
+    def _schedule_warnings(self, logs: list[SleepLog]) -> list[str]:
+        onset_std = self._circular_std_minutes([log.sleep_onset for log in logs])
+        wake_std = self._circular_std_minutes([log.wake_time for log in logs])
+        if onset_std > 90 or wake_std > 90:
+            return ["Irregular schedule reduces chronotype confidence."]
+        return []
+
+    @staticmethod
+    def _circular_std_minutes(times: list[datetime]) -> float:
+        if len(times) < 2:
+            return 0.0
+
+        angles = np.array([((t.hour * 60 + t.minute) / 1440) * 2 * np.pi for t in times])
+        sin_avg = np.mean(np.sin(angles))
+        cos_avg = np.mean(np.cos(angles))
+        mean_angle = np.arctan2(sin_avg, cos_avg)
+        deltas = np.angle(np.exp(1j * (angles - mean_angle)))
+        std_radians = float(np.std(deltas))
+        return std_radians * (1440 / (2 * np.pi))
+
+    def _confidence_score(self, data_days: int, classification_method: str, warnings: list[str]) -> float:
+        score = 0.35
+        if classification_method == "none":
+            return round(score, 2)
+        if data_days >= 14:
+            score += 0.2
+        if classification_method in {"alarm_used", "wake_gap"}:
+            score += 0.15
+        if not warnings:
+            score += 0.15
+        return round(score, 2)
+
+    @staticmethod
+    def _wearable_support(logs: list[SleepLog]) -> dict:
+        sources = sorted({log.source for log in logs if log.source and log.source != "manual"})
+        return {"available": bool(sources), "sources": sources}
+
+    def _chronotype_error_response(
+        self,
+        *,
+        error: str,
+        data_days: int,
+        warnings: list[str],
+        wearable_support: dict,
+        day_classification: dict,
+    ) -> dict:
+        confidence_score = self._confidence_score(data_days, day_classification["method"], warnings)
+        return {
+            "error": error,
+            "confidence": "high" if confidence_score >= 0.75 else "moderate" if confidence_score >= 0.55 else "low",
+            "confidence_score": confidence_score,
+            "warnings": warnings,
+            "day_classification": {
+                "method": day_classification["method"],
+                "work_count": day_classification["work_count"],
+                "free_count": day_classification["free_count"],
+            },
+            "data_sufficiency": "adequate" if data_days >= 6 and day_classification["method"] != "none" else "limited",
+            "wearable_support": wearable_support,
+            "data_days": data_days,
+        }
 
 
 # ─── Protocol Effectiveness Scoring ──────────────────────────────────────────
