@@ -76,6 +76,43 @@ def test_chronotype_reports_low_confidence_for_irregular_schedule():
     assert "Irregular schedule reduces chronotype confidence." in result["warnings"]
 
 
+def test_chronotype_defaults_to_weekday_workdays_when_omitted():
+    engine = ChronotypeEngine()
+    logs = [
+        make_sleep_log("2026-04-09", 23, 0, 7, 0),
+        make_sleep_log("2026-04-10", 23, 10, 7, 10),
+        make_sleep_log("2026-04-11", 0, 15, 9, 30),
+        make_sleep_log("2026-04-12", 0, 20, 9, 40),
+    ]
+
+    result = engine.chronotype_from_logs(logs)
+
+    assert result["day_classification"] == {
+        "method": "declared_work_days",
+        "work_count": 2,
+        "free_count": 2,
+    }
+
+
+def test_chronotype_uses_wake_gap_fallback_when_no_work_days_are_declared():
+    engine = ChronotypeEngine()
+    logs = [
+        make_sleep_log("2026-04-06", 22, 0, 6, 0),
+        make_sleep_log("2026-04-07", 22, 15, 6, 15),
+        make_sleep_log("2026-04-08", 0, 30, 9, 30),
+        make_sleep_log("2026-04-09", 0, 45, 9, 45),
+    ]
+
+    result = engine.chronotype_from_logs(logs, work_days=None)
+
+    assert "error" not in result
+    assert result["day_classification"] == {
+        "method": "wake_gap",
+        "work_count": 2,
+        "free_count": 2,
+    }
+
+
 def test_chronotype_returns_error_without_reliable_free_day_proxy():
     engine = ChronotypeEngine()
     logs = [

@@ -14,6 +14,9 @@ from dataclasses import dataclass
 from typing import Optional
 
 
+DEFAULT_WORK_DAYS = object()
+
+
 @dataclass
 class SleepLog:
     """Single night of sleep data — from wearable or manual entry."""
@@ -155,7 +158,7 @@ class ChronotypeEngine:
             return "Late"
         return "Extreme Late"
 
-    def chronotype_from_logs(self, logs: list[SleepLog], work_days: Optional[set[int]] = None) -> dict:
+    def chronotype_from_logs(self, logs: list[SleepLog], work_days: Optional[set[int]] = DEFAULT_WORK_DAYS) -> dict:
         """
         Derive chronotype from a collection of sleep logs.
 
@@ -166,6 +169,9 @@ class ChronotypeEngine:
         Returns:
             dict with chronotype analysis results
         """
+        if work_days is DEFAULT_WORK_DAYS:
+            work_days = {0, 1, 2, 3, 4}
+
         warnings = self._schedule_warnings(logs)
 
         if work_days is not None and len(logs) < 3:
@@ -335,15 +341,7 @@ class ChronotypeEngine:
                 best_gap = gap
                 split_index = idx
 
-        wrap_gap = (wake_minutes[0][0] + 1440) - wake_minutes[-1][0]
-        if wrap_gap > best_gap:
-            best_gap = wrap_gap
-            split_index = len(wake_minutes) - 1
-
         if best_gap < 90 or split_index is None:
-            return None
-
-        if split_index == len(wake_minutes) - 1:
             return None
 
         work_logs = [log for _, log in wake_minutes[: split_index + 1]]
@@ -415,6 +413,10 @@ class ChronotypeEngine:
         day_classification: dict,
     ) -> dict:
         confidence_score = self._confidence_score(data_days, day_classification["method"], warnings)
+        if day_classification["method"] == "none":
+            data_sufficiency = "limited" if data_days >= 7 else "minimum"
+        else:
+            data_sufficiency = self._data_sufficiency(data_days)
         return {
             "error": error,
             "confidence": "high" if confidence_score >= 0.75 else "moderate" if confidence_score >= 0.55 else "low",
@@ -425,7 +427,7 @@ class ChronotypeEngine:
                 "work_count": day_classification["work_count"],
                 "free_count": day_classification["free_count"],
             },
-            "data_sufficiency": self._data_sufficiency(data_days),
+            "data_sufficiency": data_sufficiency,
             "wearable_support": wearable_support,
             "data_days": data_days,
         }
