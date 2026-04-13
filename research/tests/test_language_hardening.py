@@ -19,6 +19,9 @@ def test_breathwork_response_does_not_claim_validated_personal_prediction():
     result = BreathworkModel().hrv_response("resonance", 5.5, 10, baseline_rmssd=38.0)
     assert result["model_type"] == "heuristic"
     assert "rough estimate" in result["advisory"]
+    assert result["evidence_profile"]["evidence_tier"] == "B"
+    assert "acute response" in result["evidence_profile"]["main_caveat"].lower()
+    assert "personal biometric prediction" in result["evidence_profile"]["main_caveat"].lower()
 
 
 def test_caffeine_cutoff_uses_default_conservative_language():
@@ -55,3 +58,5 @@ def test_nap_recommendation_does_not_treat_study_results_as_universal():
     )
     assert "study-specific" in result["advisory"]
     assert "universal" not in result["advisory"].lower()
+    assert result["evidence_profile"]["evidence_tier"] == "B"
+    assert "study-specific" in result["evidence_profile"]["main_caveat"].lower()

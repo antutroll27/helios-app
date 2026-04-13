@@ -19,6 +19,8 @@ from datetime import datetime, timedelta
 
 import numpy as np
 
+from research.evidence_contract import EvidenceProfile, merge_evidence
+
 
 @dataclass
 class SpaceWeatherReading:
@@ -38,6 +40,15 @@ class SpaceWeatherBioModel:
     outputs should be treated as heuristics rather than validated individual
     predictions.
     """
+
+    COMPOSITE_EVIDENCE_PROFILE = EvidenceProfile(
+        evidence_tier="C",
+        effect_summary="Exploratory geomagnetic context for conservative recovery planning",
+        population_summary="Observational HRV, melatonin, and cognition literature with uncertain individual relevance",
+        main_caveat="Associations are population-level and not validated for personal biological forecasting",
+        uncertainty_factors=["latitude", "baseline sensitivity", "comorbid stressors", "measurement lag"],
+        claim_boundary="Context only; never the sole basis for a strong personal recommendation",
+    )
 
     def kp_hrv_impact(
         self,
@@ -246,15 +257,18 @@ class SpaceWeatherBioModel:
                 "in this exploratory heuristic. It is not validated for individual prediction."
             )
 
-        return {
-            "bio_score": bio_score,
-            "kp_norm": round(kp_norm, 3),
-            "bz_norm": round(bz_norm, 3),
-            "wind_norm": round(wind_norm, 3),
-            "protocol_adjustments": protocol_adjustments,
-            "model_type": "exploratory_heuristic",
-            "advisory": advisory,
-        }
+        return merge_evidence(
+            {
+                "bio_score": bio_score,
+                "kp_norm": round(kp_norm, 3),
+                "bz_norm": round(bz_norm, 3),
+                "wind_norm": round(wind_norm, 3),
+                "protocol_adjustments": protocol_adjustments,
+                "model_type": "exploratory_heuristic",
+                "advisory": advisory,
+            },
+            self.COMPOSITE_EVIDENCE_PROFILE,
+        )
 
 
 if __name__ == "__main__":

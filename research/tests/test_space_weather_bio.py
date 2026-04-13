@@ -26,3 +26,6 @@ def test_composite_disruption_is_labeled_exploratory():
 
     assert result["model_type"] == "exploratory_heuristic"
     assert "not validated for individual prediction" in result["advisory"]
+    assert result["evidence_profile"]["evidence_tier"] == "C"
+    assert "exploratory geomagnetic context" in result["evidence_profile"]["effect_summary"].lower()
+    assert "context only" in result["evidence_profile"]["claim_boundary"].lower()

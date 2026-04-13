@@ -19,6 +19,8 @@ import numpy as np
 from dataclasses import dataclass
 from typing import Optional
 
+from research.evidence_contract import EvidenceProfile, merge_evidence
+
 
 @dataclass
 class BreathworkSession:
@@ -61,6 +63,16 @@ TECHNIQUE_DEFAULTS = {
         "description": "Equal 5s inhale / 5s exhale for cardiac coherence",
     },
 }
+
+
+BREATHWORK_EVIDENCE_PROFILE = EvidenceProfile(
+    evidence_tier="B",
+    effect_summary="Short-term parasympathetic and HRV-oriented protocol estimates",
+    population_summary="Acute breathwork studies in healthy or stressed adults",
+    main_caveat="Acute response is variable and should not be treated as a personal biometric prediction",
+    uncertainty_factors=["technique familiarity", "baseline stress", "measurement noise"],
+    claim_boundary="Protocol guidance for same-day regulation only",
+)
 
 
 # ─── Breathwork HRV Response Engine ──────────────────────────────────────────────
@@ -239,16 +251,19 @@ class BreathworkModel:
             f"not a validated personal prediction."
         )
 
-        return {
-            "during_rmssd_ms": during_rmssd,
-            "during_rmssd_pct_increase": pct_increase_final,
-            "post_rmssd_delta_ms": post_delta,
-            "post_duration_hours": post_hours,
-            "lf_hf_during": lf_hf_during,
-            "optimal_rate_bpm": optimal_bpm,
-            "model_type": "heuristic",
-            "advisory": advisory,
-        }
+        return merge_evidence(
+            {
+                "during_rmssd_ms": during_rmssd,
+                "during_rmssd_pct_increase": pct_increase_final,
+                "post_rmssd_delta_ms": post_delta,
+                "post_duration_hours": post_hours,
+                "lf_hf_during": lf_hf_during,
+                "optimal_rate_bpm": optimal_bpm,
+                "model_type": "heuristic",
+                "advisory": advisory,
+            },
+            BREATHWORK_EVIDENCE_PROFILE,
+        )
 
     def find_resonance_frequency(self, resting_hr: float = 70) -> dict:
         """
@@ -376,19 +391,23 @@ class BreathworkModel:
         }
 
         if goal not in goal_map:
-            return {
-                "technique": "resonance",
-                "breaths_per_min": 5.5,
-                "duration_min": 10,
-                "inhale_s": 5,
-                "hold_s": 0,
-                "exhale_s": 6,
-                "expected_rmssd_change_pct": 0.0,
-                "advisory": (
-                    f"Unknown goal '{goal}'. "
-                    f"Supported: calm, focus, recovery, sleep."
-                ),
-            }
+            return merge_evidence(
+                {
+                    "technique": "resonance",
+                    "breaths_per_min": 5.5,
+                    "duration_min": 10,
+                    "inhale_s": 5,
+                    "hold_s": 0,
+                    "exhale_s": 6,
+                    "expected_rmssd_change_pct": 0.0,
+                    "advisory": (
+                        f"Unknown goal '{goal}'. "
+                        f"Supported: calm, focus, recovery, sleep."
+                    ),
+                    "model_type": "heuristic",
+                },
+                BREATHWORK_EVIDENCE_PROFILE,
+            )
 
         rec = goal_map[goal]
 
@@ -444,16 +463,20 @@ class BreathworkModel:
             f"(Zaccaro 2018).{stress_note}"
         )
 
-        return {
-            "technique": rec["technique"],
-            "breaths_per_min": rec["bpm"],
-            "duration_min": duration,
-            "inhale_s": rec["inhale"],
-            "hold_s": rec["hold"],
-            "exhale_s": rec["exhale"],
-            "expected_rmssd_change_pct": expected_pct,
-            "advisory": advisory,
-        }
+        return merge_evidence(
+            {
+                "technique": rec["technique"],
+                "breaths_per_min": rec["bpm"],
+                "duration_min": duration,
+                "inhale_s": rec["inhale"],
+                "hold_s": rec["hold"],
+                "exhale_s": rec["exhale"],
+                "expected_rmssd_change_pct": expected_pct,
+                "model_type": "heuristic",
+                "advisory": advisory,
+            },
+            BREATHWORK_EVIDENCE_PROFILE,
+        )
 
 
 # ─── Example Usage ──────────────────────────────────────────────────────────────

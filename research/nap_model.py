@@ -19,6 +19,8 @@ import numpy as np
 from dataclasses import dataclass
 from typing import Optional
 
+from research.evidence_contract import EvidenceProfile, merge_evidence
+
 
 # ─── Duration Effects Lookup (Dutheil 2021 meta-analysis) ─────────────────────
 
@@ -102,6 +104,16 @@ GOAL_DURATIONS = {
 }
 
 
+NAP_EVIDENCE_PROFILE = EvidenceProfile(
+    evidence_tier="B",
+    effect_summary="Alertness and recovery estimates from controlled nap studies",
+    population_summary="Healthy adults, fatigue studies, and selected NASA operational cohorts",
+    main_caveat="Study-specific nap durations do not guarantee the same outcome for every sleeper",
+    uncertainty_factors=["sleep debt", "chronotype", "nap timing", "sleep inertia"],
+    claim_boundary="Use to choose a nap strategy, not to guarantee cognitive lift",
+)
+
+
 # ─── Napping Science Engine ──────────────────────────────────────────────────
 
 class NapModel:
@@ -157,16 +169,20 @@ class NapModel:
         """
         # Validate goal
         if goal not in GOAL_DURATIONS:
-            return {
-                "should_nap": False,
-                "optimal_nap_time_hours": None,
-                "recommended_duration_min": 0,
-                "expected_alertness_boost_hours": 0.0,
-                "sleep_inertia_risk_min": 0,
-                "night_sleep_impact_pct": 0.0,
-                "latest_safe_nap_hours": None,
-                "advisory": f"Error: unknown goal '{goal}'. Use: alertness, memory, creativity, recovery.",
-            }
+            return merge_evidence(
+                {
+                    "should_nap": False,
+                    "optimal_nap_time_hours": None,
+                    "recommended_duration_min": 0,
+                    "expected_alertness_boost_hours": 0.0,
+                    "sleep_inertia_risk_min": 0,
+                    "night_sleep_impact_pct": 0.0,
+                    "latest_safe_nap_hours": None,
+                    "advisory": f"Error: unknown goal '{goal}'. Use: alertness, memory, creativity, recovery.",
+                    "model_type": "heuristic",
+                },
+                NAP_EVIDENCE_PROFILE,
+            )
 
         # Normalize sleep_time to be after current_time
         effective_sleep_time = sleep_time_hours
@@ -277,17 +293,20 @@ class NapModel:
 
         advisory += " Nap findings are study-specific and should be treated as a heuristic, not a general personal prediction."
 
-        return {
-            "should_nap": should_nap,
-            "optimal_nap_time_hours": optimal_nap_time,
-            "recommended_duration_min": recommended_duration,
-            "expected_alertness_boost_hours": expected_alertness_boost_hours,
-            "sleep_inertia_risk_min": sleep_inertia_risk_min,
-            "night_sleep_impact_pct": night_sleep_impact_pct,
-            "latest_safe_nap_hours": round(latest_safe_nap, 1),
-            "model_type": "heuristic",
-            "advisory": advisory,
-        }
+        return merge_evidence(
+            {
+                "should_nap": should_nap,
+                "optimal_nap_time_hours": optimal_nap_time,
+                "recommended_duration_min": recommended_duration,
+                "expected_alertness_boost_hours": expected_alertness_boost_hours,
+                "sleep_inertia_risk_min": sleep_inertia_risk_min,
+                "night_sleep_impact_pct": night_sleep_impact_pct,
+                "latest_safe_nap_hours": round(latest_safe_nap, 1),
+                "model_type": "heuristic",
+                "advisory": advisory,
+            },
+            NAP_EVIDENCE_PROFILE,
+        )
 
     @staticmethod
     def duration_effects(duration_min: int) -> dict:
