@@ -14,6 +14,8 @@ def test_caffeine_sleep_impact_exposes_tier_b_boundary():
 
     profile = result["evidence_profile"]
     assert profile["evidence_tier"] == "B"
+    assert "latency" in profile["effect_summary"].lower()
+    assert "fragmentation" in profile["effect_summary"].lower()
     assert "healthy adults" in profile["population_summary"].lower()
     assert "heuristic mapping" in profile["main_caveat"].lower()
 
@@ -23,6 +25,8 @@ def test_light_model_exposes_tier_b_delay_boundary():
 
     profile = result["evidence_profile"]
     assert profile["evidence_tier"] == "B"
+    assert "melatonin suppression" in profile["effect_summary"].lower()
+    assert "onset delay" in profile["effect_summary"].lower()
     assert "heuristic" in profile["claim_boundary"].lower()
     assert "healthy adults and adolescents" in profile["population_summary"].lower()
 

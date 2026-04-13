@@ -32,7 +32,7 @@ class DrinkerProfile:
 
 ALCOHOL_SLEEP_PROFILE = EvidenceProfile(
     evidence_tier="B",
-    effect_summary="BAC-informed estimates of HRV suppression, REM reduction, and fragmentation risk",
+    effect_summary="Drink-count HRV bins plus BAC-informed REM reduction and fragmentation risk",
     population_summary="Oura observational cohorts plus controlled alcohol and sleep literature",
     main_caveat="BAC math is stronger than the sleep-architecture forecast built on top of it",
     uncertainty_factors=["sex", "body mass", "meal timing", "clearance rate", "habitual tolerance"],

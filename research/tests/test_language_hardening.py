@@ -36,6 +36,8 @@ def test_caffeine_sleep_impact_keeps_heuristic_boundary():
         CaffeineProfile(),
     )
     assert result["evidence_profile"]["evidence_tier"] == "B"
+    assert "latency" in result["evidence_profile"]["effect_summary"].lower()
+    assert "fragmentation" in result["evidence_profile"]["effect_summary"].lower()
     assert "healthy adults" in result["evidence_profile"]["population_summary"].lower()
     assert "heuristic mapping" in result["evidence_profile"]["main_caveat"].lower()
 

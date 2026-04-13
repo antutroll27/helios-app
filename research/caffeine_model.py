@@ -44,7 +44,7 @@ class CaffeineDose:
 
 CAFFEINE_SLEEP_PROFILE = EvidenceProfile(
     evidence_tier="B",
-    effect_summary="Sleep-latency and efficiency estimates based on dose timing studies",
+    effect_summary="Sleep-latency and fragmentation-risk estimates based on dose timing studies",
     population_summary="Healthy adults in mostly controlled laboratory sleep studies",
     main_caveat="Remaining caffeine is modeled directly, but sleep disruption is still a heuristic mapping",
     uncertainty_factors=["CYP1A2 variability", "ADORA2A sensitivity", "oral contraceptives", "smoking"],
