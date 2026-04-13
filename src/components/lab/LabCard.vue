@@ -10,7 +10,7 @@ const props = defineProps<{
 }>()
 
 const slots        = useSlots()
-const showEvidence = ref(false)
+const showEvidence = ref(true)
 const evidenceId   = computed(() =>
   'evidence-' + props.label.toLowerCase().replace(/\s+/g, '-')
 )
