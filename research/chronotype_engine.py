@@ -166,11 +166,13 @@ class ChronotypeEngine:
         Returns:
             dict with chronotype analysis results
         """
+        warnings = self._schedule_warnings(logs)
+
         if len(logs) < 3:
             return self._chronotype_error_response(
                 error="Need at least 3 days of data",
                 data_days=len(logs),
-                warnings=[],
+                warnings=warnings,
                 wearable_support=self._wearable_support(logs),
                 day_classification={"method": "none", "work_count": 0, "free_count": 0},
             )
@@ -181,7 +183,7 @@ class ChronotypeEngine:
             return self._chronotype_error_response(
                 error=error,
                 data_days=len(logs),
-                warnings=[],
+                warnings=warnings,
                 wearable_support=self._wearable_support(logs),
                 day_classification=day_classification,
             )
@@ -192,7 +194,7 @@ class ChronotypeEngine:
             return self._chronotype_error_response(
                 error="Need both work and free day data",
                 data_days=len(logs),
-                warnings=[],
+                warnings=warnings,
                 wearable_support=self._wearable_support(logs),
                 day_classification={
                     "method": day_classification["method"],
@@ -215,7 +217,6 @@ class ChronotypeEngine:
         sjl = self.social_jet_lag_hours(avg_work_onset, avg_work_wake, avg_free_onset, avg_free_wake)
 
         msf_hour = msf_sc.hour + msf_sc.minute / 60
-        warnings = self._schedule_warnings(logs)
         confidence_score = self._confidence_score(len(logs), day_classification["method"], warnings)
 
         return {
