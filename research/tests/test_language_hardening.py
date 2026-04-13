@@ -24,6 +24,13 @@ def test_breathwork_response_does_not_claim_validated_personal_prediction():
     assert "personal biometric prediction" in result["evidence_profile"]["main_caveat"].lower()
 
 
+def test_breathwork_invalid_parameters_preserve_evidence_contract():
+    result = BreathworkModel().hrv_response("resonance", 5.5, 0, baseline_rmssd=38.0)
+    assert result["model_type"] == "heuristic"
+    assert result["evidence_profile"]["evidence_tier"] == "B"
+    assert "must be positive" in result["advisory"].lower()
+
+
 def test_caffeine_cutoff_uses_default_conservative_language():
     result = CaffeineModel().optimal_cutoff(
         datetime(2026, 4, 5, 23, 0), CaffeineProfile(), dose_mg=200

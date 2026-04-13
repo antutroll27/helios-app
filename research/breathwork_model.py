@@ -177,32 +177,41 @@ class BreathworkModel:
             post_rmssd_delta_ms, post_duration_hours, lf_hf_during,
             optimal_rate_bpm, advisory.
         """
+        def build_result(payload: dict) -> dict:
+            return merge_evidence(payload, BREATHWORK_EVIDENCE_PROFILE)
+
         # Guard: unknown technique
         if technique not in TECHNIQUE_DEFAULTS:
-            return {
-                "during_rmssd_ms": baseline_rmssd,
-                "during_rmssd_pct_increase": 0.0,
-                "post_rmssd_delta_ms": 0.0,
-                "post_duration_hours": 0.0,
-                "lf_hf_during": 2.5,
-                "optimal_rate_bpm": 5.5,
-                "advisory": (
-                    f"Unknown technique '{technique}'. "
-                    f"Supported: resonance, box, 4-7-8, coherent."
-                ),
-            }
+            return build_result(
+                {
+                    "during_rmssd_ms": baseline_rmssd,
+                    "during_rmssd_pct_increase": 0.0,
+                    "post_rmssd_delta_ms": 0.0,
+                    "post_duration_hours": 0.0,
+                    "lf_hf_during": 2.5,
+                    "optimal_rate_bpm": 5.5,
+                    "model_type": "heuristic",
+                    "advisory": (
+                        f"Unknown technique '{technique}'. "
+                        f"Supported: resonance, box, 4-7-8, coherent."
+                    ),
+                }
+            )
 
         # Guard: non-positive values
         if duration_min <= 0 or breaths_per_min <= 0 or baseline_rmssd <= 0:
-            return {
-                "during_rmssd_ms": baseline_rmssd,
-                "during_rmssd_pct_increase": 0.0,
-                "post_rmssd_delta_ms": 0.0,
-                "post_duration_hours": 0.0,
-                "lf_hf_during": 2.5,
-                "optimal_rate_bpm": 5.5,
-                "advisory": "Error: duration, breaths_per_min, and baseline_rmssd must be positive.",
-            }
+            return build_result(
+                {
+                    "during_rmssd_ms": baseline_rmssd,
+                    "during_rmssd_pct_increase": 0.0,
+                    "post_rmssd_delta_ms": 0.0,
+                    "post_duration_hours": 0.0,
+                    "lf_hf_during": 2.5,
+                    "optimal_rate_bpm": 5.5,
+                    "model_type": "heuristic",
+                    "advisory": "Error: duration, breaths_per_min, and baseline_rmssd must be positive.",
+                }
+            )
 
         tech = TECHNIQUE_DEFAULTS[technique]
 
@@ -251,7 +260,7 @@ class BreathworkModel:
             f"not a validated personal prediction."
         )
 
-        return merge_evidence(
+        return build_result(
             {
                 "during_rmssd_ms": during_rmssd,
                 "during_rmssd_pct_increase": pct_increase_final,
@@ -261,8 +270,7 @@ class BreathworkModel:
                 "optimal_rate_bpm": optimal_bpm,
                 "model_type": "heuristic",
                 "advisory": advisory,
-            },
-            BREATHWORK_EVIDENCE_PROFILE,
+            }
         )
 
     def find_resonance_frequency(self, resting_hr: float = 70) -> dict:
