@@ -168,6 +168,15 @@ class ChronotypeEngine:
         """
         warnings = self._schedule_warnings(logs)
 
+        if work_days is None:
+            return self._chronotype_error_response(
+                error="No reliable free-day proxy",
+                data_days=len(logs),
+                warnings=warnings,
+                wearable_support=self._wearable_support(logs),
+                day_classification={"method": "none", "work_count": 0, "free_count": 0},
+            )
+
         if len(logs) < 3:
             return self._chronotype_error_response(
                 error="Need at least 3 days of data",
@@ -395,7 +404,7 @@ class ChronotypeEngine:
     @staticmethod
     def _wearable_support(logs: list[SleepLog]) -> str:
         wearable_rows = [log for log in logs if log.source and log.source != "manual"]
-        return "available" if len(wearable_rows) >= 5 else "missing"
+        return "available" if wearable_rows else "missing"
 
     @staticmethod
     def _data_sufficiency(data_days: int) -> str:

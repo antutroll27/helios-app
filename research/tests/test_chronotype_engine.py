@@ -36,7 +36,7 @@ def test_chronotype_prefers_alarm_flags_when_available():
         make_sleep_log("2026-04-07", 0, 15, 9, 30, alarm_used=False),
         make_sleep_log("2026-04-08", 23, 10, 7, 5, alarm_used=True),
         make_sleep_log("2026-04-09", 0, 20, 9, 20, alarm_used=False),
-        make_sleep_log("2026-04-11", 23, 20, 6, 50, alarm_used=True),
+        make_sleep_log("2026-04-11", 23, 20, 6, 50, alarm_used=True, source="fitbit"),
         make_sleep_log("2026-04-12", 0, 30, 9, 40, alarm_used=False),
     ]
 
@@ -51,7 +51,7 @@ def test_chronotype_prefers_alarm_flags_when_available():
     assert result["confidence"] == "moderate"
     assert result["confidence_score"] == 0.65
     assert result["data_sufficiency"] == "minimum"
-    assert result["wearable_support"] == "missing"
+    assert result["wearable_support"] == "available"
 
 
 def test_chronotype_reports_low_confidence_for_irregular_schedule():
@@ -93,6 +93,24 @@ def test_chronotype_returns_error_without_reliable_free_day_proxy():
     assert result["confidence"] == "low"
     assert result["confidence_score"] == 0.35
     assert result["data_sufficiency"] == "minimum"
+    assert result["day_classification"] == {
+        "method": "none",
+        "work_count": 0,
+        "free_count": 0,
+    }
+
+
+def test_chronotype_returns_no_proxy_for_short_logs_without_work_days():
+    engine = ChronotypeEngine()
+    logs = [
+        make_sleep_log("2026-04-06", 23, 0, 7, 0),
+        make_sleep_log("2026-04-07", 23, 10, 7, 10),
+    ]
+
+    result = engine.chronotype_from_logs(logs, work_days=None)
+
+    assert result["error"] == "No reliable free-day proxy"
+    assert result["confidence"] == "low"
     assert result["day_classification"] == {
         "method": "none",
         "work_count": 0,
