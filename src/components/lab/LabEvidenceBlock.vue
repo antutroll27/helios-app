@@ -18,7 +18,7 @@ const legacyProfile = computed<EvidenceProfile | null>(() => {
       populationSummary: props.population,
       mainCaveat: props.caveat,
       uncertaintyFactors: [],
-      claimBoundary: '',
+      claimBoundary: 'legacy evidence summary only',
     }
   }
   return null
@@ -51,6 +51,10 @@ const legacyProfile = computed<EvidenceProfile | null>(() => {
     </template>
     <template v-else-if="legacyProfile">
       <div class="lab-evidence__row">
+        <span class="lab-evidence__key">Tier</span>
+        <span class="lab-evidence__val">Tier {{ legacyProfile.evidenceTier }}</span>
+      </div>
+      <div class="lab-evidence__row">
         <span class="lab-evidence__key">Effect</span>
         <span class="lab-evidence__val">{{ legacyProfile.effectSummary }}</span>
       </div>
@@ -61,6 +65,10 @@ const legacyProfile = computed<EvidenceProfile | null>(() => {
       <div class="lab-evidence__row lab-evidence__row--caveat">
         <span class="lab-evidence__key">Caveat</span>
         <span class="lab-evidence__val">{{ legacyProfile.mainCaveat }}</span>
+      </div>
+      <div class="lab-evidence__row">
+        <span class="lab-evidence__key">Boundary</span>
+        <span class="lab-evidence__val">{{ legacyProfile.claimBoundary }}</span>
       </div>
     </template>
   </div>
