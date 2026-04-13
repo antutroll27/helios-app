@@ -48,8 +48,10 @@ def test_chronotype_prefers_alarm_flags_when_available():
         "work_count": 3,
         "free_count": 3,
     }
-    assert result["data_sufficiency"] == "adequate"
-    assert result["wearable_support"] == {"available": False, "sources": []}
+    assert result["confidence"] == "moderate"
+    assert result["confidence_score"] == 0.65
+    assert result["data_sufficiency"] == "minimum"
+    assert result["wearable_support"] == "missing"
 
 
 def test_chronotype_reports_low_confidence_for_irregular_schedule():
@@ -67,10 +69,10 @@ def test_chronotype_reports_low_confidence_for_irregular_schedule():
 
     result = engine.chronotype_from_logs(logs, work_days={0, 1, 2, 3, 4})
 
-    assert result["day_classification"]["method"] == "work_days"
+    assert result["day_classification"]["method"] == "declared_work_days"
     assert result["confidence"] == "low"
     assert result["confidence_score"] == 0.35
-    assert result["data_sufficiency"] == "adequate"
+    assert result["data_sufficiency"] == "limited"
     assert "Irregular schedule reduces chronotype confidence." in result["warnings"]
 
 
@@ -90,7 +92,7 @@ def test_chronotype_returns_error_without_reliable_free_day_proxy():
     assert result["error"] == "No reliable free-day proxy"
     assert result["confidence"] == "low"
     assert result["confidence_score"] == 0.35
-    assert result["data_sufficiency"] == "limited"
+    assert result["data_sufficiency"] == "minimum"
     assert result["day_classification"] == {
         "method": "none",
         "work_count": 0,

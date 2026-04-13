@@ -236,7 +236,7 @@ class ChronotypeEngine:
                 "work_count": day_classification["work_count"],
                 "free_count": day_classification["free_count"],
             },
-            "data_sufficiency": "adequate" if len(logs) >= 6 else "limited",
+            "data_sufficiency": self._data_sufficiency(len(logs)),
             "wearable_support": self._wearable_support(logs),
             "data_days": len(logs),
         }
@@ -273,24 +273,26 @@ class ChronotypeEngine:
         if alarm_logs:
             work_logs = [log for log in alarm_logs if log.alarm_used]
             free_logs = [log for log in alarm_logs if not log.alarm_used]
-            return {
-                "method": "alarm_used",
-                "work_logs": work_logs,
-                "free_logs": free_logs,
-                "work_count": len(work_logs),
-                "free_count": len(free_logs),
-            }
+            if len(work_logs) >= 2 and len(free_logs) >= 2:
+                return {
+                    "method": "alarm_used",
+                    "work_logs": work_logs,
+                    "free_logs": free_logs,
+                    "work_count": len(work_logs),
+                    "free_count": len(free_logs),
+                }
 
         if work_days is not None:
             work_logs = [log for log in logs if datetime.strptime(log.date, "%Y-%m-%d").weekday() in work_days]
             free_logs = [log for log in logs if datetime.strptime(log.date, "%Y-%m-%d").weekday() not in work_days]
-            return {
-                "method": "work_days",
-                "work_logs": work_logs,
-                "free_logs": free_logs,
-                "work_count": len(work_logs),
-                "free_count": len(free_logs),
-            }
+            if len(work_logs) >= 2 and len(free_logs) >= 2:
+                return {
+                    "method": "declared_work_days",
+                    "work_logs": work_logs,
+                    "free_logs": free_logs,
+                    "work_count": len(work_logs),
+                    "free_count": len(free_logs),
+                }
 
         wake_gap_classification = self._classify_by_wake_gap(logs)
         if wake_gap_classification is not None:
@@ -311,7 +313,7 @@ class ChronotypeEngine:
         This is a fallback proxy for distinguishing work and free days when
         neither alarm flags nor declared work days are available.
         """
-        if len(logs) < 3:
+        if len(logs) < 4:
             return None
 
         wake_minutes = sorted(
@@ -321,7 +323,7 @@ class ChronotypeEngine:
             ),
             key=lambda item: item[0],
         )
-        if len(wake_minutes) < 2:
+        if len(wake_minutes) < 4:
             return None
 
         best_gap = -1
@@ -341,13 +343,12 @@ class ChronotypeEngine:
             return None
 
         if split_index == len(wake_minutes) - 1:
-            free_logs = [log for _, log in wake_minutes]
-            work_logs = []
-        else:
-            work_logs = [log for _, log in wake_minutes[: split_index + 1]]
-            free_logs = [log for _, log in wake_minutes[split_index + 1 :]]
+            return None
 
-        if not work_logs or not free_logs:
+        work_logs = [log for _, log in wake_minutes[: split_index + 1]]
+        free_logs = [log for _, log in wake_minutes[split_index + 1 :]]
+
+        if len(work_logs) < 2 or len(free_logs) < 2:
             return None
 
         return {
@@ -391,9 +392,17 @@ class ChronotypeEngine:
         return round(score, 2)
 
     @staticmethod
-    def _wearable_support(logs: list[SleepLog]) -> dict:
-        sources = sorted({log.source for log in logs if log.source and log.source != "manual"})
-        return {"available": bool(sources), "sources": sources}
+    def _wearable_support(logs: list[SleepLog]) -> str:
+        wearable_rows = [log for log in logs if log.source and log.source != "manual"]
+        return "available" if len(wearable_rows) >= 5 else "missing"
+
+    @staticmethod
+    def _data_sufficiency(data_days: int) -> str:
+        if data_days >= 14:
+            return "good"
+        if data_days >= 7:
+            return "limited"
+        return "minimum"
 
     def _chronotype_error_response(
         self,
@@ -401,7 +410,7 @@ class ChronotypeEngine:
         error: str,
         data_days: int,
         warnings: list[str],
-        wearable_support: dict,
+        wearable_support: str,
         day_classification: dict,
     ) -> dict:
         confidence_score = self._confidence_score(data_days, day_classification["method"], warnings)
@@ -415,7 +424,7 @@ class ChronotypeEngine:
                 "work_count": day_classification["work_count"],
                 "free_count": day_classification["free_count"],
             },
-            "data_sufficiency": "adequate" if data_days >= 6 and day_classification["method"] != "none" else "limited",
+            "data_sufficiency": self._data_sufficiency(data_days),
             "wearable_support": wearable_support,
             "data_days": data_days,
         }
