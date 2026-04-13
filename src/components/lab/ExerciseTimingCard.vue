@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import { computed } from 'vue'
 import { useExerciseTiming } from '../../composables/lab/useExerciseTiming'
 import type { Chronotype } from '../../composables/lab/useExerciseTiming'
+import type { EvidenceProfile } from '@/lib/evidence'
 import LabCard from './LabCard.vue'
 import LabEvidenceBlock from './LabEvidenceBlock.vue'
 
@@ -9,18 +9,22 @@ const { hour, chronotype, result } = useExerciseTiming()
 
 const CHRONOTYPES: { id: Chronotype; label: string }[] = [
   { id: 'early', label: 'Early' },
-  { id: 'mid',   label: 'Mid'   },
-  { id: 'late',  label: 'Late'  },
+  { id: 'mid', label: 'Mid' },
+  { id: 'late', label: 'Late' },
 ]
 
 function formatHour(h: number): string {
   return `${h.toString().padStart(2, '0')}:00`
 }
 
-// Dynamic evidence effect string — computed so reactivity is explicit
-const effectLabel = computed(() =>
-  `${result.value.label} (${chronotype.value} chronotype, ${formatHour(hour.value)})`
-)
+const evidenceProfile = {
+  evidenceTier: 'B',
+  effectSummary: 'Exercise timing can shift circadian phase in human studies.',
+  populationSummary: 'Human exercise phase-response studies.',
+  mainCaveat: 'Chronotype and training status change the magnitude of the shift.',
+  uncertaintyFactors: ['chronotype', 'training status', 'exercise time'],
+  claimBoundary: 'Human exercise timing guidance, not a universal phase-shift rule.',
+} satisfies EvidenceProfile
 </script>
 
 <template>
@@ -31,7 +35,6 @@ const effectLabel = computed(() =>
     citation="Youngstedt 2019 · J Physiology · Thomas 2020 · Sato 2019"
     :hasOutput="true"
   >
-    <!-- ── Inputs ── -->
     <template #inputs>
       <div class="et-inputs">
 
@@ -56,11 +59,7 @@ const effectLabel = computed(() =>
         <!-- Chronotype toggle -->
         <div class="et-row">
           <span class="et-name">Chronotype</span>
-          <div
-            class="et-toggle-group"
-            role="group"
-            aria-label="Chronotype"
-          >
+          <div class="et-toggle-group" role="group" aria-label="Chronotype">
             <button
               v-for="ct in CHRONOTYPES"
               :key="ct.id"
@@ -76,41 +75,31 @@ const effectLabel = computed(() =>
       </div>
     </template>
 
-    <!-- ── Output ── -->
     <template #output>
       <div class="et-output">
-
-        <!-- Phase shift label -->
         <div class="et-shift-row">
           <span class="et-shift-key">Phase shift</span>
           <span class="et-shift-val">{{ result.label }}</span>
         </div>
 
-        <!-- Morning metabolic bonus badge -->
         <div v-if="result.morningMetabolicBonus" class="et-bonus-badge">
           Morning metabolic bonus &#10003;
         </div>
 
-        <!-- Guidance note -->
         <p class="et-note">
           Best for late chronotypes: exercise before 10AM shifts circadian phase by up to 1.5&times; the baseline
         </p>
       </div>
     </template>
 
-    <!-- ── Evidence ── -->
     <template #evidence>
-      <LabEvidenceBlock
-        :effect="effectLabel"
-        population="Human PRC exercise studies (Youngstedt 2019), Thomas 2020 n=51"
-        caveat="Chronotype and training status change the magnitude of the shift"
-      />
+      <LabEvidenceBlock :profile="evidenceProfile" />
     </template>
   </LabCard>
 </template>
 
 <style scoped>
-/* ── Inputs ── */
+/* Inputs */
 .et-inputs {
   display: flex;
   flex-direction: column;
@@ -209,7 +198,7 @@ const effectLabel = computed(() =>
   color: var(--text-secondary);
 }
 
-/* ── Output ── */
+/* Output */
 .et-output {
   display: flex;
   flex-direction: column;

@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { useAlcoholImpact } from '../../composables/lab/useAlcoholImpact'
+import type { EvidenceProfile } from '@/lib/evidence'
 import LabCard from './LabCard.vue'
 import LabEvidenceBlock from './LabEvidenceBlock.vue'
 
@@ -18,6 +19,15 @@ function formatCutoff(h: number): string {
   const mins = totalMin % 60
   return `${hrs.toString().padStart(2, '0')}:${mins.toString().padStart(2, '0')}`
 }
+
+const evidenceProfile = {
+  evidenceTier: 'B',
+  effectSummary: 'Evening drinking is associated with next-morning HRV and sleep disruption.',
+  populationSummary: 'Free-living adult nights in a large observational sample.',
+  mainCaveat: 'Response varies substantially by body size, sex, tolerance, and meal timing.',
+  uncertaintyFactors: ['body size', 'sex', 'tolerance', 'meal timing'],
+  claimBoundary: 'Sleep-disruption estimate for drinking nights, not a personal BAC model.',
+} satisfies EvidenceProfile
 
 function evidenceEffect(): string {
   const drinks_val = drinks.value
@@ -175,11 +185,7 @@ function evidenceEffect(): string {
     </template>
 
     <template #evidence>
-      <LabEvidenceBlock
-        :effect="evidenceEffect()"
-        population="n=4,098 free-living adult nights"
-        caveat="Response varies substantially by body size, sex, tolerance, and meal timing"
-      />
+      <LabEvidenceBlock :profile="evidenceProfile" />
     </template>
   </LabCard>
 </template>

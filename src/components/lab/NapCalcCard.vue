@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { useNapCalc } from '../../composables/lab/useNapCalc'
+import type { EvidenceProfile } from '@/lib/evidence'
 import LabCard from './LabCard.vue'
 import LabEvidenceBlock from './LabEvidenceBlock.vue'
 
@@ -8,6 +9,15 @@ const { hoursAwake, sleepDebtMin, result } = useNapCalc()
 function boostLabel(minutes: number): string {
   return `~${Math.round(minutes / 60)}h`
 }
+
+const evidenceProfile = {
+  evidenceTier: 'B',
+  effectSummary: 'Short daytime naps improve alertness in controlled studies.',
+  populationSummary: 'NASA and controlled nap studies in adults.',
+  mainCaveat: 'Late naps can impair night sleep efficiency and timing still matters.',
+  uncertaintyFactors: ['nap timing', 'sleep debt', 'individual sensitivity'],
+  claimBoundary: 'Daytime nap timing guidance for alertness, not a personal performance prediction.',
+} satisfies EvidenceProfile
 </script>
 
 <template>
@@ -84,11 +94,7 @@ function boostLabel(minutes: number): string {
     </template>
 
     <template #evidence>
-      <LabEvidenceBlock
-        effect="+180 min alertness after a 26 min nap"
-        population="NASA pilots / controlled nap studies"
-        caveat="Late naps can impair night sleep efficiency by ~4% per hour after 3PM"
-      />
+      <LabEvidenceBlock :profile="evidenceProfile" />
     </template>
   </LabCard>
 </template>

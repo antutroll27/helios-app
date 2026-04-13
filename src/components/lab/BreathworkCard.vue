@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { useBreathwork, TECHNIQUES } from '../../composables/lab/useBreathwork'
 import type { Technique } from '../../composables/lab/useBreathwork'
+import type { EvidenceProfile } from '@/lib/evidence'
 import LabCard from './LabCard.vue'
 import LabEvidenceBlock from './LabEvidenceBlock.vue'
 
@@ -9,6 +10,15 @@ const { technique, durationMin, result } = useBreathwork()
 const DURATIONS = [5, 10, 20, 30] as const
 
 const techniqueKeys = Object.keys(TECHNIQUES) as Technique[]
+
+const evidenceProfile = {
+  evidenceTier: 'B',
+  effectSummary: 'Controlled breathing sessions can raise rMSSD in adult lab studies.',
+  populationSummary: 'Adult lab and meta-analytic breathing studies.',
+  mainCaveat: 'Acute response varies by technique, session length, and individual responsiveness.',
+  uncertaintyFactors: ['technique', 'session duration', 'baseline state'],
+  claimBoundary: 'Session-level HRV guidance for adults, not a personal biometric prediction.',
+} satisfies EvidenceProfile
 </script>
 
 <template>
@@ -75,11 +85,7 @@ const techniqueKeys = Object.keys(TECHNIQUES) as Technique[]
     </template>
 
     <template #evidence>
-      <LabEvidenceBlock
-        :effect="`+${result.rmssdBoost} ms rMSSD (${TECHNIQUES[technique].label} at ${result.bpm} bpm)`"
-        population="meta-analysis / adult lab studies"
-        caveat="Output is a protocol estimate, not a personal biometric prediction. Acute response varies individually."
-      />
+      <LabEvidenceBlock :profile="evidenceProfile" />
     </template>
   </LabCard>
 </template>
