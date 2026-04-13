@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { useMealWindow } from '../../composables/lab/useMealWindow'
-import type { EvidenceProfile } from '@/lib/evidence'
+import { buildEvidenceProfile } from '@/lib/evidence'
 import LabCard from './LabCard.vue'
 import LabEvidenceBlock from './LabEvidenceBlock.vue'
 
@@ -23,14 +23,14 @@ function formatWindow(h: number): string {
   return Number.isInteger(h) ? `${h}h` : `${h.toFixed(1)}h`
 }
 
-const evidenceProfile = {
+const evidenceProfile = buildEvidenceProfile({
   evidenceTier: 'B',
-  effectSummary: 'Time-restricted eating can improve glucose and blood-pressure markers.',
+  effectSummary: 'Controlled trials and observational cohorts suggest shorter eating windows are associated with better glucose and blood-pressure markers.',
   populationSummary: 'Sutton 2018 controlled trial and a large UK Biobank cohort.',
   mainCaveat: 'Benefits are strongest in metabolically at-risk populations and meal composition still matters.',
   uncertaintyFactors: ['metabolic risk', 'meal composition', 'window length', 'sleep timing'],
   claimBoundary: 'General TRF guidance for adults, strongest in metabolically at-risk populations.',
-} satisfies EvidenceProfile
+})
 </script>
 
 <template>

@@ -4,6 +4,13 @@ from typing import Literal
 EvidenceTier = Literal["A", "B", "C"]
 
 
+def _clean_text(value: str, field_name: str) -> str:
+    cleaned = value.strip()
+    if not cleaned:
+        raise ValueError(f"{field_name} must not be blank")
+    return cleaned
+
+
 @dataclass(frozen=True)
 class EvidenceProfile:
     evidence_tier: EvidenceTier
@@ -16,6 +23,10 @@ class EvidenceProfile:
     def __post_init__(self) -> None:
         if self.evidence_tier not in {"A", "B", "C"}:
             raise ValueError("evidence_tier must be one of: A, B, C")
+        object.__setattr__(self, "effect_summary", _clean_text(self.effect_summary, "effect_summary"))
+        object.__setattr__(self, "population_summary", _clean_text(self.population_summary, "population_summary"))
+        object.__setattr__(self, "main_caveat", _clean_text(self.main_caveat, "main_caveat"))
+        object.__setattr__(self, "claim_boundary", _clean_text(self.claim_boundary, "claim_boundary"))
 
     def as_dict(self) -> dict:
         return {

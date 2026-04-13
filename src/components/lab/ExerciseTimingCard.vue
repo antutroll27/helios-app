@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { useExerciseTiming } from '../../composables/lab/useExerciseTiming'
 import type { Chronotype } from '../../composables/lab/useExerciseTiming'
-import type { EvidenceProfile } from '@/lib/evidence'
+import { buildEvidenceProfile } from '@/lib/evidence'
 import LabCard from './LabCard.vue'
 import LabEvidenceBlock from './LabEvidenceBlock.vue'
 
@@ -17,14 +17,14 @@ function formatHour(h: number): string {
   return `${h.toString().padStart(2, '0')}:00`
 }
 
-const evidenceProfile = {
+const evidenceProfile = buildEvidenceProfile({
   evidenceTier: 'B',
   effectSummary: 'Exercise timing can shift circadian phase in human studies.',
   populationSummary: 'Human exercise phase-response studies.',
   mainCaveat: 'Chronotype and training status change the magnitude of the shift.',
   uncertaintyFactors: ['chronotype', 'training status', 'exercise time'],
   claimBoundary: 'Human exercise timing guidance, not a universal phase-shift rule.',
-} satisfies EvidenceProfile
+})
 </script>
 
 <template>

@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { useBreathwork, TECHNIQUES } from '../../composables/lab/useBreathwork'
 import type { Technique } from '../../composables/lab/useBreathwork'
-import type { EvidenceProfile } from '@/lib/evidence'
+import { buildEvidenceProfile } from '@/lib/evidence'
 import LabCard from './LabCard.vue'
 import LabEvidenceBlock from './LabEvidenceBlock.vue'
 
@@ -11,14 +11,14 @@ const DURATIONS = [5, 10, 20, 30] as const
 
 const techniqueKeys = Object.keys(TECHNIQUES) as Technique[]
 
-const evidenceProfile = {
+const evidenceProfile = buildEvidenceProfile({
   evidenceTier: 'B',
   effectSummary: 'Controlled breathing sessions can raise rMSSD in adult lab studies.',
   populationSummary: 'Adult lab and meta-analytic breathing studies.',
   mainCaveat: 'Acute response varies by technique, session length, and individual responsiveness.',
   uncertaintyFactors: ['technique', 'session duration', 'baseline state'],
   claimBoundary: 'Session-level HRV guidance for adults, not a personal biometric prediction.',
-} satisfies EvidenceProfile
+})
 </script>
 
 <template>

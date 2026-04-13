@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { useNapCalc } from '../../composables/lab/useNapCalc'
-import type { EvidenceProfile } from '@/lib/evidence'
+import { buildEvidenceProfile } from '@/lib/evidence'
 import LabCard from './LabCard.vue'
 import LabEvidenceBlock from './LabEvidenceBlock.vue'
 
@@ -10,14 +10,14 @@ function boostLabel(minutes: number): string {
   return `~${Math.round(minutes / 60)}h`
 }
 
-const evidenceProfile = {
+const evidenceProfile = buildEvidenceProfile({
   evidenceTier: 'B',
   effectSummary: 'Short daytime naps improve alertness in controlled studies.',
   populationSummary: 'NASA and controlled nap studies in adults.',
   mainCaveat: 'Late naps can impair night sleep efficiency and timing still matters.',
   uncertaintyFactors: ['nap timing', 'sleep debt', 'individual sensitivity'],
   claimBoundary: 'Daytime nap timing guidance for alertness, not a personal performance prediction.',
-} satisfies EvidenceProfile
+})
 </script>
 
 <template>
