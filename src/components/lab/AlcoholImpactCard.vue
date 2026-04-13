@@ -6,7 +6,7 @@ import LabEvidenceBlock from './LabEvidenceBlock.vue'
 
 const { drinks, weightKg, sex, sleepHour, hoursSinceDrinking, result } = useAlcoholImpact()
 
-// Format hour value 20–26 → display string (24=0:00, 25=1:00, 26=2:00)
+// Format hour value 20-26 -> display string (24=0:00, 25=1:00, 26=2:00)
 function formatHour(h: number): string {
   const display = h >= 24 ? h - 24 : h
   return `${display}:00`
@@ -28,14 +28,6 @@ const evidenceProfile = {
   uncertaintyFactors: ['body size', 'sex', 'tolerance', 'meal timing'],
   claimBoundary: 'Sleep-disruption estimate for drinking nights, not a personal BAC model.',
 } satisfies EvidenceProfile
-
-function evidenceEffect(): string {
-  const drinks_val = drinks.value
-  if (drinks_val === 0) return 'No HRV impact (0 drinks)'
-  if (drinks_val <= 2) return 'HRV next morning: -9.3% (1–2 drinks)'
-  if (drinks_val <= 4) return 'HRV next morning: -24% (3–4 drinks)'
-  return 'HRV next morning: -39.2% (5+ drinks)'
-}
 </script>
 
 <template>
@@ -48,8 +40,6 @@ function evidenceEffect(): string {
   >
     <template #inputs>
       <div class="alc-inputs">
-
-        <!-- Drinks stepper -->
         <div class="alc-row">
           <div class="alc-label">
             <span class="alc-name" id="alc-drinks-label">Drinks tonight</span>
@@ -72,7 +62,6 @@ function evidenceEffect(): string {
           </div>
         </div>
 
-        <!-- Weight slider -->
         <div class="alc-row">
           <label class="alc-label" for="alc-weight">
             <span class="alc-name">Body weight</span>
@@ -89,7 +78,6 @@ function evidenceEffect(): string {
           />
         </div>
 
-        <!-- Sex toggle -->
         <div class="alc-row">
           <span class="alc-name">Biological sex</span>
           <div class="alc-toggle" role="group" aria-label="Biological sex">
@@ -108,7 +96,6 @@ function evidenceEffect(): string {
           </div>
         </div>
 
-        <!-- Sleep time slider -->
         <div class="alc-row">
           <label class="alc-label" for="alc-sleep">
             <span class="alc-name">Sleep time</span>
@@ -125,7 +112,6 @@ function evidenceEffect(): string {
           />
         </div>
 
-        <!-- Hours since last drink -->
         <div class="alc-row">
           <label class="alc-label" for="alc-hours">
             <span class="alc-name">Since last drink</span>
@@ -145,13 +131,11 @@ function evidenceEffect(): string {
     </template>
 
     <template #output>
-      <!-- Zero-drink state -->
       <div v-if="drinks === 0" class="alc-no-impact">
         <span class="alc-no-impact__icon">&#10003;</span>
         No impact tonight
       </div>
 
-      <!-- Active output -->
       <div v-else class="alc-output">
         <div class="alc-output-grid">
           <div class="alc-output-cell">
