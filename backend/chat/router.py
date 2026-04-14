@@ -75,24 +75,55 @@ def _resolve_location_context(context: ChatContext) -> tuple[float, float, str, 
 
 # ─── Shared key rate limiting (in-memory, per-user daily count) ──────────────
 
-_shared_key_usage: dict[str, dict] = {}  # user_id -> {date: str, count: int}
+def _shared_usage_date() -> str:
+    return datetime.now(UTC).date().isoformat()
 
 
-def _check_shared_rate_limit(user_id: str) -> bool:
-    """Check if user is within the shared key daily rate limit."""
-    today = datetime.now().strftime("%Y-%m-%d")
-    usage = _shared_key_usage.get(user_id, {})
-    if usage.get("date") != today:
-        _shared_key_usage[user_id] = {"date": today, "count": 0}
-    return _shared_key_usage[user_id]["count"] < SHARED_LLM_RATE_LIMIT
+def _get_or_create_shared_usage(db, user_id: str) -> dict:
+    usage_date = _shared_usage_date()
+    existing = (
+        db.table("shared_llm_usage")
+        .select("count")
+        .eq("user_id", user_id)
+        .eq("usage_date", usage_date)
+        .execute()
+    )
+    if existing.data:
+        return existing.data[0]
+
+    (
+        db.table("shared_llm_usage")
+        .upsert(
+            {
+                "user_id": user_id,
+                "usage_date": usage_date,
+                "count": 0,
+            },
+            on_conflict="user_id,usage_date",
+        )
+        .execute()
+    )
+    return {"count": 0}
 
 
-def _increment_shared_usage(user_id: str):
-    """Increment shared key usage counter."""
-    today = datetime.now().strftime("%Y-%m-%d")
-    if user_id not in _shared_key_usage or _shared_key_usage[user_id].get("date") != today:
-        _shared_key_usage[user_id] = {"date": today, "count": 0}
-    _shared_key_usage[user_id]["count"] += 1
+def _increment_shared_usage(db, user_id: str) -> int:
+    usage_date = _shared_usage_date()
+    current = int(_get_or_create_shared_usage(db, user_id)["count"])
+    next_count = current + 1
+    (
+        db.table("shared_llm_usage")
+        .upsert(
+            {
+                "user_id": user_id,
+                "usage_date": usage_date,
+                "count": next_count,
+                "updated_at": datetime.now(UTC).isoformat(),
+            },
+            on_conflict="user_id,usage_date",
+        )
+        .execute()
+    )
+    return next_count
 
 
 # ─── Memory-enriched chat endpoint ──────────────────────────────────────────
@@ -116,11 +147,11 @@ async def send_message(
     if using_shared:
         if not SHARED_LLM_KEY:
             raise HTTPException(status_code=503, detail="Shared AI is not configured. Please add your own API key in Settings.")
-        if not _check_shared_rate_limit(user_id):
+        if int(_get_or_create_shared_usage(supabase, user_id)["count"]) >= SHARED_LLM_RATE_LIMIT:
             raise HTTPException(status_code=429, detail="Daily AI limit reached. Add your own API key in Settings for unlimited access.")
         provider = SHARED_LLM_PROVIDER
         api_key = SHARED_LLM_KEY
-        _increment_shared_usage(user_id)
+        _increment_shared_usage(supabase, user_id)
     else:
         provider = body.provider
         api_key = body.api_key
@@ -226,7 +257,7 @@ async def end_session(
 
     # Fetch session row (verify ownership + get credentials for Hermes)
     session_result = supabase.table("chat_sessions") \
-        .select("provider, encrypted_api_key, ended_at") \
+        .select("provider, encrypted_api_key, ended_at, hermes_processed, hermes_processing") \
         .eq("id", session_id).eq("user_id", user_id) \
         .execute()
 
@@ -235,14 +266,11 @@ async def end_session(
 
     session_row = session_result.data[0]
 
-    # Guard: prevent double-processing if already ended (inactivity timer + unmount race)
+    if session_row.get("hermes_processed") or session_row.get("hermes_processing"):
+        return {"status": "already_processing", "session_id": session_id}
+
     if session_row.get("ended_at"):
         return {"status": "already_ended", "session_id": session_id}
-
-    # Mark session ended
-    supabase.table("chat_sessions") \
-        .update({"ended_at": datetime.now(UTC).isoformat()}) \
-        .eq("id", session_id).execute()
 
     # Count messages to decide whether Hermes should run
     count_result = supabase.table("chat_messages") \
@@ -250,6 +278,29 @@ async def end_session(
         .eq("session_id", session_id) \
         .execute()
     message_count = count_result.count or 0
+
+    update_payload = {"ended_at": datetime.now(UTC).isoformat()}
+    if message_count >= 4:
+        update_payload["hermes_processing"] = True
+
+    update_result = supabase.table("chat_sessions") \
+        .update(update_payload) \
+        .eq("id", session_id) \
+        .eq("user_id", user_id) \
+        .eq("hermes_processed", False) \
+        .eq("hermes_processing", False) \
+        .is_("ended_at", "null") \
+        .execute()
+
+    if not update_result.data:
+        latest_session = supabase.table("chat_sessions") \
+            .select("ended_at, hermes_processed, hermes_processing") \
+            .eq("id", session_id).eq("user_id", user_id) \
+            .execute()
+        latest_row = latest_session.data[0] if latest_session.data else {}
+        if latest_row.get("hermes_processed") or latest_row.get("hermes_processing"):
+            return {"status": "already_processing", "session_id": session_id}
+        return {"status": "already_ended", "session_id": session_id}
 
     hermes_queued = False
     if message_count >= 4:

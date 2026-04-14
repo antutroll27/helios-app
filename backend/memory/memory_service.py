@@ -93,7 +93,7 @@ class MemoryService:
         # Mark session as hermes-processed
         try:
             self.db.table("chat_sessions") \
-                .update({"hermes_processed": True}) \
+                .update({"hermes_processed": True, "hermes_processing": False}) \
                 .eq("id", session_id) \
                 .execute()
         except Exception as e:
