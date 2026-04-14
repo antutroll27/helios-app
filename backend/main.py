@@ -59,6 +59,9 @@ async def health():
 from backend.chat.router import router as chat_router
 app.include_router(chat_router, prefix="/api/chat", tags=["chat"])
 
+from backend.public.router import router as public_router
+app.include_router(public_router, prefix="/api/public", tags=["public"])
+
 # Phase 2: Memory (uncomment when built)
 # from backend.memory.router import router as memory_router
 # app.include_router(memory_router, prefix="/api/memories", tags=["memory"])
