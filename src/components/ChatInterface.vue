@@ -47,7 +47,6 @@ const currentProviderName = computed(() => {
   return p ? p.name : user.provider
 })
 
-// Seed welcome message on mount
 onMounted(() => {
   if (chat.messages.length === 0) {
     chat.addAssistantMessage(WELCOME_MESSAGE)
@@ -59,7 +58,6 @@ onUnmounted(() => {
   endSession()
 })
 
-// Auto-scroll to bottom when messages change
 watch(
   () => chat.messages.length,
   async () => {
@@ -89,7 +87,6 @@ function handleKeydown(e: KeyboardEvent) {
 }
 
 async function endSession() {
-  // Guard: clear immediately to prevent double-call (inactivity timer + unmount racing)
   if (!sessionId.value || !BACKEND_URL) return
   const id = sessionId.value
   sessionId.value = null
@@ -98,37 +95,30 @@ async function endSession() {
     method: 'POST',
     credentials: 'include',
     headers: { 'X-HELIOS-CSRF': auth.csrfToken },
-  }).catch(() => {})  // fire-and-forget, never block unmount
+  }).catch(() => {})
 }
 
 async function sendMessage() {
   const text = inputText.value.trim()
   if (!text || chat.isStreaming) return
 
-  // Expand on first send
   if (!isExpanded.value) isExpanded.value = true
 
   inputText.value = ''
-
-  // 1. Add user message
   chat.addUserMessage(text)
 
-  // 2. Add loading placeholder
   const loadingId = chat.addLoadingMessage()
 
   await nextTick()
   scrollToBottom()
 
   try {
-    // Build conversation history (exclude loading message)
     const history = chat.messages
       .filter((m) => !m.loading && m.id !== loadingId)
       .map((m) => ({ role: m.role as 'user' | 'assistant', content: m.content }))
 
-    // Remove the last user message from history since sendMessage adds it
     history.pop()
 
-    // 3. Call AI
     const response = await ai.sendMessage(
       text,
       user.provider,
@@ -137,7 +127,6 @@ async function sendMessage() {
       sessionId.value ?? undefined,
     )
 
-    // Capture session_id from backend response and reset inactivity timer
     if (response.sessionId) {
       sessionId.value = response.sessionId
     }
@@ -146,7 +135,6 @@ async function sendMessage() {
       inactivityTimer = setTimeout(endSession, 10 * 60 * 1000)
     }
 
-    // 4. Finalise
     chat.finaliseMessage(loadingId, response.message, response.visualCards)
   } catch (err: unknown) {
     const errorMsg =
@@ -164,7 +152,6 @@ async function sendMessage() {
 
 <template>
   <div class="chat-interface" :class="{ 'chat-interface--expanded': isExpanded }">
-    <!-- Header -->
     <button class="chat-header" @click="toggleExpand">
       <div class="chat-header-left">
         <span class="chat-header-title font-display tracking-label">ASK HELIOS</span>
@@ -179,7 +166,6 @@ async function sendMessage() {
       />
     </button>
 
-    <!-- Messages area (visible when expanded) -->
     <div v-if="isExpanded" ref="messagesContainer" class="chat-messages">
       <ChatMessage
         v-for="msg in chat.messages"
@@ -188,7 +174,6 @@ async function sendMessage() {
       />
     </div>
 
-    <!-- Input area -->
     <div class="chat-input-area">
       <div v-if="backendReady" class="chat-status">
         <span>{{ chatStatus }}</span>
@@ -233,8 +218,6 @@ async function sendMessage() {
   max-height: 60vh;
 }
 
-/* ── Header ─────────────────────────────────────────── */
-
 .chat-header {
   display: flex;
   align-items: center;
@@ -274,8 +257,6 @@ async function sendMessage() {
   border: 1px solid rgba(0, 212, 170, 0.2);
 }
 
-/* ── Messages ───────────────────────────────────────── */
-
 .chat-messages {
   flex: 1;
   overflow-y: auto;
@@ -288,7 +269,6 @@ async function sendMessage() {
   scroll-behavior: smooth;
 }
 
-/* Hide scrollbar for clean look */
 .chat-messages::-webkit-scrollbar {
   width: 3px;
 }
@@ -296,8 +276,6 @@ async function sendMessage() {
   background: var(--border-subtle);
   border-radius: 2px;
 }
-
-/* ── Input area ─────────────────────────────────────── */
 
 .chat-input-area {
   padding: 0.75rem;
@@ -353,8 +331,6 @@ async function sendMessage() {
   opacity: 0.4;
   cursor: not-allowed;
 }
-
-/* ── No API key notice ──────────────────────────────── */
 
 .chat-status {
   text-align: center;
