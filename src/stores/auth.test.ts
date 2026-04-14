@@ -1,89 +1,103 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { setActivePinia, createPinia } from 'pinia'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { createPinia, setActivePinia } from 'pinia'
 
-// Mock the supabase module before importing the store
-vi.mock('@/lib/supabase', () => ({
-  supabase: {
-    auth: {
-      getSession: vi.fn().mockResolvedValue({ data: { session: null }, error: null }),
-      onAuthStateChange: vi.fn().mockReturnValue({
-        data: { subscription: { unsubscribe: vi.fn() } },
-      }),
-      signInWithPassword: vi.fn(),
-      signUp: vi.fn(),
-      signOut: vi.fn().mockResolvedValue({ error: null }),
-    },
-    from: vi.fn().mockReturnValue({
-      insert: vi.fn().mockResolvedValue({ error: null }),
-    }),
-  },
+vi.mock('@/lib/backendAuth', () => ({
+  me: vi.fn(),
+  login: vi.fn(),
+  signup: vi.fn(),
+  logout: vi.fn(),
 }))
 
-import { useAuthStore } from './auth'
+import { login, logout, me, signup } from '@/lib/backendAuth'
+import { useAuthStore } from '@/stores/auth'
+import { useUserStore } from '@/stores/user'
 
 describe('useAuthStore', () => {
   beforeEach(() => {
     setActivePinia(createPinia())
-    vi.clearAllMocks()  // reset call history between tests
+    vi.clearAllMocks()
   })
 
-  it('starts unauthenticated with user null', () => {
+  it('starts logged out with no csrf token', () => {
     const auth = useAuthStore()
+
     expect(auth.user).toBeNull()
-    expect(auth.session).toBeNull()
+    expect(auth.csrfToken).toBeNull()
     expect(auth.isAuthenticated).toBe(false)
   })
 
-  it('init() sets loading=false and hydrates user/session from getSession', async () => {
-    const { supabase } = await import('@/lib/supabase')
-    vi.mocked(supabase.auth.getSession).mockResolvedValueOnce({
-      data: { session: { user: { id: 'u1', email: 'a@b.com' }, access_token: 'tok' } as any },
-      error: null,
+  it('init hydrates user and csrf token from backend me()', async () => {
+    vi.mocked(me).mockResolvedValueOnce({
+      user: { id: 'u1', email: 'user@example.com' },
+      csrfToken: 'csrf-1',
     })
     const auth = useAuthStore()
-    auth.init()
-    await new Promise(r => setTimeout(r, 0))
+
+    await auth.init()
+
     expect(auth.loading).toBe(false)
-    expect(auth.user).not.toBeNull()
-    expect(auth.session).not.toBeNull()
+    expect(auth.user?.email).toBe('user@example.com')
+    expect(auth.csrfToken).toBe('csrf-1')
+    expect(auth.isAuthenticated).toBe(true)
   })
 
-  it('signIn() sets error and rethrows on failure', async () => {
-    const { supabase } = await import('@/lib/supabase')
-    vi.mocked(supabase.auth.signInWithPassword).mockResolvedValueOnce({
-      data: { user: null, session: null },
-      error: { message: 'Invalid login credentials', name: 'AuthApiError', status: 400 } as any,
+  it('init clears state cleanly on backend 401', async () => {
+    vi.mocked(me).mockResolvedValueOnce(null)
+    const auth = useAuthStore()
+
+    await auth.init()
+
+    expect(auth.isAuthenticated).toBe(false)
+    expect(auth.csrfToken).toBeNull()
+  })
+
+  it('signIn stores backend user and csrf token', async () => {
+    vi.mocked(login).mockResolvedValueOnce({
+      user: { id: 'u1', email: 'user@example.com' },
+      csrfToken: 'csrf-2',
     })
     const auth = useAuthStore()
-    await expect(auth.signIn('bad@example.com', 'wrong')).rejects.toThrow('Invalid login credentials')
+
+    await auth.signIn('user@example.com', 'secret123')
+
+    expect(auth.user?.email).toBe('user@example.com')
+    expect(auth.csrfToken).toBe('csrf-2')
+  })
+
+  it('signIn sets error and rethrows on failure', async () => {
+    vi.mocked(login).mockRejectedValueOnce(new Error('Invalid login credentials'))
+    const auth = useAuthStore()
+
+    await expect(auth.signIn('bad@example.com', 'wrong-pass')).rejects.toThrow('Invalid login credentials')
     expect(auth.error).toBe('Invalid login credentials')
   })
 
-  it('clearError() resets error to null', () => {
-    const auth = useAuthStore()
-    auth.error = 'some error'
-    auth.clearError()
-    expect(auth.error).toBeNull()
-  })
-
-  it('signOut() clears user and session', async () => {
-    const auth = useAuthStore()
-    // Manually set state as if logged in
-    auth.user = { id: 'abc', email: 'test@test.com' } as any
-    auth.session = { access_token: 'tok' } as any
-    await auth.signOut()
-    expect(auth.user).toBeNull()
-    expect(auth.session).toBeNull()
-  })
-
-  it('signUp() calls public.users insert with the new user id', async () => {
-    const { supabase } = await import('@/lib/supabase')
-    vi.mocked(supabase.auth.signUp).mockResolvedValueOnce({
-      data: { user: { id: 'new-id', email: 'x@y.com' } as any, session: null },
-      error: null,
+  it('signUp preserves logged-out state when confirmation is required', async () => {
+    vi.mocked(signup).mockResolvedValueOnce({
+      user: { id: 'u2', email: 'new@example.com' },
+      requiresConfirmation: true,
     })
     const auth = useAuthStore()
-    await auth.signUp('x@y.com', 'pass123')
-    expect(supabase.from).toHaveBeenCalledWith('users')
+
+    const result = await auth.signUp('new@example.com', 'secret123')
+
+    expect(result.requiresConfirmation).toBe(true)
+    expect(auth.user).toBeNull()
+    expect(auth.isAuthenticated).toBe(false)
+  })
+
+  it('signOut clears auth state and sensitive user data', async () => {
+    vi.mocked(logout).mockResolvedValueOnce()
+    const auth = useAuthStore()
+    const userStore = useUserStore()
+    userStore.apiKey = 'top-secret'
+    auth.user = { id: 'u1', email: 'user@example.com' }
+    auth.csrfToken = 'csrf-1'
+
+    await auth.signOut()
+
+    expect(auth.user).toBeNull()
+    expect(auth.csrfToken).toBeNull()
+    expect(userStore.apiKey).toBe('')
   })
 })

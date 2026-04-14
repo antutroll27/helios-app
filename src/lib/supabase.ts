@@ -9,6 +9,13 @@ if (!supabaseUrl || !supabaseKey) {
 
 // TODO: replace `any` with generated Database type when schema types are generated
 export const supabase = createClient<any>(
-  supabaseUrl ?? '',
-  supabaseKey ?? ''
+  supabaseUrl ?? 'https://example.supabase.co',
+  supabaseKey ?? 'public-anon-key',
+  {
+    auth: {
+      persistSession: false,
+      autoRefreshToken: false,
+      detectSessionInUrl: false,
+    },
+  }
 )

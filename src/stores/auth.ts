@@ -1,80 +1,96 @@
 import { defineStore } from 'pinia'
-import { ref, computed } from 'vue'
-import type { User, Session } from '@supabase/supabase-js'
-import { supabase } from '@/lib/supabase'
+import { computed, ref } from 'vue'
+
+import {
+  login as backendLogin,
+  logout as backendLogout,
+  me as backendMe,
+  signup as backendSignup,
+  type BackendAuthPayload,
+  type BackendAuthUser,
+} from '@/lib/backendAuth'
 import { useUserStore } from '@/stores/user'
 
 export const useAuthStore = defineStore('auth', () => {
-  const user    = ref<User | null>(null)
-  const session = ref<Session | null>(null)
+  const user = ref<BackendAuthUser | null>(null)
+  const csrfToken = ref<string | null>(null)
   const loading = ref(true)
-  const error   = ref<string | null>(null)
+  const error = ref<string | null>(null)
   const userStore = useUserStore()
 
-  // Private — holds the onAuthStateChange subscription for cleanup
-  // Use structural type — `Subscription` is not reliably exported from supabase-js top-level
-  let _subscription: { unsubscribe: () => void } | null = null
+  let initPromise: Promise<void> | null = null
 
   const isAuthenticated = computed(() => user.value !== null)
 
-  function init() {
-    if (_subscription) return  // already initialized — prevent duplicate listeners
-    loading.value = true
-    supabase.auth.getSession().then(({ data }) => {
-      session.value = data.session
-      user.value    = data.session?.user ?? null
-      loading.value = false
-    }).catch(() => {
-      loading.value = false
-    })
+  function applyPayload(payload: BackendAuthPayload | null) {
+    user.value = payload?.user ?? null
+    csrfToken.value = payload?.csrfToken ?? null
+  }
 
-    const { data } = supabase.auth.onAuthStateChange((event, newSession) => {
-      session.value = newSession
-      user.value    = newSession?.user ?? null
-      if (event === 'SIGNED_OUT') {
-        userStore.clearSensitiveData()
+  function clearAuthState() {
+    user.value = null
+    csrfToken.value = null
+  }
+
+  async function init() {
+    if (initPromise) return initPromise
+
+    loading.value = true
+    initPromise = (async () => {
+      try {
+        const payload = await backendMe()
+        applyPayload(payload)
+      } catch {
+        clearAuthState()
+      } finally {
+        loading.value = false
+        initPromise = null
       }
-    })
-    _subscription = data.subscription
+    })()
+
+    return initPromise
   }
 
   function dispose() {
-    _subscription?.unsubscribe()
-    _subscription = null
+    initPromise = null
   }
 
   async function signIn(email: string, password: string) {
     error.value = null
-    const { error: err } = await supabase.auth.signInWithPassword({ email, password })
-    if (err) {
-      error.value = err.message
-      throw new Error(err.message)
+    try {
+      const payload = await backendLogin(email, password)
+      applyPayload(payload)
+      return payload
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Sign-in failed'
+      error.value = message
+      throw new Error(message)
     }
   }
 
   async function signUp(email: string, password: string) {
     error.value = null
-    const { data, error: err } = await supabase.auth.signUp({ email, password })
-    if (err) {
-      error.value = err.message
-      throw new Error(err.message)
-    }
-    // Create public.users row — Supabase Auth only creates auth.users automatically
-    const { error: insertError } = await supabase.from('users').insert({ id: data.user!.id })
-    // Swallow duplicate-key errors (prior signup attempt before email confirmation)
-    if (insertError && insertError.code !== '23505') {
-      // '23505' = PostgreSQL unique_violation (duplicate key) — expected on re-signup before confirmation
-      console.warn('[auth] public.users insert failed:', insertError.message)
+    try {
+      const payload = await backendSignup(email, password)
+      if (payload.requiresConfirmation) {
+        clearAuthState()
+      } else {
+        applyPayload(payload)
+      }
+      return payload
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Sign-up failed'
+      error.value = message
+      throw new Error(message)
     }
   }
 
   async function signOut() {
     try {
-      await supabase.auth.signOut()
+      await backendLogout()
     } finally {
       userStore.clearSensitiveData()
-      user.value    = null
-      session.value = null
+      clearAuthState()
     }
   }
 
@@ -83,8 +99,16 @@ export const useAuthStore = defineStore('auth', () => {
   }
 
   return {
-    user, session, loading, error,
+    user,
+    csrfToken,
+    loading,
+    error,
     isAuthenticated,
-    init, dispose, signIn, signUp, signOut, clearError,
+    init,
+    dispose,
+    signIn,
+    signUp,
+    signOut,
+    clearError,
   }
 })

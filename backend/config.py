@@ -46,6 +46,11 @@ PUBLIC_AQI_CACHE_TTL_SECONDS = int(os.environ.get("PUBLIC_AQI_CACHE_TTL_SECONDS"
 PUBLIC_DONKI_CACHE_TTL_SECONDS = int(os.environ.get("PUBLIC_DONKI_CACHE_TTL_SECONDS", "600"))
 PUBLIC_ROUTE_WINDOW_SECONDS = int(os.environ.get("PUBLIC_ROUTE_WINDOW_SECONDS", "60"))
 PUBLIC_ROUTE_MAX_REQUESTS = int(os.environ.get("PUBLIC_ROUTE_MAX_REQUESTS", "60"))
+SESSION_COOKIE_NAME = os.environ.get("SESSION_COOKIE_NAME", "helios_session")
+SESSION_COOKIE_SECURE = os.environ.get("SESSION_COOKIE_SECURE", "true").lower() == "true"
+SESSION_COOKIE_SAMESITE = os.environ.get("SESSION_COOKIE_SAMESITE", "lax")
+SESSION_TTL_HOURS = int(os.environ.get("SESSION_TTL_HOURS", "168"))
+SESSION_REFRESH_MINUTES = int(os.environ.get("SESSION_REFRESH_MINUTES", "30"))
 
 # ─── LLM Provider Configs (mirrors useAI.ts PROVIDER_CONFIGS) ────────────────
 

@@ -93,10 +93,11 @@ async function endSession() {
   if (!sessionId.value || !BACKEND_URL) return
   const id = sessionId.value
   sessionId.value = null
-  if (!auth.session) return
+  if (!auth.csrfToken) return
   fetch(`${BACKEND_URL}/api/chat/end-session?session_id=${id}`, {
     method: 'POST',
-    headers: { Authorization: `Bearer ${auth.session.access_token}` },
+    credentials: 'include',
+    headers: { 'X-HELIOS-CSRF': auth.csrfToken },
   }).catch(() => {})  // fire-and-forget, never block unmount
 }
 
@@ -140,7 +141,7 @@ async function sendMessage() {
     if (response.sessionId) {
       sessionId.value = response.sessionId
     }
-    if (BACKEND_URL && auth.session) {
+    if (BACKEND_URL && auth.csrfToken) {
       if (inactivityTimer) clearTimeout(inactivityTimer)
       inactivityTimer = setTimeout(endSession, 10 * 60 * 1000)
     }

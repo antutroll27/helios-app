@@ -1,6 +1,6 @@
 from types import SimpleNamespace
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.testclient import TestClient
 from unittest.mock import AsyncMock, MagicMock
 
@@ -13,10 +13,26 @@ def build_app() -> FastAPI:
     app.include_router(chat_router.router, prefix="/api/chat")
     app.dependency_overrides[supabase_auth.get_current_user] = lambda: "user-123"
     app.state.supabase = MagicMock()
+    app.state.session_service = SimpleNamespace(
+        sessions={
+            "session-123": {
+                "id": "session-123",
+                "user_id": "user-123",
+                "csrf_token_hash": "good-token",
+            }
+        },
+        validate_csrf=lambda session, token: bool(token) and token == session["csrf_token_hash"],
+    )
     app.state.memory_service = SimpleNamespace(
         get_memory_for_prompt=AsyncMock(return_value=""),
         process_session=AsyncMock(),
     )
+
+    async def fake_cookie_auth(request: Request):
+        request.state.auth_session = app.state.session_service.sessions["session-123"]
+        return "user-123"
+
+    app.dependency_overrides[supabase_auth.get_current_user_from_session] = fake_cookie_auth
     return app
 
 
@@ -37,6 +53,7 @@ def test_shared_usage_is_read_from_db_not_memory(monkeypatch):
             "context": {"lat": 1.0, "lng": 2.0, "timezone": "UTC"},
             "history": [],
         },
+        headers={"X-HELIOS-CSRF": "good-token"},
     )
 
     assert response.status_code == 429
@@ -58,7 +75,10 @@ def test_end_session_returns_already_processing_when_hermes_lock_is_set():
         ]
     )
 
-    response = client.post("/api/chat/end-session?session_id=session-123")
+    response = client.post(
+        "/api/chat/end-session?session_id=session-123",
+        headers={"X-HELIOS-CSRF": "good-token"},
+    )
 
     assert response.status_code == 200
     assert response.json() == {"status": "already_processing", "session_id": "session-123"}

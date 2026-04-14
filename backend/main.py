@@ -8,6 +8,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from supabase import create_client, Client
 from backend.config import CORS_ORIGINS, SUPABASE_URL, SUPABASE_KEY
+from backend.auth.session_service import SessionService
 from backend.memory.memory_service import MemoryService
 
 
@@ -22,6 +23,7 @@ async def lifespan(app: FastAPI):
     # Startup
     supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
     app.state.supabase = supabase
+    app.state.session_service = SessionService(supabase)
     app.state.memory_service = MemoryService(supabase)
     print("[helios] Supabase client initialized")
     yield
@@ -61,6 +63,9 @@ app.include_router(chat_router, prefix="/api/chat", tags=["chat"])
 
 from backend.public.router import router as public_router
 app.include_router(public_router, prefix="/api/public", tags=["public"])
+
+from backend.auth.router import router as auth_router
+app.include_router(auth_router, prefix="/api/auth", tags=["auth"])
 
 # Phase 2: Memory (uncomment when built)
 # from backend.memory.router import router as memory_router

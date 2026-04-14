@@ -39,12 +39,8 @@ export function useAI() {
     const auth = useAuthStore()
     const backendUrl = import.meta.env.VITE_BACKEND_URL
 
-    if (!auth.isAuthenticated || !auth.session) {
+    if (!auth.isAuthenticated || !auth.csrfToken) {
       throw new Error('HELIOS chat requires a signed-in session.')
-    }
-
-    if (!backendUrl) {
-      throw new Error('HELIOS chat backend is not configured.')
     }
 
     const geo = useGeoStore()
@@ -98,11 +94,13 @@ export function useAI() {
       },
     })
 
-    const response = await fetch(`${backendUrl}/api/chat/send`, {
+    const apiBase = backendUrl ?? ''
+    const response = await fetch(`${apiBase}/api/chat/send`, {
       method: 'POST',
+      credentials: 'include',
       headers: {
         'Content-Type': 'application/json',
-        Authorization: `Bearer ${auth.session.access_token}`,
+        'X-HELIOS-CSRF': auth.csrfToken,
       },
       body: JSON.stringify({
         message: userMessage,

@@ -5,12 +5,12 @@ Validates Bearer tokens issued by Supabase Auth.
 
 from typing import Optional
 
-from fastapi import HTTPException, Depends
+from fastapi import HTTPException, Depends, Request
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from jose import jwt, JWTError
 from cryptography.fernet import Fernet
 
-from backend.config import SUPABASE_JWT_SECRET, SUPABASE_URL, ENCRYPTION_KEY
+from backend.config import SUPABASE_JWT_SECRET, SUPABASE_URL, ENCRYPTION_KEY, SESSION_COOKIE_NAME
 
 security = HTTPBearer(auto_error=False)
 
@@ -74,3 +74,19 @@ async def get_current_user(
         raise HTTPException(status_code=401, detail="Unauthorized")
 
     return payload["sub"]
+
+
+async def get_current_user_from_session(
+    request: Request,
+    credentials: Optional[HTTPAuthorizationCredentials] = Depends(security),
+) -> str:
+    session_service = getattr(request.app.state, "session_service", None)
+    session_id = request.cookies.get(SESSION_COOKIE_NAME)
+
+    if session_service and session_id:
+        session = session_service.get_active_session(session_id)
+        if session:
+            request.state.auth_session = session
+            return session["user_id"]
+
+    return await get_current_user(credentials)

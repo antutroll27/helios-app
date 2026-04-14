@@ -9,7 +9,11 @@ from typing import Annotated, Literal, Optional
 from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks, Request
 from pydantic import BaseModel, ConfigDict, Field, StrictStr
 
-from backend.auth.supabase_auth import get_current_user, encrypt_api_key, decrypt_api_key
+from backend.auth.supabase_auth import (
+    get_current_user_from_session,
+    encrypt_api_key,
+    decrypt_api_key,
+)
 from backend.chat.llm_proxy import call_llm, parse_ai_response
 from backend.chat.prompt_builder import build_system_prompt
 from backend.config import SHARED_LLM_PROVIDER, SHARED_LLM_KEY, SHARED_LLM_RATE_LIMIT
@@ -18,6 +22,7 @@ router = APIRouter()
 
 MAX_CHAT_HISTORY_MESSAGES = 20
 MAX_CHAT_CONTENT_CHARS = 4096
+CSRF_HEADER_NAME = "X-HELIOS-CSRF"
 
 
 # ─── Request / Response Models ───────────────────────────────────────────────
@@ -71,6 +76,13 @@ def _resolve_location_context(context: ChatContext) -> tuple[float, float, str, 
         raise HTTPException(status_code=422, detail="Context location requires lat, lng, and timezone.")
 
     return float(lat), float(lng), str(timezone), location_name
+
+
+def require_csrf(request: Request) -> None:
+    session = getattr(request.state, "auth_session", None)
+    token = request.headers.get(CSRF_HEADER_NAME)
+    if not session or not request.app.state.session_service.validate_csrf(session, token):
+        raise HTTPException(status_code=403, detail="CSRF validation failed")
 
 
 # ─── Shared key rate limiting (in-memory, per-user daily count) ──────────────
@@ -132,13 +144,14 @@ def _increment_shared_usage(db, user_id: str) -> int:
 async def send_message(
     body: ChatRequest,
     request: Request,
-    user_id: str = Depends(get_current_user),
+    user_id: str = Depends(get_current_user_from_session),
 ):
     """
     Main chat endpoint with Hermes memory injection.
     Supports BYOK (user provides provider+key) or shared key (rate-limited).
     Messages are persisted to Supabase for Hermes learning on session end.
     """
+    require_csrf(request)
     supabase = request.app.state.supabase
     memory_service = request.app.state.memory_service
 
@@ -246,12 +259,13 @@ async def end_session(
     session_id: str,
     request: Request,
     background_tasks: BackgroundTasks,
-    user_id: str = Depends(get_current_user),
+    user_id: str = Depends(get_current_user_from_session),
 ):
     """
     End a chat session and trigger Hermes background learning.
     Fetches provider+key from the session row — no credentials needed from client.
     """
+    require_csrf(request)
     supabase = request.app.state.supabase
     memory_service = request.app.state.memory_service
 
@@ -329,7 +343,7 @@ async def end_session(
 async def get_history(
     session_id: str,
     request: Request,
-    user_id: str = Depends(get_current_user),
+    user_id: str = Depends(get_current_user_from_session),
 ):
     """Get messages for a chat session from Supabase."""
     supabase = request.app.state.supabase
@@ -352,7 +366,7 @@ async def get_history(
 @router.get("/memory")
 async def get_user_memory(
     request: Request,
-    user_id: str = Depends(get_current_user),
+    user_id: str = Depends(get_current_user_from_session),
 ):
     """Get the user's current Hermes memory file."""
     memory_service = request.app.state.memory_service
@@ -363,9 +377,10 @@ async def get_user_memory(
 @router.delete("/memory")
 async def reset_user_memory(
     request: Request,
-    user_id: str = Depends(get_current_user),
+    user_id: str = Depends(get_current_user_from_session),
 ):
     """Reset the user's memory (GDPR delete / fresh start)."""
+    require_csrf(request)
     memory_service = request.app.state.memory_service
     await memory_service.reset_memory(user_id)
     return {"status": "ok", "message": "Memory reset to default."}

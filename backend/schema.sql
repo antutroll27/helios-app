@@ -73,6 +73,26 @@ CREATE TABLE IF NOT EXISTS public.shared_llm_usage (
     PRIMARY KEY (user_id, usage_date)
 );
 
+CREATE TABLE IF NOT EXISTS public.app_sessions (
+    id TEXT PRIMARY KEY,
+    user_id UUID NOT NULL REFERENCES public.users(id) ON DELETE CASCADE,
+    email_snapshot TEXT,
+    csrf_token_hash TEXT NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    expires_at TIMESTAMPTZ NOT NULL,
+    rotated_at TIMESTAMPTZ,
+    revoked_at TIMESTAMPTZ,
+    last_seen_at TIMESTAMPTZ,
+    ip_hash TEXT,
+    user_agent_hash TEXT
+);
+
+CREATE INDEX IF NOT EXISTS idx_app_sessions_user_id
+  ON public.app_sessions(user_id);
+
+CREATE INDEX IF NOT EXISTS idx_app_sessions_expires_at
+  ON public.app_sessions(expires_at);
+
 -- ─── Chat Messages ──────────────────────────────────────────────────────────
 
 CREATE TABLE IF NOT EXISTS public.chat_messages (
@@ -178,6 +198,7 @@ ALTER TABLE public.caffeine_logs ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.biometric_logs ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.public_api_cache ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.shared_llm_usage ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.app_sessions ENABLE ROW LEVEL SECURITY;
 
 -- Users can only access their own data
 CREATE POLICY users_own_data ON public.users FOR ALL USING (auth.uid() = id);
@@ -202,6 +223,21 @@ BEGIN
           AND policyname = 'shared_usage_own_data'
     ) THEN
         CREATE POLICY shared_usage_own_data ON public.shared_llm_usage
+        FOR ALL USING (auth.uid() = user_id);
+    END IF;
+END
+$$;
+
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1
+        FROM pg_policies
+        WHERE schemaname = 'public'
+          AND tablename = 'app_sessions'
+          AND policyname = 'app_sessions_own_data'
+    ) THEN
+        CREATE POLICY app_sessions_own_data ON public.app_sessions
         FOR ALL USING (auth.uid() = user_id);
     END IF;
 END

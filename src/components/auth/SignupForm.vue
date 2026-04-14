@@ -1,10 +1,13 @@
 <script setup lang="ts">
 import { ref, watch } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 
 const emit = defineEmits<{ (e: 'switch-mode'): void }>()
 
 const auth = useAuthStore()
+const route = useRoute()
+const router = useRouter()
 
 const email           = ref('')
 const password        = ref('')
@@ -26,8 +29,15 @@ async function submit() {
   }
   loading.value = true
   try {
-    await auth.signUp(email.value, password.value)
-    success.value = true
+    const result = await auth.signUp(email.value, password.value)
+    if (result.requiresConfirmation) {
+      success.value = true
+      return
+    }
+
+    const raw = route.query.redirect as string | undefined
+    const redirect = raw && raw.startsWith('/') && !raw.startsWith('//') ? raw : '/'
+    router.push(redirect)
   } catch {
     // error is set on auth store — displayed below
   } finally {
