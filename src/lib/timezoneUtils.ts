@@ -37,3 +37,15 @@ export function getTimezoneOffsetHours(timeZone: string, date: Date): number {
 export function fmtTime(date: Date): string {
   return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
 }
+
+/**
+ * Formats a Date as a locale time string (HH:MM) in a specific IANA timezone.
+ * Use this when the displayed time must match the target location instead of the browser timezone.
+ */
+export function fmtTimeInZone(date: Date, timeZone: string): string {
+  return date.toLocaleTimeString([], {
+    hour: '2-digit',
+    minute: '2-digit',
+    timeZone,
+  })
+}

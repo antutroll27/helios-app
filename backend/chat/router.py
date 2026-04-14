@@ -20,9 +20,15 @@ router = APIRouter()
 # ─── Request / Response Models ───────────────────────────────────────────────
 
 class ChatContext(BaseModel):
-    lat: float
-    lng: float
-    timezone: str
+    lat: Optional[float] = None
+    lng: Optional[float] = None
+    timezone: Optional[str] = None
+    location: Optional[dict] = None
+    solar: Optional[dict] = None
+    space_weather: Optional[dict] = None
+    environment: Optional[dict] = None
+    protocol: Optional[dict] = None
+    user: Optional[dict] = None
 
 class ChatRequest(BaseModel):
     message: str
@@ -37,6 +43,19 @@ class ChatResponse(BaseModel):
     visual_cards: list[dict]
     session_id: str
     using_shared_key: bool
+
+
+def _resolve_location_context(context: ChatContext) -> tuple[float, float, str, Optional[str]]:
+    location = context.location or {}
+    lat = context.lat if context.lat is not None else location.get("lat")
+    lng = context.lng if context.lng is not None else location.get("lng")
+    timezone = context.timezone if context.timezone else location.get("timezone")
+    location_name = location.get("location_name")
+
+    if lat is None or lng is None or timezone is None:
+        raise HTTPException(status_code=422, detail="Context location requires lat, lng, and timezone.")
+
+    return float(lat), float(lng), str(timezone), location_name
 
 
 # ─── Shared key rate limiting (in-memory, per-user daily count) ──────────────
@@ -93,14 +112,24 @@ async def send_message(
 
     # Fetch user's memory for prompt enrichment
     memory_block = await memory_service.get_memory_for_prompt(user_id)
+    lat, lng, timezone, location_name = _resolve_location_context(body.context)
+    user_context = body.context.user or {}
 
     # Build enriched system prompt
     system_prompt = build_system_prompt(
-        lat=body.context.lat,
-        lng=body.context.lng,
-        timezone=body.context.timezone,
+        lat=lat,
+        lng=lng,
+        timezone=timezone,
         user_id=user_id,
         memory_block=memory_block,
+        user_sleep_time=user_context.get("sleep_time", "23:00"),
+        user_chronotype=user_context.get("chronotype", "intermediate"),
+        user_context=user_context,
+        location_name=location_name,
+        solar_context=body.context.solar,
+        space_weather_context=body.context.space_weather,
+        environment_context=body.context.environment,
+        protocol_context=body.context.protocol,
     )
 
     # Build conversation
