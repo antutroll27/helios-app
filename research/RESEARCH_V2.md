@@ -4,6 +4,17 @@
 
 Based on peer-reviewed findings that can inform code, while current implementations may still require heuristic simplifications and are not automatically validated for individual prediction.
 
+## Evidence Language
+- Tier A: strong foundations used for primary timing guidance
+- Tier B: heuristic calculators built from peer-reviewed literature
+- Tier C: exploratory context only, never a deterministic personal forecast
+
+## Current Implementation Boundary
+- These modules describe research-backed directions, not blanket claims that every model is already shipped.
+- Chronotype, light timing, caffeine timing, and protocol generation are the strongest current foundations.
+- Alcohol, nap, breathwork, supplement, meal-timing, and exercise-timing outputs should be framed as heuristic decision support.
+- Space-weather biological context remains exploratory and should stay non-deterministic in user-facing copy.
+
 ### Module 1: `alcohol_model.py` (Priority: HIGH — simplest math, high user demand)
 - **Pietilä et al. (2018, JMIR, n=4,098 nights)**: 1-2 drinks = -9.3% HRV, 3-4 = -24%, 5+ = -39.2%
 - **BAC pharmacokinetics**: `BAC(t) = (drinks × 14g) / (weight_kg × 0.68m/0.55f × 10) - 0.015 × hours`
@@ -138,13 +149,33 @@ Based on peer-reviewed findings that can inform code, while current implementati
 
 ## The Investor Narrative
 
-HELIOS starts with **Arcascope's Kronauer model** as the circadian brain, ingests data from **any wearable via Open Wearables**, processes sleep with **YASA**, runs personalized **N-of-1 trials** (StudyU), provides **real-time HRV biofeedback** (OpenHRV), and backs every recommendation with **peer-reviewed citations**. The AI learns from each user via **Hermes background agent** using their own LLM key. No shared API costs. No vector DB. Just Postgres + markdown.
+HELIOS is best described today as a consumer sleep optimizer plus circadian operating system. The strongest shipped surfaces are chronotype inference from sleep timing, light timing guidance, caffeine timing, protocol generation, and increasingly explicit evidence labeling. Hermes adds a markdown-memory personalization layer, but the system is still a pragmatic consumer product, not a clinical-grade digital twin.
 
-The long-term vision: a **circadian digital twin** that simulates your biology before you change your schedule, integrated with **molecular clock profiling** from saliva samples, and **metabolic chronotyping** from CGM data.
+What is strong today:
+- chronotype from sleep timing and schedule regularity
+- circadian light and timing guidance
+- caffeine timing and bedtime burden estimation
+- live location, solar, environmental, and space-weather context
 
-**Five investor lines:**
-1. "We work with whatever hardware users already own — Apple Watch, Oura, Garmin, phone. No custom hardware, no partnerships needed."
-2. "We overlay your blood glucose on your circadian clock to predict metabolic danger zones."
-3. "We use the same circadian countermeasures NASA developed for ISS astronauts."
-4. "We don't tell you what works in studies. We run a clinical-grade N-of-1 trial to prove it works for YOU."
-5. "We combine real-time space weather from NOAA with your personal biology. No other app can."
+What is heuristic today:
+- alcohol, nap, breathwork, supplement, meal-timing, and exercise-timing tools
+- wearable-informed refinement beyond baseline sleep timing
+- investor-demo modules that still simplify heterogeneous literature
+
+What is exploratory today:
+- space-weather biology
+- any roadmap feature that depends on N-of-1 trials, CGM integration, or molecular clock profiling
+
+Roadmap narrative, not shipped fact:
+- broader wearable ingestion through unified connectors
+- deeper circadian simulation via Kronauer-style models
+- structured N-of-1 experimentation
+- HRV biofeedback and metabolic chronotyping
+- a long-term circadian digital twin
+
+Five investor lines that stay honest:
+1. "HELIOS is a consumer sleep optimizer evolving into a circadian operating system."
+2. "We work with user-owned wearables and uploaded data instead of requiring proprietary hardware first."
+3. "Our strongest product surfaces are chronotype, light, caffeine, travel, and schedule timing."
+4. "We separate validated foundations, heuristics, and exploratory context instead of flattening everything into fake certainty."
+5. "The long-term moat is personalized circadian decision support built on user data, evidence tiers, and better validation over time."
