@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import ChatResponseRenderer from '@/components/ChatResponseRenderer.vue'
+import { parseChatMessageContent } from '@/lib/chatFormatting'
 import type { ChatMessage } from '@/stores/chat'
 
 const props = defineProps<{
@@ -14,29 +15,7 @@ const formattedTime = computed(() => {
   return d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })
 })
 
-/**
- * Escape HTML entities to prevent XSS
- */
-function escapeHtml(str: string): string {
-  return str
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#039;')
-}
-
-/**
- * Minimal markdown: **bold** and *italic*
- */
-function renderMarkdown(text: string): string {
-  return escapeHtml(text)
-    .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
-    .replace(/\*(.+?)\*/g, '<em>$1</em>')
-    .replace(/\n/g, '<br>')
-}
-
-const renderedContent = computed(() => renderMarkdown(props.message.content))
+const renderedSegments = computed(() => parseChatMessageContent(props.message.content))
 
 const hasVisualCards = computed(
   () => props.message.visualCards && props.message.visualCards.length > 0
@@ -67,8 +46,14 @@ const hasVisualCards = computed(
       <div
         v-else-if="message.content"
         class="chat-bubble-content"
-        v-html="renderedContent"
-      />
+      >
+        <template v-for="(segment, index) in renderedSegments" :key="index">
+          <br v-if="segment.kind === 'break'" />
+          <strong v-else-if="segment.kind === 'bold'">{{ segment.text }}</strong>
+          <em v-else-if="segment.kind === 'italic'">{{ segment.text }}</em>
+          <span v-else>{{ segment.text }}</span>
+        </template>
+      </div>
 
       <!-- Visual cards -->
       <div v-if="hasVisualCards && !message.loading" class="chat-visual-cards">

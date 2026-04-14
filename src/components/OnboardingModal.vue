@@ -29,6 +29,8 @@ const chronotypes = [
   { id: 'late' as const, label: 'Night Owl', desc: 'Peak after dark', icon: Moon },
 ]
 
+const aiKeyNote = 'Optional. Add a key for this session only, or skip to use shared AI.'
+
 
 function nextStep() {
   if (step.value < 3) {
@@ -48,12 +50,10 @@ function skipAI() {
 
 function launch() {
   user.completeOnboarding(sleepTime.value, selectedChronotype.value)
-  if (apiKeyInput.value.trim()) {
-    user.setProvider(
-      selectedProvider.value as 'openai' | 'claude' | 'gemini' | 'grok' | 'perplexity' | 'kimi' | 'glm',
-      apiKeyInput.value.trim()
-    )
-  }
+  user.setProvider(
+    selectedProvider.value as 'openai' | 'claude' | 'gemini' | 'grok' | 'perplexity' | 'kimi' | 'glm',
+    apiKeyInput.value.trim()
+  )
 }
 </script>
 
@@ -89,6 +89,7 @@ function launch() {
             <span class="step-label font-mono">SELECT AI ENGINE</span>
             <div class="step-label-rule" />
           </div>
+          <p class="step-note font-mono">{{ aiKeyNote }}</p>
 
           <div class="provider-grid">
             <button
@@ -301,6 +302,15 @@ function launch() {
   align-items: center;
   gap: 0.75rem;
   margin-bottom: 0.875rem;
+}
+
+.step-note {
+  margin: -0.25rem 0 1rem;
+  font-size: 0.42rem;
+  line-height: 1.5;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--text-muted);
 }
 
 .step-label {

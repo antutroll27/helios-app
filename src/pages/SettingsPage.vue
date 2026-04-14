@@ -37,6 +37,8 @@ const chronotypes = [
   { id: 'late' as const, label: 'Night Owl', icon: Moon },
 ]
 
+const apiKeyNote = 'Optional. Stored in memory only for this session.'
+
 const currentPlaceholder = computed(() => {
   const p = PROVIDERS.find((pr: { id: string; placeholder: string }) => pr.id === selectedProvider.value)
   return p ? p.placeholder : '...'
@@ -48,14 +50,14 @@ function selectProvider(id: string) {
   selectedProvider.value = id as typeof user.provider
   user.setProvider(
     selectedProvider.value as 'openai' | 'claude' | 'gemini' | 'grok' | 'perplexity' | 'kimi' | 'glm',
-    apiKeyInput.value
+    apiKeyInput.value.trim() || undefined
   )
 }
 
 function saveApiKey() {
   user.setProvider(
     selectedProvider.value as 'openai' | 'claude' | 'gemini' | 'grok' | 'perplexity' | 'kimi' | 'glm',
-    apiKeyInput.value
+    apiKeyInput.value.trim()
   )
 }
 
@@ -122,6 +124,7 @@ async function refreshLocation() {
             <label class="field-label font-mono">API KEY</label>
             <div class="field-rule" />
           </div>
+          <p class="field-note font-mono">{{ apiKeyNote }}</p>
           <div class="api-key-wrap">
             <input
               v-model="apiKeyInput"
@@ -507,6 +510,15 @@ async function refreshLocation() {
   display: flex;
   align-items: center;
   gap: 0.5rem;
+}
+
+.field-note {
+  font-size: 0.4rem;
+  line-height: 1.4;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: rgba(148, 163, 184, 0.42);
+  margin: 0 0 0.4rem;
 }
 
 .field-label {

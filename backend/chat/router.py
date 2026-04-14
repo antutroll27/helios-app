@@ -4,10 +4,10 @@ Handles chat messages with Hermes memory enrichment.
 """
 
 from datetime import datetime, UTC
-from typing import Optional
+from typing import Annotated, Literal, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks, Request
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict, Field, StrictStr
 
 from backend.auth.supabase_auth import get_current_user, encrypt_api_key, decrypt_api_key
 from backend.chat.llm_proxy import call_llm, parse_ai_response
@@ -16,10 +16,15 @@ from backend.config import SHARED_LLM_PROVIDER, SHARED_LLM_KEY, SHARED_LLM_RATE_
 
 router = APIRouter()
 
+MAX_CHAT_HISTORY_MESSAGES = 20
+MAX_CHAT_CONTENT_CHARS = 4096
+
 
 # ─── Request / Response Models ───────────────────────────────────────────────
 
 class ChatContext(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     lat: Optional[float] = None
     lng: Optional[float] = None
     timezone: Optional[str] = None
@@ -30,13 +35,23 @@ class ChatContext(BaseModel):
     protocol: Optional[dict] = None
     user: Optional[dict] = None
 
+
+class ChatHistoryMessage(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    role: Literal["user", "assistant"]
+    content: StrictStr = Field(min_length=1, max_length=MAX_CHAT_CONTENT_CHARS)
+
+
 class ChatRequest(BaseModel):
-    message: str
-    provider: Optional[str] = None   # None = use shared key
-    api_key: Optional[str] = None    # None = use shared key
-    session_id: Optional[str] = None
+    model_config = ConfigDict(extra="forbid")
+
+    message: StrictStr = Field(min_length=1, max_length=MAX_CHAT_CONTENT_CHARS)
+    provider: Optional[StrictStr] = None   # None = use shared key
+    api_key: Optional[StrictStr] = None    # None = use shared key
+    session_id: Optional[StrictStr] = None
     context: ChatContext
-    history: list[dict] = []
+    history: Annotated[list[ChatHistoryMessage], Field(default_factory=list, max_length=MAX_CHAT_HISTORY_MESSAGES)]
 
 class ChatResponse(BaseModel):
     message: str
@@ -133,7 +148,7 @@ async def send_message(
     )
 
     # Build conversation
-    messages = body.history + [{"role": "user", "content": body.message}]
+    messages = [message.model_dump() for message in body.history] + [{"role": "user", "content": body.message}]
 
     # Call LLM
     try:
@@ -143,8 +158,8 @@ async def send_message(
             system_prompt=system_prompt,
             messages=messages,
         )
-    except Exception as e:
-        raise HTTPException(status_code=502, detail=f"LLM provider error: {e}")
+    except Exception:
+        raise HTTPException(status_code=502, detail="Upstream LLM provider error.")
 
     parsed = parse_ai_response(raw_response)
 

@@ -2,12 +2,14 @@ import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import type { User, Session } from '@supabase/supabase-js'
 import { supabase } from '@/lib/supabase'
+import { useUserStore } from '@/stores/user'
 
 export const useAuthStore = defineStore('auth', () => {
   const user    = ref<User | null>(null)
   const session = ref<Session | null>(null)
   const loading = ref(true)
   const error   = ref<string | null>(null)
+  const userStore = useUserStore()
 
   // Private — holds the onAuthStateChange subscription for cleanup
   // Use structural type — `Subscription` is not reliably exported from supabase-js top-level
@@ -26,9 +28,12 @@ export const useAuthStore = defineStore('auth', () => {
       loading.value = false
     })
 
-    const { data } = supabase.auth.onAuthStateChange((_event, newSession) => {
+    const { data } = supabase.auth.onAuthStateChange((event, newSession) => {
       session.value = newSession
       user.value    = newSession?.user ?? null
+      if (event === 'SIGNED_OUT') {
+        userStore.clearSensitiveData()
+      }
     })
     _subscription = data.subscription
   }
@@ -64,9 +69,13 @@ export const useAuthStore = defineStore('auth', () => {
   }
 
   async function signOut() {
-    await supabase.auth.signOut()
-    user.value    = null
-    session.value = null
+    try {
+      await supabase.auth.signOut()
+    } finally {
+      userStore.clearSensitiveData()
+      user.value    = null
+      session.value = null
+    }
   }
 
   function clearError() {
