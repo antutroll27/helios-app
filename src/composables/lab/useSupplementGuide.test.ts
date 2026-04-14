@@ -1,57 +1,97 @@
-import { describe, it, expect } from 'vitest'
+import { describe, expect, it } from 'vitest'
 import { scoreSupplements } from './useSupplementGuide'
+import type { SupplementGuideContext } from './useSupplementGuide'
+
+function buildContext(overrides: Partial<SupplementGuideContext> = {}): SupplementGuideContext {
+  return {
+    goal: 'sleep_onset',
+    chronotype: 'intermediate',
+    travelState: 'none',
+    hrv: null,
+    sleepScore: null,
+    totalSleepHours: null,
+    ...overrides,
+  }
+}
 
 describe('scoreSupplements', () => {
+  it('circadian realignment with eastbound shift and late chronotype ranks melatonin first', () => {
+    const results = scoreSupplements(
+      buildContext({
+        goal: 'circadian_realignment',
+        travelState: 'eastbound_shift',
+        chronotype: 'late',
+      }),
+    )
 
-  it('low HRV (32ms) with normal sleep → Ashwagandha ranks first, score 2', () => {
-    const results = scoreSupplements(32, 82, 7.5)
-    expect(results[0].key).toBe('ashwagandha')
-    expect(results[0].score).toBe(2)
+    expect(results[0].key).toBe('melatonin')
     expect(results[0].isTopPick).toBe(true)
-    const mg = results.find(s => s.key === 'magnesium')!
-    expect(mg.score).toBe(0)
-    const glycine = results.find(s => s.key === 'glycine')!
-    expect(glycine.score).toBe(0)
+    expect(results[0].clinicianDisclaimer.length).toBeGreaterThan(0)
+    expect(results[0].caveat.length).toBeGreaterThan(0)
+    expect(results[0].note.length).toBeGreaterThan(0)
   })
 
-  it('short sleep (6.1h) + low score (68) → Magnesium ranks first, score 3; Glycine score 2', () => {
-    const results = scoreSupplements(50, 68, 6.1)
+  it('recovery support with low HRV and shorter sleep ranks magnesium ahead of glycine', () => {
+    const results = scoreSupplements(
+      buildContext({
+        goal: 'recovery_support',
+        hrv: 32,
+        sleepScore: 68,
+        totalSleepHours: 6.1,
+      }),
+    )
+
+    const magnesium = results.find((supplement) => supplement.key === 'magnesium')
+    const glycine = results.find((supplement) => supplement.key === 'glycine')
+
     expect(results[0].key).toBe('magnesium')
-    expect(results[0].score).toBe(3)
-    expect(results[0].isTopPick).toBe(true)
-    const glycine = results.find(s => s.key === 'glycine')!
-    expect(glycine.score).toBe(2)
+    expect(magnesium?.score).toBeGreaterThan(glycine?.score ?? -1)
+    expect(magnesium?.evidenceTier).toBe('B')
+    expect(magnesium?.clinicianDisclaimer.length).toBeGreaterThan(0)
+    expect(glycine?.caveat.length).toBeGreaterThan(0)
   })
 
-  it('all metrics healthy → all scores 0, fallback notes, Magnesium wins tie-break', () => {
-    const results = scoreSupplements(55, 88, 7.8)
-    expect(results.every(s => s.score === 0)).toBe(true)
-    expect(results[0].key).toBe('magnesium')
-    expect(results[0].isTopPick).toBe(true)
-    const mg = results.find(s => s.key === 'magnesium')!
-    expect(mg.note).toBe(
-      'Your sleep metrics look healthy — Mg becomes more relevant if total sleep drops below 7h or sleep score below 75'
+  it('sleep onset ties resolve toward the more goal-specific option', () => {
+    const results = scoreSupplements(
+      buildContext({
+        goal: 'sleep_onset',
+        sleepScore: 70,
+      }),
     )
-    const ashwa = results.find(s => s.key === 'ashwagandha')!
-    expect(ashwa.note).toBe(
-      'Your HRV is in a good range — Ashwagandha becomes more relevant if HRV drops below 40ms'
+
+    expect(results[0].key).toBe('glycine')
+    expect(results[1].key).toBe('magnesium')
+  })
+
+  it('healthy null-like inputs stay bounded and keep notes plus disclaimers', () => {
+    const results = scoreSupplements(
+      buildContext({
+        goal: 'sleep_onset',
+        hrv: null,
+        sleepScore: null,
+        totalSleepHours: null,
+      }),
     )
-    const glycine = results.find(s => s.key === 'glycine')!
-    expect(glycine.note).toBe(
-      'Sleep onset appears normal — consider Glycine if sleep score drops below 72 or nightly hours below 6.5h'
+
+    expect(results.every((supplement) => supplement.score === 0)).toBe(true)
+    expect(results.every((supplement) => supplement.isTopPick === false)).toBe(true)
+    expect(results.every((supplement) => supplement.note.length > 0)).toBe(true)
+    expect(results.every((supplement) => supplement.caveat.length > 0)).toBe(true)
+    expect(results.every((supplement) => supplement.clinicianDisclaimer.length > 0)).toBe(true)
+    expect(results.every((supplement) => supplement.contraindications.length > 0)).toBe(true)
+  })
+
+  it('exact boundary values remain untriggered', () => {
+    const results = scoreSupplements(
+      buildContext({
+        goal: 'recovery_support',
+        hrv: 40,
+        sleepScore: 75,
+        totalSleepHours: 7.0,
+      }),
     )
-  })
 
-  it('all null inputs → all scores 0, no throws, all notes non-empty', () => {
-    const results = scoreSupplements(null, null, null)
-    expect(results.every(s => s.score === 0)).toBe(true)
-    expect(results.every(s => s.note.length > 0)).toBe(true)
+    expect(results.every((supplement) => supplement.score === 0)).toBe(true)
+    expect(results.every((supplement) => supplement.isTopPick === false)).toBe(true)
   })
-
-  it('exact boundary values → all scores 0 (strict < thresholds)', () => {
-    // hrv === 40, sleepScore === 75, sleepHours === 7.0 — at the boundary, not below it
-    const results = scoreSupplements(40, 75, 7.0)
-    expect(results.every(s => s.score === 0)).toBe(true)
-  })
-
 })

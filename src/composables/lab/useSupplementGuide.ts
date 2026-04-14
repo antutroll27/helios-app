@@ -1,154 +1,288 @@
-import { computed } from 'vue'
+import { computed, toValue } from 'vue'
+import type { MaybeRefOrGetter } from 'vue'
 import { useBiometricsStore } from '@/stores/biometrics'
+import { useJetLagStore } from '@/stores/jetlag'
+import { useUserStore } from '@/stores/user'
+import {
+  SUPPLEMENT_CATALOG,
+  SUPPLEMENT_GOALS,
+  type Chronotype,
+  type EvidenceTier,
+  type SupplementCatalogEntry,
+  type SupplementGoal,
+  type TravelState,
+} from './supplementCatalog'
 
-export interface RankedSupplement {
-  key:       'magnesium' | 'ashwagandha' | 'glycine'
-  name:      string
-  dose:      string
-  timing:    string
-  effect:    string
-  caveat:    string
-  citation:  string
-  grade:     'A+' | 'A' | 'B'
-  score:     number     // 0–3 (Mg/Ashwagandha); 0–2 (Glycine)
-  note:      string     // personalised biometric note — never empty
+export type {
+  Chronotype,
+  EvidenceTier,
+  SupplementGoal,
+  TravelState,
+} from './supplementCatalog'
+
+export interface SupplementGuideContext {
+  goal: SupplementGoal
+  chronotype: Chronotype
+  travelState: TravelState
+  hrv: number | null
+  sleepScore: number | null
+  totalSleepHours: number | null
+}
+
+export interface RankedSupplement extends SupplementCatalogEntry {
+  score: number
+  note: string
   isTopPick: boolean
 }
 
-// ── Static supplement definitions ────────────────────────────────────────────
-const SUPPLEMENTS: Omit<RankedSupplement, 'score' | 'note' | 'isTopPick'>[] = [
-  {
-    key:      'magnesium',
-    name:     'Magnesium Glycinate',
-    dose:     '300–400 mg elemental',
-    timing:   '30–60 min before bed',
-    effect:   '+16 min TST, +deep sleep quality',
-    caveat:   'Effect strongest in adults with low dietary Mg or insomnia; smaller in healthy well-nourished adults.',
-    citation: 'Abbasi 2012, Mah 2021 BMC',
-    grade:    'A',
-  },
-  {
-    key:      'ashwagandha',
-    name:     'Ashwagandha KSM-66',
-    dose:     '300 mg KSM-66 extract',
-    timing:   'Morning with food',
-    effect:   '−15% cortisol, +11% HRV in stressed adults',
-    caveat:   'Benefits most pronounced under high perceived stress. Full effect takes 8–12 weeks.',
-    citation: 'Chandrasekhar 2012, Pratte 2014',
-    grade:    'A',
-  },
-  {
-    key:      'glycine',
-    name:     'Glycine',
-    dose:     '3 g',
-    timing:   '30 min before bed',
-    effect:   '−10 min latency, −0.1–0.2°C core temp',
-    caveat:   'Mechanism well-understood (peripheral vasodilation lowers core temp). Fewest side effects.',
-    citation: 'Bannai 2012',
-    grade:    'A',
-  },
-]
-
-// ── Scoring helpers ──────────────────────────────────────────────────────────
-function scoreMagnesium(
-  sleepScore: number | null,
-  sleepHours: number | null,
-): { score: number; note: string } {
-  const hoursLow = sleepHours != null && sleepHours < 7.0
-  const scoreLow = sleepScore != null && sleepScore < 75
-  const score    = (hoursLow ? 2 : 0) + (scoreLow ? 1 : 0)
-
-  if (hoursLow && scoreLow) {
-    return { score, note: `Your ${sleepHours!.toFixed(1)}h avg is below the 7h threshold — Mg supports slow-wave sleep depth · sleep score ${sleepScore} also flags low recovery` }
-  }
-  if (hoursLow) {
-    return { score, note: `Your ${sleepHours!.toFixed(1)}h avg is below the 7h threshold — Mg supports slow-wave sleep depth` }
-  }
-  if (scoreLow) {
-    return { score, note: `Sleep score ${sleepScore} suggests reduced recovery — Mg glycinate supports deep sleep quality` }
-  }
-  return { score: 0, note: 'Your sleep metrics look healthy — Mg becomes more relevant if total sleep drops below 7h or sleep score below 75' }
+const GOAL_TIE_BREAK_ORDER: Record<SupplementGoal, ReadonlyArray<SupplementCatalogEntry['key']>> = {
+  sleep_onset: ['glycine', 'melatonin', 'magnesium', 'ashwagandha'],
+  recovery_support: ['magnesium', 'ashwagandha', 'glycine', 'melatonin'],
+  stress_resilience: ['ashwagandha', 'magnesium', 'glycine', 'melatonin'],
+  jet_lag_support: ['melatonin', 'magnesium', 'glycine', 'ashwagandha'],
+  circadian_realignment: ['melatonin', 'magnesium', 'glycine', 'ashwagandha'],
 }
 
-function scoreAshwagandha(
-  hrv:        number | null,
-  sleepScore: number | null,
-): { score: number; note: string } {
-  const hrvLow   = hrv != null && hrv < 40
-  // Threshold is < 75 (not < 80 as in original spec) to match Magnesium's sleepScore tier
-  // and ensure consistency: both activate at 75, Glycine activates at 72.
-  // Test 5 uses sleepScore=75 as boundary — < 80 would have broken that assertion.
-  const scoreLow = sleepScore != null && sleepScore < 75
-  const score    = (hrvLow ? 2 : 0) + (scoreLow ? 1 : 0)
-
-  if (hrvLow && scoreLow) {
-    return { score, note: `HRV ${hrv!.toFixed(1)}ms suggests elevated stress load — KSM-66 reduces cortisol ~15% (Chandrasekhar 2012) · sleep score also supports prioritising cortisol reduction` }
-  }
-  if (hrvLow) {
-    return { score, note: `HRV ${hrv!.toFixed(1)}ms suggests elevated stress load — KSM-66 reduces cortisol ~15% (Chandrasekhar 2012)` }
-  }
-  if (scoreLow) {
-    return { score, note: `Sleep score ${sleepScore} suggests stress-related sleep disruption — consider Ashwagandha` }
-  }
-  return { score: 0, note: 'Your HRV is in a good range — Ashwagandha becomes more relevant if HRV drops below 40ms' }
+function clampScore(score: number): number {
+  return Math.max(0, Math.min(5, score))
 }
 
-function scoreGlycine(
-  sleepScore: number | null,
-  sleepHours: number | null,
-): { score: number; note: string } {
-  const scoreLow = sleepScore != null && sleepScore < 72
-  const hoursLow = sleepHours != null && sleepHours < 6.5
-  const score    = (scoreLow ? 1 : 0) + (hoursLow ? 1 : 0)
-
-  if (scoreLow && hoursLow) {
-    return { score, note: `Sleep score ${sleepScore} suggests onset or fragmentation — glycine lowers core body temperature · combined with short sleep (${sleepHours!.toFixed(1)}h), sleep onset is the likely bottleneck` }
-  }
-  if (scoreLow) {
-    return { score, note: `Sleep score ${sleepScore} suggests onset or fragmentation — glycine lowers core body temperature` }
-  }
-  if (hoursLow) {
-    return { score, note: `Short sleep (${sleepHours!.toFixed(1)}h) may reflect slow sleep onset — glycine reduces latency ~10 min` }
-  }
-  return { score: 0, note: 'Sleep onset appears normal — consider Glycine if sleep score drops below 72 or nightly hours below 6.5h' }
+function isLowHrv(context: SupplementGuideContext): boolean {
+  return context.hrv != null && context.hrv < 40
 }
 
-// ── Pure function (injectable for tests) ─────────────────────────────────────
-export function scoreSupplements(
-  hrv:        number | null,
-  sleepScore: number | null,
-  sleepHours: number | null,
-): RankedSupplement[] {
-  const mg    = scoreMagnesium(sleepScore, sleepHours)
-  const ashwa = scoreAshwagandha(hrv, sleepScore)
-  const gly   = scoreGlycine(sleepScore, sleepHours)
-
-  const scored: RankedSupplement[] = [
-    { ...SUPPLEMENTS[0], ...mg,    isTopPick: false },
-    { ...SUPPLEMENTS[1], ...ashwa, isTopPick: false },
-    { ...SUPPLEMENTS[2], ...gly,   isTopPick: false },
-  ]
-
-  // Sort descending by score; stable (magnesium > ashwagandha > glycine on tie)
-  scored.sort((a, b) => b.score - a.score)
-  scored[0].isTopPick = true
-
-  return scored
+function isLowSleepScore(context: SupplementGuideContext): boolean {
+  return context.sleepScore != null && context.sleepScore < 75
 }
 
-// ── Composable (store-aware) ──────────────────────────────────────────────────
-export function useSupplementGuide() {
+function isShortSleep(context: SupplementGuideContext): boolean {
+  return context.totalSleepHours != null && context.totalSleepHours < 6.5
+}
+
+function hasRecoverySignal(context: SupplementGuideContext): boolean {
+  return isLowHrv(context) || isLowSleepScore(context) || isShortSleep(context)
+}
+
+function hasSleepOnsetSignal(context: SupplementGuideContext): boolean {
+  return isLowSleepScore(context) || isShortSleep(context)
+}
+
+function hasCircadianShift(context: SupplementGuideContext): boolean {
+  return context.travelState !== 'none' || context.goal === 'circadian_realignment' || context.goal === 'jet_lag_support'
+}
+
+function buildMelatoninNote(context: SupplementGuideContext, score: number): string {
+  if (context.goal === 'circadian_realignment' && context.travelState === 'eastbound_shift' && context.chronotype === 'late') {
+    return 'Eastbound phase advance plus a late chronotype makes melatonin the most relevant circadian tool here.'
+  }
+  if (context.goal === 'jet_lag_support' && context.travelState !== 'none') {
+    return context.travelState === 'eastbound_shift'
+      ? 'Travel-related phase advance makes melatonin more relevant for resetting timing after an eastbound shift.'
+      : 'Travel-related timing disruption still makes melatonin relevant, but westbound shifts usually lean less heavily on it.'
+  }
+  if (context.goal === 'sleep_onset') {
+    return 'Melatonin may help sleep onset, but it is most useful when bedtime timing itself needs support.'
+  }
+  if (score > 0 && hasCircadianShift(context)) {
+    return 'Circadian timing inputs make melatonin more relevant than a generic sleep aid.'
+  }
+  return 'No strong circadian signal is present, so melatonin stays a lower-priority wellness option.'
+}
+
+function buildMagnesiumNote(context: SupplementGuideContext, score: number): string {
+  if (isLowHrv(context) && (isLowSleepScore(context) || isShortSleep(context))) {
+    return 'Lower HRV plus shorter or lower-quality sleep makes magnesium the clearest recovery-oriented option.'
+  }
+  if (isLowHrv(context)) {
+    return 'Lower HRV makes magnesium more relevant as a recovery-support option.'
+  }
+  if (isLowSleepScore(context) || isShortSleep(context)) {
+    return 'Short sleep or lower sleep quality keeps magnesium relevant when recovery debt is part of the picture.'
+  }
+  if (score > 0) {
+    return 'Magnesium stays relevant when recovery markers start to drift down.'
+  }
+  return 'Recovery markers look reasonably steady, so magnesium remains a general wellness option rather than a priority.'
+}
+
+function buildAshwagandhaNote(context: SupplementGuideContext, score: number): string {
+  if (context.goal === 'stress_resilience' && isLowHrv(context)) {
+    return 'Stress resilience plus lower HRV makes ashwagandha more relevant than a pure sleep aid.'
+  }
+  if (isLowHrv(context)) {
+    return 'Lower HRV suggests a stress-adaptation pattern where ashwagandha may be more relevant.'
+  }
+  if (context.goal === 'stress_resilience') {
+    return 'Ashwagandha is the most stress-oriented option here, but it is still framed as general wellness support.'
+  }
+  if (score > 0) {
+    return 'Stress-adaptation inputs give ashwagandha some relevance, but it remains secondary to stronger goal matches.'
+  }
+  return 'There is no strong stress signal in the current inputs, so ashwagandha stays lower priority.'
+}
+
+function buildGlycineNote(context: SupplementGuideContext, score: number): string {
+  if (context.goal === 'sleep_onset' && (isLowSleepScore(context) || isShortSleep(context))) {
+    return 'Sleep-onset framing fits glycine best when falling asleep is the main bottleneck.'
+  }
+  if (context.goal === 'sleep_onset') {
+    return 'Glycine is the most onset-oriented option here, especially when falling asleep is the main issue.'
+  }
+  if (score > 0) {
+    return 'Glycine can help with sleep onset, but it does not address recovery debt as strongly as magnesium.'
+  }
+  return 'Without a clear sleep-onset problem, glycine stays a lower-priority wellness option.'
+}
+
+function scoreMelatonin(context: SupplementGuideContext): { score: number; note: string } {
+  let score = 0
+
+  if (context.travelState === 'eastbound_shift') score += 3
+  if (context.travelState === 'westbound_shift') score += 2
+  if (context.goal === 'circadian_realignment' && context.travelState !== 'none') score += 2
+  if (context.goal === 'jet_lag_support' && context.travelState !== 'none') score += 2
+  if (context.goal === 'sleep_onset' && hasSleepOnsetSignal(context)) score += 1
+  if (context.chronotype === 'late' && context.travelState === 'eastbound_shift') score += 1
+  if ((isLowSleepScore(context) || isShortSleep(context)) && context.travelState !== 'none') score += 1
+
+  return {
+    score: clampScore(score),
+    note: buildMelatoninNote(context, score),
+  }
+}
+
+function scoreMagnesium(context: SupplementGuideContext): { score: number; note: string } {
+  let score = 0
+
+  if (isLowHrv(context)) score += 2
+  if (isLowSleepScore(context)) score += 2
+  if (isShortSleep(context)) score += 1
+  if (context.goal === 'recovery_support' && hasRecoverySignal(context)) score += 2
+  if (context.goal === 'sleep_onset' && hasSleepOnsetSignal(context)) score += 1
+
+  return {
+    score: clampScore(score),
+    note: buildMagnesiumNote(context, score),
+  }
+}
+
+function scoreAshwagandha(context: SupplementGuideContext): { score: number; note: string } {
+  let score = 0
+
+  if (isLowHrv(context)) score += 2
+  if (isLowSleepScore(context) && isLowHrv(context)) score += 1
+  if (context.goal === 'stress_resilience' && isLowHrv(context)) score += 2
+  if (context.goal === 'recovery_support' && isLowHrv(context)) score += 1
+
+  return {
+    score: clampScore(score),
+    note: buildAshwagandhaNote(context, score),
+  }
+}
+
+function scoreGlycine(context: SupplementGuideContext): { score: number; note: string } {
+  let score = 0
+
+  if (isLowSleepScore(context)) score += 1
+  if (isShortSleep(context)) score += 1
+  if (context.goal === 'sleep_onset' && hasSleepOnsetSignal(context)) score += 2
+
+  return {
+    score: clampScore(score),
+    note: buildGlycineNote(context, score),
+  }
+}
+
+function createRankedSupplement(
+  supplement: SupplementCatalogEntry,
+  scoreData: { score: number; note: string },
+): RankedSupplement {
+  return {
+    ...supplement,
+    score: scoreData.score,
+    note: scoreData.note,
+    isTopPick: false,
+  }
+}
+
+export function scoreSupplements(context: SupplementGuideContext): RankedSupplement[] {
+  const tieBreakOrder = GOAL_TIE_BREAK_ORDER[context.goal]
+  const scored = SUPPLEMENT_CATALOG.map((supplement) => {
+    switch (supplement.key) {
+      case 'melatonin':
+        return createRankedSupplement(supplement, scoreMelatonin(context))
+      case 'magnesium':
+        return createRankedSupplement(supplement, scoreMagnesium(context))
+      case 'ashwagandha':
+        return createRankedSupplement(supplement, scoreAshwagandha(context))
+      case 'glycine':
+        return createRankedSupplement(supplement, scoreGlycine(context))
+    }
+  })
+
+  const ranked = scored
+    .map((supplement, index) => ({ supplement, index }))
+    .sort((left, right) => {
+      if (right.supplement.score !== left.supplement.score) {
+        return right.supplement.score - left.supplement.score
+      }
+      const leftPriority = tieBreakOrder.indexOf(left.supplement.key)
+      const rightPriority = tieBreakOrder.indexOf(right.supplement.key)
+
+      if (leftPriority !== rightPriority) {
+        return leftPriority - rightPriority
+      }
+
+      return left.index - right.index
+    })
+    .map(({ supplement }) => supplement)
+
+  if (ranked.length > 0 && ranked[0].score > 0) {
+    ranked[0].isTopPick = true
+  }
+
+  return ranked
+}
+
+export function useSupplementGuide(goalInput: MaybeRefOrGetter<SupplementGoal> = 'sleep_onset') {
   const biometrics = useBiometricsStore()
+  const user = useUserStore()
+  const jetlag = useJetLagStore()
 
+  const goal = computed(() => toValue(goalInput))
+
+  const travelState = computed<TravelState>(() => {
+    if (!jetlag.tripInput || jetlag.totalShiftHours === 0) return 'none'
+    return jetlag.shiftDirection === 'advance' ? 'eastbound_shift' : 'westbound_shift'
+  })
+
+  const context = computed<SupplementGuideContext>(() => ({
+    goal: goal.value,
+    chronotype: user.chronotype,
+    travelState: travelState.value,
+    hrv: biometrics.avgHRV,
+    sleepScore: biometrics.avgSleepScore,
+    totalSleepHours: biometrics.avgTotalSleepH,
+  }))
+
+  const rankedSupplements = computed(() => scoreSupplements(context.value))
+  const usesBiometrics = computed(() =>
+    context.value.hrv != null ||
+    context.value.sleepScore != null ||
+    context.value.totalSleepHours != null
+  )
+  const usesTravelContext = computed(() => context.value.travelState !== 'none')
   const hasPersonalization = computed(() =>
-    biometrics.avgHRV != null &&
-    biometrics.avgSleepScore != null &&
-    biometrics.avgTotalSleepH != null
+    usesBiometrics.value || usesTravelContext.value
   )
 
-  const rankedSupplements = computed(() =>
-    scoreSupplements(biometrics.avgHRV, biometrics.avgSleepScore, biometrics.avgTotalSleepH)
-  )
-
-  return { rankedSupplements, hasPersonalization }
+  return {
+    SUPPLEMENT_GOALS,
+    context,
+    goal,
+    hasPersonalization,
+    usesBiometrics,
+    usesTravelContext,
+    rankedSupplements,
+  }
 }
