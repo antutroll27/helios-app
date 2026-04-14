@@ -1,8 +1,10 @@
+import asyncio
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock
 
+from backend.public.cache_service import read_cache
 from backend.public import router as public_router
 
 
@@ -69,3 +71,32 @@ def test_environment_refreshes_when_cache_misses(monkeypatch):
     assert response.status_code == 200
     assert response.json()["temperature_now"] == 24
     write_cache.assert_called_once()
+
+
+def test_read_cache_treats_invalid_expiry_as_cache_miss():
+    db = MagicMock()
+    query = db.table.return_value.select.return_value
+    query.eq.return_value.eq.return_value.execute.return_value = SimpleNamespace(
+        data=[{"payload": {"aqi_level": 40}, "expires_at": "not-a-real-date"}]
+    )
+
+    result = asyncio.run(read_cache(db, "aqi", "22.500:88.300"))
+
+    assert result is None
+
+
+def test_public_routes_rate_limit_by_forwarded_ip(monkeypatch):
+    app = build_app()
+    monkeypatch.setattr(public_router, "PUBLIC_ROUTE_MAX_REQUESTS", 1)
+    monkeypatch.setattr(public_router, "PUBLIC_ROUTE_WINDOW_SECONDS", 60)
+    monkeypatch.setattr(public_router, "read_cache", AsyncMock(return_value={"aqi_level": 42}))
+    public_router._public_route_usage.clear()
+
+    client = TestClient(app)
+    headers = {"x-forwarded-for": "203.0.113.9"}
+
+    first = client.get("/api/public/aqi?lat=22.5&lng=88.3", headers=headers)
+    second = client.get("/api/public/aqi?lat=22.5&lng=88.3", headers=headers)
+
+    assert first.status_code == 200
+    assert second.status_code == 429

@@ -14,13 +14,18 @@ DONKI_BASE_URL = "https://api.nasa.gov/DONKI"
 
 
 def cache_key_for_coords(lat: float, lng: float) -> str:
+    # 3 decimal places intentionally bucket nearby requests into roughly 100m cells.
     return f"{lat:.3f}:{lng:.3f}"
 
 
-def _parse_timestamp(value: str | datetime) -> datetime:
+def _parse_timestamp(value: str | datetime) -> datetime | None:
     if isinstance(value, datetime):
         return value if value.tzinfo else value.replace(tzinfo=UTC)
-    return datetime.fromisoformat(value.replace("Z", "+00:00"))
+    try:
+        parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    return parsed if parsed.tzinfo else parsed.replace(tzinfo=UTC)
 
 
 async def read_cache(db, source: str, cache_key: str) -> dict[str, Any] | None:
@@ -35,7 +40,8 @@ async def read_cache(db, source: str, cache_key: str) -> dict[str, Any] | None:
         return None
 
     row = result.data[0]
-    if _parse_timestamp(row["expires_at"]) <= datetime.now(UTC):
+    expires_at = _parse_timestamp(row["expires_at"])
+    if expires_at is None or expires_at <= datetime.now(UTC):
         return None
 
     return row["payload"]

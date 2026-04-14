@@ -25,12 +25,35 @@ router = APIRouter()
 _public_route_usage: dict[str, dict[str, float | int]] = {}
 
 
+def _client_identifier(request: Request) -> str:
+    forwarded_for = request.headers.get("x-forwarded-for", "").split(",")[0].strip()
+    real_ip = request.headers.get("x-real-ip", "").strip()
+    if forwarded_for:
+        return forwarded_for
+    if real_ip:
+        return real_ip
+    if request.client and request.client.host:
+        return request.client.host
+    return "unknown"
+
+
+def _prune_public_usage(now: float) -> None:
+    stale_hosts = [
+        host
+        for host, usage in _public_route_usage.items()
+        if now - float(usage["window_started"]) >= PUBLIC_ROUTE_WINDOW_SECONDS
+    ]
+    for host in stale_hosts:
+        _public_route_usage.pop(host, None)
+
+
 def _enforce_public_rate_limit(request: Request) -> None:
     if PUBLIC_ROUTE_MAX_REQUESTS <= 0 or PUBLIC_ROUTE_WINDOW_SECONDS <= 0:
         return
 
-    client_host = request.client.host if request.client else "unknown"
     now = monotonic()
+    _prune_public_usage(now)
+    client_host = _client_identifier(request)
     usage = _public_route_usage.get(client_host)
     if usage is None or now - float(usage["window_started"]) >= PUBLIC_ROUTE_WINDOW_SECONDS:
         _public_route_usage[client_host] = {"window_started": now, "count": 1}
