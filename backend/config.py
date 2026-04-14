@@ -6,6 +6,11 @@ Loads all settings from environment variables.
 import os
 from dotenv import load_dotenv
 
+# trust-boundary hardening checklist:
+# 1. backend-only AQI/NASA tokens
+# 2. public cache TTLs
+# 3. anonymous public route throttles
+
 load_dotenv()
 
 # ─── Supabase ────────────────────────────────────────────────────────────────
@@ -26,6 +31,8 @@ ENCRYPTION_KEY = os.environ.get("ENCRYPTION_KEY", "")  # Fernet key for API key 
 SHARED_LLM_PROVIDER = os.environ.get("SHARED_LLM_PROVIDER", "kimi")  # cheapest default
 SHARED_LLM_KEY = os.environ.get("SHARED_LLM_KEY", "")
 SHARED_LLM_RATE_LIMIT = int(os.environ.get("SHARED_LLM_RATE_LIMIT", "20"))  # msgs/day per user
+NASA_API_KEY = os.environ.get("NASA_API_KEY", os.environ.get("VITE_NASA_API_KEY", "DEMO_KEY"))
+AQICN_TOKEN = os.environ.get("AQICN_TOKEN", os.environ.get("VITE_AQICN_TOKEN", ""))
 
 # ─── CORS ────────────────────────────────────────────────────────────────────
 
@@ -33,6 +40,12 @@ CORS_ORIGINS = os.environ.get(
     "CORS_ORIGINS",
     "http://localhost:5173,http://localhost:5174,https://helios-app-six.vercel.app"
 ).split(",")
+
+PUBLIC_ENVIRONMENT_CACHE_TTL_SECONDS = int(os.environ.get("PUBLIC_ENVIRONMENT_CACHE_TTL_SECONDS", "600"))
+PUBLIC_AQI_CACHE_TTL_SECONDS = int(os.environ.get("PUBLIC_AQI_CACHE_TTL_SECONDS", "300"))
+PUBLIC_DONKI_CACHE_TTL_SECONDS = int(os.environ.get("PUBLIC_DONKI_CACHE_TTL_SECONDS", "600"))
+PUBLIC_ROUTE_WINDOW_SECONDS = int(os.environ.get("PUBLIC_ROUTE_WINDOW_SECONDS", "60"))
+PUBLIC_ROUTE_MAX_REQUESTS = int(os.environ.get("PUBLIC_ROUTE_MAX_REQUESTS", "60"))
 
 # ─── LLM Provider Configs (mirrors useAI.ts PROVIDER_CONFIGS) ────────────────
 

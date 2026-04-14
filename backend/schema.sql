@@ -1,5 +1,9 @@
 -- HELIOS Backend — Supabase Schema Migration
 -- Run this in the Supabase SQL Editor
+-- trust-boundary hardening checklist:
+-- 1. add public_api_cache
+-- 2. add shared_llm_usage
+-- 3. add chat_sessions.hermes_processing
 
 -- Enable required extensions
 CREATE EXTENSION IF NOT EXISTS vector;
@@ -42,7 +46,32 @@ ALTER TABLE public.chat_sessions
   ADD COLUMN IF NOT EXISTS provider TEXT,
   ADD COLUMN IF NOT EXISTS encrypted_api_key TEXT;
 
+ALTER TABLE public.chat_sessions
+  ADD COLUMN IF NOT EXISTS hermes_processing BOOLEAN DEFAULT FALSE;
+
 CREATE INDEX idx_chat_sessions_user ON public.chat_sessions(user_id);
+
+CREATE TABLE IF NOT EXISTS public.public_api_cache (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    source TEXT NOT NULL,
+    cache_key TEXT NOT NULL,
+    payload JSONB NOT NULL,
+    fetched_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    expires_at TIMESTAMPTZ NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    UNIQUE (source, cache_key)
+);
+
+CREATE INDEX IF NOT EXISTS idx_public_api_cache_lookup
+  ON public.public_api_cache(source, cache_key, expires_at);
+
+CREATE TABLE IF NOT EXISTS public.shared_llm_usage (
+    user_id UUID NOT NULL REFERENCES public.users(id) ON DELETE CASCADE,
+    usage_date DATE NOT NULL,
+    count INT NOT NULL DEFAULT 0 CHECK (count >= 0),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    PRIMARY KEY (user_id, usage_date)
+);
 
 -- ─── Chat Messages ──────────────────────────────────────────────────────────
 
@@ -147,6 +176,8 @@ ALTER TABLE public.data_imports ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.protocol_logs ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.caffeine_logs ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.biometric_logs ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.public_api_cache ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.shared_llm_usage ENABLE ROW LEVEL SECURITY;
 
 -- Users can only access their own data
 CREATE POLICY users_own_data ON public.users FOR ALL USING (auth.uid() = id);
@@ -160,3 +191,33 @@ CREATE POLICY imports_own_data ON public.data_imports FOR ALL USING (auth.uid() 
 CREATE POLICY protocol_own_data ON public.protocol_logs FOR ALL USING (auth.uid() = user_id);
 CREATE POLICY caffeine_own_data ON public.caffeine_logs FOR ALL USING (auth.uid() = user_id);
 CREATE POLICY biometric_own_data ON public.biometric_logs FOR ALL USING (auth.uid() = user_id);
+
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1
+        FROM pg_policies
+        WHERE schemaname = 'public'
+          AND tablename = 'shared_llm_usage'
+          AND policyname = 'shared_usage_own_data'
+    ) THEN
+        CREATE POLICY shared_usage_own_data ON public.shared_llm_usage
+        FOR ALL USING (auth.uid() = user_id);
+    END IF;
+END
+$$;
+
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1
+        FROM pg_policies
+        WHERE schemaname = 'public'
+          AND tablename = 'public_api_cache'
+          AND policyname = 'public_api_cache_no_direct_access'
+    ) THEN
+        CREATE POLICY public_api_cache_no_direct_access ON public.public_api_cache
+        FOR ALL USING (false);
+    END IF;
+END
+$$;
