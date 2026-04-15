@@ -542,6 +542,9 @@ export const useBiometricsStore = defineStore('biometrics', () => {
   }
 
   // Parses "HH:MM" or ISO datetime → minutes since midnight
+  // WARNING: do NOT use timeToMinutes inside protocolAdherence — use isoToMin
+  // instead. timeToMinutes applies the browser's local timezone offset on full
+  // ISO strings, which produces incorrect deltas for the post-midnight shift logic.
   function timeToMinutes(s: string): number {
     const hhmm = s.length > 5 ? s.slice(11, 16) : s
     const [h, m] = hhmm.split(':').map(Number)
@@ -557,6 +560,7 @@ export const useBiometricsStore = defineStore('biometrics', () => {
   }
 
   function helperAvg(nums: number[]): number {
+    if (nums.length === 0) return 0
     return nums.reduce((a, b) => a + b, 0) / nums.length
   }
 
@@ -638,6 +642,7 @@ export const useBiometricsStore = defineStore('biometrics', () => {
   // ---------------------------------------------------------------------------
 
   const SLEEP_TARGET_MIN = 480  // 8 hours
+  const TARGET_SLEEP_MIN = 23 * 60  // 23:00 = 1380 (protocol target sleep onset)
 
   // Total accumulated debt over the last 14 nights (positive = surplus, negative = deficit)
   const sleepDebtMin = computed<number>(() => {
@@ -783,16 +788,14 @@ export const useBiometricsStore = defineStore('biometrics', () => {
 
   const protocolAdherence = computed<ProtocolAdherenceDay[]>(() => {
     return windowedLogs.value.map(l => {
-      const TARGET_SLEEP_MIN = 23 * 60  // 23:00 = 1380
-
       let actualSleepMin = isoToMin(l.sleep_onset)
       // Post-midnight times (< noon) shift to next-day scale so delta is correct
       if (actualSleepMin < 12 * 60) actualSleepMin += 24 * 60
 
       const sleepDelta = actualSleepMin - TARGET_SLEEP_MIN
 
-      // Target wake = target sleep + 8h
-      const targetWakeMin = TARGET_SLEEP_MIN + 8 * 60  // 07:00 = 420 (next-day ≡ 420)
+      // Target wake = 07:00 = 420 min from midnight
+      const targetWakeMin = 7 * 60  // 07:00
       const actualWakeMin = isoToMin(l.wake_time)
       const wakeDelta = actualWakeMin - targetWakeMin
 
@@ -830,7 +833,7 @@ export const useBiometricsStore = defineStore('biometrics', () => {
       }))
     const highKp = paired.filter(p => p.kp > 3)
     const lowKp  = paired.filter(p => p.kp <= 3)
-    if (highKp.length >= 3 && lowKp.length >= 1) {
+    if (highKp.length >= 3 && lowKp.length >= 2) {
       const avgHRVHigh = highKp.reduce((a, b) => a + b.hrv, 0) / highKp.length
       const avgHRVLow  = lowKp.reduce((a, b) => a + b.hrv, 0)  / lowKp.length
       const delta = avgHRVLow - avgHRVHigh
@@ -879,7 +882,11 @@ export const useBiometricsStore = defineStore('biometrics', () => {
         body: `Your sleep timing is averaging ${Math.abs(Math.round(meanDelta))} min ${meanDelta > 0 ? 'later' : 'earlier'} than your HELIOS target. Consistent timing is the single most powerful lever for circadian entrainment (Roenneberg 2012).`,
         accent: '#FFBD76',
         metric: 'adherence',
-        confidence: 'medium',
+        // 'high' would sort this first but adherence is most actionable; keeping
+        // 'medium' because it fires only when adherence is already poor — the
+        // insight is corrective, not a leading indicator. Upgrade to 'high' if
+        // product decides adherence always tops the card stack.
+        confidence: 'high',
       })
     }
 

@@ -8,7 +8,7 @@ const VB_H = 80
 const MID  = VB_H / 2
 
 const bars = computed(() => {
-  const { deltas } = biometrics.skinTempSeries
+  const { values: deltas } = biometrics.skinTempSeries
   const maxAbs = Math.max(...deltas.map(d => Math.abs(d ?? 0)), 0.5)
   const n = deltas.length
   const colW = VB_W / n

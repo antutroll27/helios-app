@@ -13,11 +13,11 @@ const displayValue = computed(() =>
 )
 
 const spark = computed(() =>
-  buildSparkline(biometrics.sleepScoreSeries.scores, VB_W, VB_H)
+  buildSparkline(biometrics.sleepScoreSeries.values, VB_W, VB_H)
 )
 
 const points = computed(() =>
-  buildSparklinePoints(biometrics.sleepScoreSeries.scores, biometrics.sleepScoreSeries.dates, VB_W, VB_H)
+  buildSparklinePoints(biometrics.sleepScoreSeries.values, biometrics.sleepScoreSeries.dates, VB_W, VB_H)
 )
 
 // ── Hover state ──────────────────────────────────────────────

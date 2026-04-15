@@ -47,12 +47,12 @@ function accentForPct(pct: number): string {
           <circle :cx="215" :cy="i * 28 + 14" r="3" class="adherence-timeline__target" />
           <!-- Delta label: show delta_sleep_min if non-zero -->
           <text
-            v-if="Math.abs(day.delta_sleep_min) > 5"
+            v-if="Math.abs(day.sleep_delta_min) > 5"
             :x="395"
             :y="i * 28 + 17"
             class="adherence-timeline__delta"
             :fill="accentForPct(day.adherence_pct)"
-          >{{ day.delta_sleep_min > 0 ? '+' : '' }}{{ day.delta_sleep_min }}m</text>
+          >{{ day.sleep_delta_min > 0 ? '+' : '' }}{{ day.sleep_delta_min }}m</text>
           <!-- Adherence % on far right -->
           <text :x="498" :y="i * 28 + 17" class="adherence-timeline__pct" text-anchor="end">
             {{ day.adherence_pct }}%

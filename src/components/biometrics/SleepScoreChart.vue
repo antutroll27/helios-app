@@ -39,7 +39,7 @@ const option = computed<EChartsOption>(() => {
       {
         name: 'Sleep Score',
         type: 'line',
-        data: scores.scores,
+        data: scores.values,
         connectNulls: false,
         smooth: 0.3,
         symbol: 'circle',
