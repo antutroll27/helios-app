@@ -5,7 +5,7 @@ import { useSpaceWeatherStore } from '@/stores/spaceWeather'
 import { useEnvironmentStore } from '@/stores/environment'
 import { useDonkiStore } from '@/stores/donki'
 import { useTheme } from '@/composables/useTheme'
-import { Sun, Moon, RotateCcw, MapPin } from 'lucide-vue-next'
+import { Sun, Moon, RotateCcw, MapPin, Activity } from 'lucide-vue-next'
 import { ref, computed } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
@@ -73,6 +73,9 @@ async function fullReload() {
 
     <!-- Right: Controls -->
     <div class="nav-right">
+      <button class="nav-btn" title="Biometrics" @click="router.push('/biometrics')">
+        <Activity :size="15" style="color: var(--text-secondary)" />
+      </button>
       <button class="nav-btn" @click="fullReload" title="Restart demo" :disabled="isReloading">
         <RotateCcw :size="15" :class="{ 'spin-anim': isReloading }" style="color: var(--text-secondary)" />
       </button>
