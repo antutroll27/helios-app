@@ -16,500 +16,505 @@ export interface SleepLog {
   source: 'oura' | 'fitbit' | 'manual' | 'mock'
 }
 
-export interface KpDayEntry {
-  date: string
-  kp_max: number
-}
-
-export interface ProtocolAdherenceDay {
-  date: string
-  target_sleep_hhmm: string   // "23:00"
-  actual_sleep_hhmm: string   // "23:42"
-  target_wake_hhmm: string    // "07:00"
-  actual_wake_hhmm: string    // "07:18"
-  delta_sleep_min: number     // positive = slept later than target
-  delta_wake_min: number
-  adherence_pct: number       // 0-100
-}
-
 export interface CircadianInsight {
   id: string
   type: 'correlation' | 'trend' | 'adherence' | 'anomaly'
   title: string
   body: string
-  accent: string
+  accent: string            // hex color
   metric: string
   confidence: 'low' | 'medium' | 'high'
+}
+
+export interface ProtocolAdherenceDay {
+  date: string
+  sleep_delta_min: number   // positive = slept later than target
+  wake_delta_min: number    // positive = woke later than target
+  adherence_pct: number     // 0-100
 }
 
 export type DateRange = 7 | 30
 export type UploadStatus = 'idle' | 'parsing' | 'success' | 'error'
 
 // ---------------------------------------------------------------------------
-// Mock data — 30 nights: 2026-03-14 through 2026-04-12
-// Deliberate patterns:
-//   • 4 high-Kp nights (2026-03-17, 2026-03-24, 2026-04-01, 2026-04-08)
-//     → hrv_avg ~8 ms below mean (36-38 ms vs general 44-50 ms)
-//   • 2 late-sleep nights (2026-03-21, 2026-04-03) → sleep_onset ~01:15-01:30
-//   • 2 no-device nights (2026-03-19, 2026-04-05) → hrv_avg: undefined
-//   • 1 outlier night (2026-03-26) → total_sleep_min: 312, sleep_score: 46, hrv_avg: 31
-//   • All other nights realistic (total 420-490 min, deep 70-110, rem 85-130, etc.)
+// MOCK_KP_HISTORY — Record<dateString, kpValue>
+// 30 nights ending 2026-04-15 (today). 4 high-Kp nights (kp > 3) match the
+// 4 low-HRV nights in MOCK_SLEEP_LOGS (nights 5, 12, 19, 26 = Mar 20, Mar 27,
+// Apr 3, Apr 10).
+// ---------------------------------------------------------------------------
+
+const MOCK_KP_HISTORY: Record<string, number> = {
+  '2026-03-16': 1.3,
+  '2026-03-17': 0.9,
+  '2026-03-18': 2.1,
+  '2026-03-19': 1.7,
+  '2026-03-20': 4.5, // HIGH — night 5, hrv ~50ms (8ms below mean ~58ms)
+  '2026-03-21': 1.4,
+  '2026-03-22': 2.6,
+  '2026-03-23': 1.1,
+  '2026-03-24': 2.9,
+  '2026-03-25': 1.8,
+  '2026-03-26': 2.2,
+  '2026-03-27': 5.1, // HIGH — night 12, hrv ~50ms
+  '2026-03-28': 1.2,
+  '2026-03-29': 1.6,
+  '2026-03-30': 2.4,
+  '2026-03-31': 1.0,
+  '2026-04-01': 2.7,
+  '2026-04-02': 1.5,
+  '2026-04-03': 4.8, // HIGH — night 19, hrv ~50ms
+  '2026-04-04': 0.9,
+  '2026-04-05': 1.3,
+  '2026-04-06': 2.0,
+  '2026-04-07': 1.9,
+  '2026-04-08': 0.8,
+  '2026-04-09': 2.3,
+  '2026-04-10': 5.3, // HIGH — night 26, hrv ~50ms
+  '2026-04-11': 1.4,
+  '2026-04-12': 0.8,
+  '2026-04-13': 1.6,
+  '2026-04-14': 2.1,
+}
+
+// ---------------------------------------------------------------------------
+// MOCK_SLEEP_LOGS — 30 contiguous nights ending 2026-04-14
+// Dates run from 2026-03-16 to 2026-04-14.
+//
+// Night numbering (1-indexed):
+//   Night 1  = 2026-03-16
+//   Night 5  = 2026-03-20 — hrv_avg ~50ms (8ms below mean ~58ms), HIGH Kp
+//   Night 8  = 2026-03-23 — hrv_avg: undefined (device not worn)
+//   Night 10 = 2026-03-25 — late sleep (≥60 min after 23:00), sleep_score < 65
+//   Night 12 = 2026-03-27 — hrv_avg ~50ms (8ms below mean), HIGH Kp
+//   Night 15 = 2026-03-30 — outlier: total_sleep_min=310, sleep_score=48
+//   Night 19 = 2026-04-03 — hrv_avg ~50ms (8ms below mean), HIGH Kp
+//   Night 22 = 2026-04-06 — hrv_avg: undefined (device not worn)
+//   Night 24 = 2026-04-08 — late sleep (≥60 min after 23:00), sleep_score < 65
+//   Night 26 = 2026-04-10 — hrv_avg ~50ms (8ms below mean), HIGH Kp
+//   All others: realistic variation
 // ---------------------------------------------------------------------------
 
 const MOCK_SLEEP_LOGS: SleepLog[] = [
-  // 2026-03-14 — normal
+  // Night 1 — 2026-03-16, normal
   {
-    date: '2026-03-14',
-    sleep_onset: '2026-03-14T23:08:00.000Z',
-    wake_time: '2026-03-15T06:52:00.000Z',
+    date: '2026-03-16',
+    sleep_onset: '2026-03-16T23:08:00.000Z',
+    wake_time: '2026-03-17T06:52:00.000Z',
     total_sleep_min: 464,
-    deep_sleep_min: 95,
+    deep_sleep_min: 88,
     rem_sleep_min: 112,
-    hrv_avg: 48,
+    hrv_avg: 59,
     skin_temp_delta: 0.1,
     resting_hr: 55,
     sleep_score: 82,
-    source: 'mock'
+    source: 'mock',
   },
-  // 2026-03-15 — normal
+  // Night 2 — 2026-03-17, normal
   {
-    date: '2026-03-15',
-    sleep_onset: '2026-03-15T22:54:00.000Z',
-    wake_time: '2026-03-16T07:06:00.000Z',
+    date: '2026-03-17',
+    sleep_onset: '2026-03-17T22:54:00.000Z',
+    wake_time: '2026-03-18T07:06:00.000Z',
     total_sleep_min: 492,
-    deep_sleep_min: 104,
+    deep_sleep_min: 86,
     rem_sleep_min: 118,
-    hrv_avg: 51,
+    hrv_avg: 61,
     skin_temp_delta: 0.0,
     resting_hr: 53,
     sleep_score: 85,
-    source: 'mock'
+    source: 'mock',
   },
-  // 2026-03-16 — normal
+  // Night 3 — 2026-03-18, normal
   {
-    date: '2026-03-16',
-    sleep_onset: '2026-03-16T23:12:00.000Z',
-    wake_time: '2026-03-17T07:04:00.000Z',
+    date: '2026-03-18',
+    sleep_onset: '2026-03-18T23:12:00.000Z',
+    wake_time: '2026-03-19T07:04:00.000Z',
     total_sleep_min: 472,
-    deep_sleep_min: 88,
+    deep_sleep_min: 82,
     rem_sleep_min: 109,
-    hrv_avg: 46,
+    hrv_avg: 57,
     skin_temp_delta: -0.1,
     resting_hr: 57,
     sleep_score: 79,
-    source: 'mock'
+    source: 'mock',
   },
-  // 2026-03-17 — HIGH Kp (5.3) → low HRV
+  // Night 4 — 2026-03-19, normal
   {
-    date: '2026-03-17',
-    sleep_onset: '2026-03-17T23:18:00.000Z',
-    wake_time: '2026-03-18T07:02:00.000Z',
-    total_sleep_min: 464,
-    deep_sleep_min: 78,
-    rem_sleep_min: 96,
-    hrv_avg: 37,
-    skin_temp_delta: 0.2,
-    resting_hr: 61,
-    sleep_score: 71,
-    source: 'mock'
-  },
-  // 2026-03-18 — normal
-  {
-    date: '2026-03-18',
-    sleep_onset: '2026-03-18T23:05:00.000Z',
-    wake_time: '2026-03-19T07:10:00.000Z',
+    date: '2026-03-19',
+    sleep_onset: '2026-03-19T23:05:00.000Z',
+    wake_time: '2026-03-20T07:10:00.000Z',
     total_sleep_min: 485,
-    deep_sleep_min: 101,
+    deep_sleep_min: 90,
     rem_sleep_min: 115,
-    hrv_avg: 50,
+    hrv_avg: 60,
     skin_temp_delta: 0.0,
     resting_hr: 54,
     sleep_score: 84,
-    source: 'mock'
+    source: 'mock',
   },
-  // 2026-03-19 — no device (hrv_avg undefined)
-  {
-    date: '2026-03-19',
-    sleep_onset: '2026-03-19T23:22:00.000Z',
-    wake_time: '2026-03-20T07:15:00.000Z',
-    total_sleep_min: 473,
-    deep_sleep_min: 90,
-    rem_sleep_min: 105,
-    hrv_avg: undefined,
-    skin_temp_delta: undefined,
-    resting_hr: undefined,
-    sleep_score: undefined,
-    source: 'mock'
-  },
-  // 2026-03-20 — normal
+  // Night 5 — 2026-03-20, HIGH Kp (4.5) → low HRV (~50ms, ~8ms below mean)
   {
     date: '2026-03-20',
-    sleep_onset: '2026-03-20T22:58:00.000Z',
-    wake_time: '2026-03-21T07:08:00.000Z',
-    total_sleep_min: 490,
-    deep_sleep_min: 108,
-    rem_sleep_min: 122,
-    hrv_avg: 53,
-    skin_temp_delta: -0.2,
-    resting_hr: 52,
-    sleep_score: 87,
-    source: 'mock'
+    sleep_onset: '2026-03-20T23:18:00.000Z',
+    wake_time: '2026-03-21T07:02:00.000Z',
+    total_sleep_min: 464,
+    deep_sleep_min: 70,
+    rem_sleep_min: 96,
+    hrv_avg: 50,
+    skin_temp_delta: 0.2,
+    resting_hr: 61,
+    sleep_score: 72,
+    source: 'mock',
   },
-  // 2026-03-21 — LATE SLEEP (~01:15)
+  // Night 6 — 2026-03-21, normal
   {
     date: '2026-03-21',
-    sleep_onset: '2026-03-22T01:18:00.000Z',
-    wake_time: '2026-03-22T07:45:00.000Z',
-    total_sleep_min: 387,
-    deep_sleep_min: 67,
-    rem_sleep_min: 88,
-    hrv_avg: 41,
-    skin_temp_delta: 0.3,
-    resting_hr: 60,
-    sleep_score: 63,
-    source: 'mock'
+    sleep_onset: '2026-03-21T23:05:00.000Z',
+    wake_time: '2026-03-22T07:08:00.000Z',
+    total_sleep_min: 483,
+    deep_sleep_min: 85,
+    rem_sleep_min: 115,
+    hrv_avg: 59,
+    skin_temp_delta: 0.0,
+    resting_hr: 55,
+    sleep_score: 83,
+    source: 'mock',
   },
-  // 2026-03-22 — normal
+  // Night 7 — 2026-03-22, normal
   {
     date: '2026-03-22',
     sleep_onset: '2026-03-22T23:16:00.000Z',
     wake_time: '2026-03-23T07:22:00.000Z',
     total_sleep_min: 486,
-    deep_sleep_min: 97,
+    deep_sleep_min: 84,
     rem_sleep_min: 114,
-    hrv_avg: 47,
+    hrv_avg: 62,
     skin_temp_delta: 0.1,
     resting_hr: 56,
     sleep_score: 80,
-    source: 'mock'
+    source: 'mock',
   },
-  // 2026-03-23 — normal
+  // Night 8 — 2026-03-23, no device (hrv_avg undefined)
   {
     date: '2026-03-23',
     sleep_onset: '2026-03-23T23:04:00.000Z',
     wake_time: '2026-03-24T07:02:00.000Z',
     total_sleep_min: 478,
-    deep_sleep_min: 102,
-    rem_sleep_min: 119,
-    hrv_avg: 52,
-    skin_temp_delta: -0.1,
-    resting_hr: 54,
-    sleep_score: 83,
-    source: 'mock'
+    deep_sleep_min: 80,
+    rem_sleep_min: 108,
+    hrv_avg: undefined,
+    skin_temp_delta: undefined,
+    resting_hr: undefined,
+    sleep_score: undefined,
+    source: 'mock',
   },
-  // 2026-03-24 — HIGH Kp (4.8) → low HRV
+  // Night 9 — 2026-03-24, normal
   {
     date: '2026-03-24',
-    sleep_onset: '2026-03-24T23:28:00.000Z',
-    wake_time: '2026-03-25T07:14:00.000Z',
-    total_sleep_min: 466,
-    deep_sleep_min: 76,
-    rem_sleep_min: 94,
-    hrv_avg: 36,
-    skin_temp_delta: 0.3,
-    resting_hr: 62,
-    sleep_score: 68,
-    source: 'mock'
+    sleep_onset: '2026-03-24T22:58:00.000Z',
+    wake_time: '2026-03-25T07:08:00.000Z',
+    total_sleep_min: 490,
+    deep_sleep_min: 88,
+    rem_sleep_min: 122,
+    hrv_avg: 63,
+    skin_temp_delta: -0.2,
+    resting_hr: 52,
+    sleep_score: 87,
+    source: 'mock',
   },
-  // 2026-03-25 — normal
+  // Night 10 — 2026-03-25, LATE SLEEP (00:15 → 75 min past 23:00), sleep_score < 65
   {
     date: '2026-03-25',
-    sleep_onset: '2026-03-25T23:10:00.000Z',
-    wake_time: '2026-03-26T07:00:00.000Z',
+    sleep_onset: '2026-03-26T00:15:00.000Z',
+    wake_time: '2026-03-26T07:45:00.000Z',
+    total_sleep_min: 450,
+    deep_sleep_min: 70,
+    rem_sleep_min: 100,
+    hrv_avg: 53,
+    skin_temp_delta: 0.3,
+    resting_hr: 60,
+    sleep_score: 62,
+    source: 'mock',
+  },
+  // Night 11 — 2026-03-26, normal
+  {
+    date: '2026-03-26',
+    sleep_onset: '2026-03-26T23:10:00.000Z',
+    wake_time: '2026-03-27T07:00:00.000Z',
     total_sleep_min: 470,
-    deep_sleep_min: 93,
+    deep_sleep_min: 83,
     rem_sleep_min: 110,
-    hrv_avg: 49,
+    hrv_avg: 58,
     skin_temp_delta: 0.0,
     resting_hr: 55,
     sleep_score: 81,
-    source: 'mock'
+    source: 'mock',
   },
-  // 2026-03-26 — OUTLIER (short sleep, poor score)
-  {
-    date: '2026-03-26',
-    sleep_onset: '2026-03-27T01:02:00.000Z',
-    wake_time: '2026-03-27T06:14:00.000Z',
-    total_sleep_min: 312,
-    deep_sleep_min: 52,
-    rem_sleep_min: 74,
-    hrv_avg: 31,
-    skin_temp_delta: 0.4,
-    resting_hr: 64,
-    sleep_score: 46,
-    source: 'mock'
-  },
-  // 2026-03-27 — normal
+  // Night 12 — 2026-03-27, HIGH Kp (5.1) → low HRV (~50ms)
   {
     date: '2026-03-27',
-    sleep_onset: '2026-03-27T23:14:00.000Z',
-    wake_time: '2026-03-28T07:08:00.000Z',
-    total_sleep_min: 474,
-    deep_sleep_min: 99,
-    rem_sleep_min: 116,
+    sleep_onset: '2026-03-27T23:28:00.000Z',
+    wake_time: '2026-03-28T07:14:00.000Z',
+    total_sleep_min: 466,
+    deep_sleep_min: 68,
+    rem_sleep_min: 94,
     hrv_avg: 50,
-    skin_temp_delta: -0.1,
-    resting_hr: 55,
-    sleep_score: 83,
-    source: 'mock'
+    skin_temp_delta: 0.3,
+    resting_hr: 62,
+    sleep_score: 70,
+    source: 'mock',
   },
-  // 2026-03-28 — normal
+  // Night 13 — 2026-03-28, normal
   {
     date: '2026-03-28',
-    sleep_onset: '2026-03-28T22:56:00.000Z',
-    wake_time: '2026-03-29T07:04:00.000Z',
+    sleep_onset: '2026-03-28T23:10:00.000Z',
+    wake_time: '2026-03-29T07:00:00.000Z',
+    total_sleep_min: 470,
+    deep_sleep_min: 80,
+    rem_sleep_min: 110,
+    hrv_avg: 56,
+    skin_temp_delta: 0.0,
+    resting_hr: 55,
+    sleep_score: 81,
+    source: 'mock',
+  },
+  // Night 14 — 2026-03-29, normal
+  {
+    date: '2026-03-29',
+    sleep_onset: '2026-03-29T22:56:00.000Z',
+    wake_time: '2026-03-30T07:04:00.000Z',
     total_sleep_min: 488,
-    deep_sleep_min: 106,
+    deep_sleep_min: 89,
     rem_sleep_min: 124,
-    hrv_avg: 55,
+    hrv_avg: 64,
     skin_temp_delta: -0.2,
     resting_hr: 52,
     sleep_score: 88,
-    source: 'mock'
+    source: 'mock',
   },
-  // 2026-03-29 — normal
-  {
-    date: '2026-03-29',
-    sleep_onset: '2026-03-29T23:06:00.000Z',
-    wake_time: '2026-03-30T07:12:00.000Z',
-    total_sleep_min: 486,
-    deep_sleep_min: 100,
-    rem_sleep_min: 118,
-    hrv_avg: 54,
-    skin_temp_delta: 0.1,
-    resting_hr: 53,
-    sleep_score: 86,
-    source: 'mock'
-  },
-  // 2026-03-30 — normal
+  // Night 15 — 2026-03-30, OUTLIER (short sleep, poor score)
   {
     date: '2026-03-30',
-    sleep_onset: '2026-03-30T23:20:00.000Z',
-    wake_time: '2026-03-31T07:06:00.000Z',
-    total_sleep_min: 466,
-    deep_sleep_min: 86,
-    rem_sleep_min: 108,
+    sleep_onset: '2026-03-31T01:05:00.000Z',
+    wake_time: '2026-03-31T06:17:00.000Z',
+    total_sleep_min: 310,
+    deep_sleep_min: 50,
+    rem_sleep_min: 70,
     hrv_avg: 44,
-    skin_temp_delta: 0.2,
-    resting_hr: 58,
-    sleep_score: 77,
-    source: 'mock'
+    skin_temp_delta: 0.4,
+    resting_hr: 64,
+    sleep_score: 48,
+    source: 'mock',
   },
-  // 2026-03-31 — normal
+  // Night 16 — 2026-03-31, normal
   {
     date: '2026-03-31',
     sleep_onset: '2026-03-31T23:02:00.000Z',
     wake_time: '2026-04-01T07:00:00.000Z',
     total_sleep_min: 478,
-    deep_sleep_min: 98,
+    deep_sleep_min: 83,
     rem_sleep_min: 115,
-    hrv_avg: 51,
+    hrv_avg: 60,
     skin_temp_delta: -0.1,
     resting_hr: 55,
     sleep_score: 84,
-    source: 'mock'
+    source: 'mock',
   },
-  // 2026-04-01 — HIGH Kp (6.1) → low HRV
+  // Night 17 — 2026-04-01, normal
   {
     date: '2026-04-01',
-    sleep_onset: '2026-04-01T23:30:00.000Z',
-    wake_time: '2026-04-02T07:18:00.000Z',
-    total_sleep_min: 468,
-    deep_sleep_min: 74,
-    rem_sleep_min: 92,
-    hrv_avg: 38,
-    skin_temp_delta: 0.3,
-    resting_hr: 63,
-    sleep_score: 69,
-    source: 'mock'
-  },
-  // 2026-04-02 — normal
-  {
-    date: '2026-04-02',
-    sleep_onset: '2026-04-02T23:08:00.000Z',
-    wake_time: '2026-04-03T07:10:00.000Z',
+    sleep_onset: '2026-04-01T23:08:00.000Z',
+    wake_time: '2026-04-02T07:10:00.000Z',
     total_sleep_min: 482,
-    deep_sleep_min: 97,
+    deep_sleep_min: 85,
     rem_sleep_min: 114,
-    hrv_avg: 49,
+    hrv_avg: 58,
     skin_temp_delta: 0.0,
     resting_hr: 56,
     sleep_score: 82,
-    source: 'mock'
+    source: 'mock',
   },
-  // 2026-04-03 — LATE SLEEP (~01:30)
+  // Night 18 — 2026-04-02, normal
+  {
+    date: '2026-04-02',
+    sleep_onset: '2026-04-02T23:14:00.000Z',
+    wake_time: '2026-04-03T07:12:00.000Z',
+    total_sleep_min: 478,
+    deep_sleep_min: 81,
+    rem_sleep_min: 110,
+    hrv_avg: 61,
+    skin_temp_delta: 0.1,
+    resting_hr: 54,
+    sleep_score: 80,
+    source: 'mock',
+  },
+  // Night 19 — 2026-04-03, HIGH Kp (4.8) → low HRV (~50ms)
   {
     date: '2026-04-03',
-    sleep_onset: '2026-04-04T01:27:00.000Z',
-    wake_time: '2026-04-04T07:52:00.000Z',
-    total_sleep_min: 385,
-    deep_sleep_min: 65,
-    rem_sleep_min: 85,
-    hrv_avg: 40,
-    skin_temp_delta: 0.4,
-    resting_hr: 61,
-    sleep_score: 61,
-    source: 'mock'
+    sleep_onset: '2026-04-03T23:30:00.000Z',
+    wake_time: '2026-04-04T07:18:00.000Z',
+    total_sleep_min: 468,
+    deep_sleep_min: 66,
+    rem_sleep_min: 92,
+    hrv_avg: 50,
+    skin_temp_delta: 0.3,
+    resting_hr: 63,
+    sleep_score: 71,
+    source: 'mock',
   },
-  // 2026-04-04 — normal
+  // Night 20 — 2026-04-04, normal
   {
     date: '2026-04-04',
-    sleep_onset: '2026-04-04T23:18:00.000Z',
-    wake_time: '2026-04-05T07:14:00.000Z',
-    total_sleep_min: 476,
-    deep_sleep_min: 94,
-    rem_sleep_min: 111,
-    hrv_avg: 48,
+    sleep_onset: '2026-04-04T23:04:00.000Z',
+    wake_time: '2026-04-05T07:06:00.000Z',
+    total_sleep_min: 482,
+    deep_sleep_min: 86,
+    rem_sleep_min: 116,
+    hrv_avg: 59,
     skin_temp_delta: -0.1,
-    resting_hr: 57,
-    sleep_score: 80,
-    source: 'mock'
+    resting_hr: 54,
+    sleep_score: 83,
+    source: 'mock',
   },
-  // 2026-04-05 — no device (hrv_avg undefined)
+  // Night 21 — 2026-04-05, normal
   {
     date: '2026-04-05',
-    sleep_onset: '2026-04-05T23:25:00.000Z',
-    wake_time: '2026-04-06T07:20:00.000Z',
-    total_sleep_min: 475,
-    deep_sleep_min: 91,
-    rem_sleep_min: 107,
-    hrv_avg: undefined,
-    skin_temp_delta: undefined,
-    resting_hr: undefined,
-    sleep_score: undefined,
-    source: 'mock'
+    sleep_onset: '2026-04-05T23:16:00.000Z',
+    wake_time: '2026-04-06T07:14:00.000Z',
+    total_sleep_min: 478,
+    deep_sleep_min: 84,
+    rem_sleep_min: 113,
+    hrv_avg: 57,
+    skin_temp_delta: 0.2,
+    resting_hr: 56,
+    sleep_score: 79,
+    source: 'mock',
   },
-  // 2026-04-06 — normal
+  // Night 22 — 2026-04-06, no device (hrv_avg undefined)
   {
     date: '2026-04-06',
     sleep_onset: '2026-04-06T23:00:00.000Z',
     wake_time: '2026-04-07T07:05:00.000Z',
     total_sleep_min: 485,
-    deep_sleep_min: 103,
-    rem_sleep_min: 121,
-    hrv_avg: 53,
-    skin_temp_delta: -0.2,
-    resting_hr: 53,
-    sleep_score: 86,
-    source: 'mock'
+    deep_sleep_min: 82,
+    rem_sleep_min: 110,
+    hrv_avg: undefined,
+    skin_temp_delta: undefined,
+    resting_hr: undefined,
+    sleep_score: undefined,
+    source: 'mock',
   },
-  // 2026-04-07 — normal
+  // Night 23 — 2026-04-07, normal
   {
     date: '2026-04-07',
     sleep_onset: '2026-04-07T23:12:00.000Z',
     wake_time: '2026-04-08T07:02:00.000Z',
     total_sleep_min: 470,
-    deep_sleep_min: 89,
+    deep_sleep_min: 80,
     rem_sleep_min: 110,
-    hrv_avg: 47,
+    hrv_avg: 62,
     skin_temp_delta: 0.1,
     resting_hr: 57,
     sleep_score: 79,
-    source: 'mock'
+    source: 'mock',
   },
-  // 2026-04-08 — HIGH Kp (4.7) → low HRV
+  // Night 24 — 2026-04-08, LATE SLEEP (00:30 → 90 min past 23:00), sleep_score < 65
   {
     date: '2026-04-08',
-    sleep_onset: '2026-04-08T23:22:00.000Z',
-    wake_time: '2026-04-09T07:08:00.000Z',
-    total_sleep_min: 466,
-    deep_sleep_min: 77,
+    sleep_onset: '2026-04-09T00:30:00.000Z',
+    wake_time: '2026-04-09T07:52:00.000Z',
+    total_sleep_min: 442,
+    deep_sleep_min: 68,
     rem_sleep_min: 95,
-    hrv_avg: 37,
+    hrv_avg: 54,
     skin_temp_delta: 0.3,
-    resting_hr: 62,
-    sleep_score: 70,
-    source: 'mock'
+    resting_hr: 61,
+    sleep_score: 60,
+    source: 'mock',
   },
-  // 2026-04-09 — normal
+  // Night 25 — 2026-04-09, normal
   {
     date: '2026-04-09',
     sleep_onset: '2026-04-09T23:06:00.000Z',
     wake_time: '2026-04-10T07:04:00.000Z',
     total_sleep_min: 478,
-    deep_sleep_min: 96,
+    deep_sleep_min: 83,
     rem_sleep_min: 113,
-    hrv_avg: 50,
+    hrv_avg: 59,
     skin_temp_delta: 0.0,
     resting_hr: 55,
     sleep_score: 83,
-    source: 'mock'
+    source: 'mock',
   },
-  // 2026-04-10 — normal
+  // Night 26 — 2026-04-10, HIGH Kp (5.3) → low HRV (~50ms)
   {
     date: '2026-04-10',
-    sleep_onset: '2026-04-10T23:14:00.000Z',
-    wake_time: '2026-04-11T07:10:00.000Z',
-    total_sleep_min: 476,
-    deep_sleep_min: 99,
-    rem_sleep_min: 117,
-    hrv_avg: 52,
-    skin_temp_delta: -0.1,
-    resting_hr: 54,
-    sleep_score: 85,
-    source: 'mock'
+    sleep_onset: '2026-04-10T23:22:00.000Z',
+    wake_time: '2026-04-11T07:08:00.000Z',
+    total_sleep_min: 466,
+    deep_sleep_min: 67,
+    rem_sleep_min: 95,
+    hrv_avg: 50,
+    skin_temp_delta: 0.3,
+    resting_hr: 62,
+    sleep_score: 70,
+    source: 'mock',
   },
-  // 2026-04-11 — normal
+  // Night 27 — 2026-04-11, normal
   {
     date: '2026-04-11',
     sleep_onset: '2026-04-11T22:58:00.000Z',
     wake_time: '2026-04-12T07:06:00.000Z',
     total_sleep_min: 488,
-    deep_sleep_min: 107,
-    rem_sleep_min: 126,
-    hrv_avg: 56,
-    skin_temp_delta: -0.3,
-    resting_hr: 51,
-    sleep_score: 89,
-    source: 'mock'
+    deep_sleep_min: 87,
+    rem_sleep_min: 121,
+    hrv_avg: 63,
+    skin_temp_delta: -0.2,
+    resting_hr: 53,
+    sleep_score: 86,
+    source: 'mock',
   },
-  // 2026-04-12 — normal (today)
+  // Night 28 — 2026-04-12, normal
   {
     date: '2026-04-12',
     sleep_onset: '2026-04-12T23:10:00.000Z',
     wake_time: '2026-04-13T07:08:00.000Z',
     total_sleep_min: 478,
-    deep_sleep_min: 93,
+    deep_sleep_min: 82,
     rem_sleep_min: 112,
-    hrv_avg: 49,
+    hrv_avg: 60,
     skin_temp_delta: 0.1,
     resting_hr: 56,
     sleep_score: 82,
-    source: 'mock'
-  }
-]
-
-const MOCK_KP_HISTORY: KpDayEntry[] = [
-  { date: '2026-03-14', kp_max: 1.3 },
-  { date: '2026-03-15', kp_max: 0.9 },
-  { date: '2026-03-16', kp_max: 2.1 },
-  { date: '2026-03-17', kp_max: 5.3 }, // HIGH
-  { date: '2026-03-18', kp_max: 1.7 },
-  { date: '2026-03-19', kp_max: 0.7 },
-  { date: '2026-03-20', kp_max: 1.4 },
-  { date: '2026-03-21', kp_max: 2.6 },
-  { date: '2026-03-22', kp_max: 1.1 },
-  { date: '2026-03-23', kp_max: 2.9 },
-  { date: '2026-03-24', kp_max: 4.8 }, // HIGH
-  { date: '2026-03-25', kp_max: 1.8 },
-  { date: '2026-03-26', kp_max: 2.2 },
-  { date: '2026-03-27', kp_max: 0.8 },
-  { date: '2026-03-28', kp_max: 1.2 },
-  { date: '2026-03-29', kp_max: 1.6 },
-  { date: '2026-03-30', kp_max: 2.4 },
-  { date: '2026-03-31', kp_max: 1.0 },
-  { date: '2026-04-01', kp_max: 6.1 }, // HIGH
-  { date: '2026-04-02', kp_max: 2.7 },
-  { date: '2026-04-03', kp_max: 1.5 },
-  { date: '2026-04-04', kp_max: 0.9 },
-  { date: '2026-04-05', kp_max: 1.3 },
-  { date: '2026-04-06', kp_max: 2.0 },
-  { date: '2026-04-07', kp_max: 1.9 },
-  { date: '2026-04-08', kp_max: 4.7 }, // HIGH
-  { date: '2026-04-09', kp_max: 2.3 },
-  { date: '2026-04-10', kp_max: 1.4 },
-  { date: '2026-04-11', kp_max: 0.8 },
-  { date: '2026-04-12', kp_max: 1.6 }
+    source: 'mock',
+  },
+  // Night 29 — 2026-04-13, normal
+  {
+    date: '2026-04-13',
+    sleep_onset: '2026-04-13T23:04:00.000Z',
+    wake_time: '2026-04-14T07:02:00.000Z',
+    total_sleep_min: 478,
+    deep_sleep_min: 85,
+    rem_sleep_min: 114,
+    hrv_avg: 61,
+    skin_temp_delta: -0.1,
+    resting_hr: 54,
+    sleep_score: 83,
+    source: 'mock',
+  },
+  // Night 30 — 2026-04-14, normal (last night before today 2026-04-15)
+  {
+    date: '2026-04-14',
+    sleep_onset: '2026-04-14T23:18:00.000Z',
+    wake_time: '2026-04-15T07:10:00.000Z',
+    total_sleep_min: 472,
+    deep_sleep_min: 83,
+    rem_sleep_min: 111,
+    hrv_avg: 57,
+    skin_temp_delta: 0.0,
+    resting_hr: 56,
+    sleep_score: 80,
+    source: 'mock',
+  },
 ]
 
 // ---------------------------------------------------------------------------
@@ -527,7 +532,16 @@ export const useBiometricsStore = defineStore('biometrics', () => {
   // Helpers (store-scoped, not exported)
   // ---------------------------------------------------------------------------
 
-  // Parses "HH:MM" or ISO datetime ("2026-03-14T23:10:00.000Z") → minutes since midnight
+  // Parses ISO datetime ("2026-03-14T23:10:00.000Z") → minutes since midnight
+  // Reads raw UTC digits at index 11–15 so mock data "intended local time" is
+  // not shifted by the browser's local timezone offset.
+  function isoToMin(iso: string): number {
+    const h = parseInt(iso.slice(11, 13), 10)
+    const m = parseInt(iso.slice(14, 16), 10)
+    return h * 60 + m
+  }
+
+  // Parses "HH:MM" or ISO datetime → minutes since midnight
   function timeToMinutes(s: string): number {
     const hhmm = s.length > 5 ? s.slice(11, 16) : s
     const [h, m] = hhmm.split(':').map(Number)
@@ -676,29 +690,34 @@ export const useBiometricsStore = defineStore('biometrics', () => {
     }
   })
 
-  // Last N calendar days
+  // ---------------------------------------------------------------------------
+  // Windowed logs — last N nights based on dateRange
+  // ---------------------------------------------------------------------------
+
   const windowedLogs = computed<SleepLog[]>(() => {
     return logs.value.slice(-dateRange.value)
   })
 
-  // Series for HRV chart: null for missing values (gaps in chart)
-  const hrvSeries = computed(() => {
-    return {
-      dates: windowedLogs.value.map(l => l.date.slice(5)),  // "MM-DD"
-      values: windowedLogs.value.map(l => l.hrv_avg ?? null)
-    }
-  })
+  // ---------------------------------------------------------------------------
+  // Chart series — all use null (not undefined) for missing values
+  // ---------------------------------------------------------------------------
 
-  // Kp overlay matching same dates as windowedLogs
+  // HRV series: null where hrv_avg is undefined
+  const hrvSeries = computed(() => ({
+    dates: windowedLogs.value.map(l => l.date.slice(5)),  // "MM-DD"
+    values: windowedLogs.value.map(l => l.hrv_avg ?? null)
+  }))
+
+  // Kp overlay matching same dates as windowedLogs — Record<string, number> lookup
   const kpOverlaySeries = computed(() => {
-    const dates = windowedLogs.value.map(l => l.date)
+    const wDates = windowedLogs.value.map(l => l.date)
     return {
-      dates: dates.map(d => d.slice(5)),
-      kp: dates.map(d => MOCK_KP_HISTORY.find(k => k.date === d)?.kp_max ?? 0)
+      dates: wDates.map(d => d.slice(5)),
+      kp: wDates.map(d => MOCK_KP_HISTORY[d] ?? 0.0)
     }
   })
 
-  // Sleep architecture: deep / rem / light (total - deep - rem)
+  // Sleep architecture: deep / rem / light (clamped ≥ 0)
   const sleepArchitectureSeries = computed(() => {
     const w = windowedLogs.value
     return {
@@ -709,22 +728,28 @@ export const useBiometricsStore = defineStore('biometrics', () => {
     }
   })
 
+  // Sleep score series: null for gaps
   const sleepScoreSeries = computed(() => ({
     dates: windowedLogs.value.map(l => l.date.slice(5)),
-    scores: windowedLogs.value.map(l => l.sleep_score ?? null)
+    values: windowedLogs.value.map(l => l.sleep_score ?? null)
   }))
 
+  // Resting HR series: null for gaps
   const restingHRSeries = computed(() => ({
     dates: windowedLogs.value.map(l => l.date.slice(5)),
     values: windowedLogs.value.map(l => l.resting_hr ?? null)
   }))
 
+  // Skin temp delta series: null for gaps
   const skinTempSeries = computed(() => ({
     dates: windowedLogs.value.map(l => l.date.slice(5)),
-    deltas: windowedLogs.value.map(l => l.skin_temp_delta ?? null)
+    values: windowedLogs.value.map(l => l.skin_temp_delta ?? null)
   }))
 
+  // ---------------------------------------------------------------------------
   // Summary KPIs (mean of non-null values in window)
+  // ---------------------------------------------------------------------------
+
   const avgHRV = computed<number | null>(() => {
     const vals = windowedLogs.value.map(l => l.hrv_avg).filter((v): v is number => v != null)
     return vals.length ? +(vals.reduce((a, b) => a + b, 0) / vals.length).toFixed(1) : null
@@ -745,55 +770,53 @@ export const useBiometricsStore = defineStore('biometrics', () => {
     return vals.length ? +(vals.reduce((a, b) => a + b, 0) / vals.length / 60).toFixed(1) : null
   })
 
-  // Protocol adherence — compare sleep_onset/wake_time to fixed 23:00/07:00 targets
-  const protocolAdherence = computed<ProtocolAdherenceDay[]>(() => {
-    // Parse HH:MM directly from ISO string (index 11–15) to avoid local timezone conversion.
-    // Mock data stores "intended local time" with a Z suffix — Date.getHours() would apply
-    // the user's local offset and produce wildly wrong deltas.
-    function isoToMin(iso: string): number {
-      const h = parseInt(iso.slice(11, 13), 10)
-      const m = parseInt(iso.slice(14, 16), 10)
-      return h * 60 + m
-    }
-    function isoToHHMM(iso: string): string {
-      return iso.slice(11, 16)
-    }
+  // ---------------------------------------------------------------------------
+  // Protocol adherence
+  // Target sleep = 23:00; target wake = sleep onset + 8h (hardcoded for now).
+  // Per spec: sleep_delta_min = actual_sleep_min_from_midnight − target_sleep_min
+  //           wake_delta_min  = actual_wake_min_from_midnight  − target_wake_min
+  //           adherence_pct   = round((1 − clamp(avg|delta|, 0, 120) / 120) × 100)
+  //
+  // Post-midnight times (< 12:00) are shifted +1440 so they compare correctly
+  // against the 23:00 target (e.g. 00:15 → 1455, delta = +75).
+  // ---------------------------------------------------------------------------
 
+  const protocolAdherence = computed<ProtocolAdherenceDay[]>(() => {
     return windowedLogs.value.map(l => {
-      const targetSleepMin = 23 * 60   // 23:00
-      const targetWakeMin  =  7 * 60   // 07:00
+      const TARGET_SLEEP_MIN = 23 * 60  // 23:00 = 1380
 
       let actualSleepMin = isoToMin(l.sleep_onset)
-      // Times before noon are post-midnight (e.g. 01:15 → 1515 on 0–1680 scale)
-      // Evening times stay as-is (23:00 = 1380). Target 23:00 = 1380 — no shift needed.
+      // Post-midnight times (< noon) shift to next-day scale so delta is correct
       if (actualSleepMin < 12 * 60) actualSleepMin += 24 * 60
-      const deltaSleep = actualSleepMin - targetSleepMin
 
+      const sleepDelta = actualSleepMin - TARGET_SLEEP_MIN
+
+      // Target wake = target sleep + 8h
+      const targetWakeMin = TARGET_SLEEP_MIN + 8 * 60  // 07:00 = 420 (next-day ≡ 420)
       const actualWakeMin = isoToMin(l.wake_time)
-      const deltaWake = actualWakeMin - targetWakeMin
+      const wakeDelta = actualWakeMin - targetWakeMin
 
-      const avgAbsDelta = (Math.abs(deltaSleep) + Math.abs(deltaWake)) / 2
+      const avgAbsDelta = (Math.abs(sleepDelta) + Math.abs(wakeDelta)) / 2
       const adherence = Math.round((1 - Math.min(avgAbsDelta, 120) / 120) * 100)
 
       return {
         date: l.date,
-        target_sleep_hhmm: '23:00',
-        actual_sleep_hhmm: isoToHHMM(l.sleep_onset),
-        target_wake_hhmm: '07:00',
-        actual_wake_hhmm: isoToHHMM(l.wake_time),
-        delta_sleep_min: deltaSleep,
-        delta_wake_min: deltaWake,
-        adherence_pct: Math.max(0, adherence)
+        sleep_delta_min: sleepDelta,
+        wake_delta_min: wakeDelta,
+        adherence_pct: Math.max(0, adherence),
       }
     })
   })
 
-  const avgAdherencePct = computed(() => {
+  const avgAdherencePct = computed<number>(() => {
     const vals = protocolAdherence.value.map(d => d.adherence_pct)
     return vals.length ? Math.round(vals.reduce((a, b) => a + b, 0) / vals.length) : 100
   })
 
-  // Insight computation
+  // ---------------------------------------------------------------------------
+  // Insight computation — at most 4, sorted by confidence desc
+  // ---------------------------------------------------------------------------
+
   const insights = computed<CircadianInsight[]>(() => {
     const result: CircadianInsight[] = []
     const w = windowedLogs.value
@@ -803,48 +826,34 @@ export const useBiometricsStore = defineStore('biometrics', () => {
       .filter(l => l.hrv_avg != null)
       .map(l => ({
         hrv: l.hrv_avg!,
-        kp: MOCK_KP_HISTORY.find(k => k.date === l.date)?.kp_max ?? 0
+        kp: MOCK_KP_HISTORY[l.date] ?? 0,
       }))
     const highKp = paired.filter(p => p.kp > 3)
-    const lowKp = paired.filter(p => p.kp <= 3)
-    if (highKp.length >= 2 && lowKp.length >= 2) {
-      const avgHigh = highKp.reduce((a, b) => a + b.hrv, 0) / highKp.length
-      const avgLow = lowKp.reduce((a, b) => a + b.hrv, 0) / lowKp.length
-      const delta = avgLow - avgHigh
-      if (Math.abs(delta) >= 3) {
+    const lowKp  = paired.filter(p => p.kp <= 3)
+    if (highKp.length >= 3 && lowKp.length >= 1) {
+      const avgHRVHigh = highKp.reduce((a, b) => a + b.hrv, 0) / highKp.length
+      const avgHRVLow  = lowKp.reduce((a, b) => a + b.hrv, 0)  / lowKp.length
+      const delta = avgHRVLow - avgHRVHigh
+      if (delta >= 3) {
         result.push({
           id: 'hrv-kp-correlation',
           type: 'correlation',
           title: `HRV drops ${Math.abs(delta).toFixed(0)} ms on high-Kp nights`,
-          body: `On ${highKp.length} nights with Kp > 3, your average HRV was ${avgHigh.toFixed(1)} ms vs ${avgLow.toFixed(1)} ms on calm nights. Geomagnetic activity may affect autonomic nervous system tone. This is an observational pattern, not a clinical finding.`,
-          accent: '#00D4AA',
+          body: `On ${highKp.length} nights with Kp > 3, your average HRV was ${avgHRVHigh.toFixed(1)} ms vs ${avgHRVLow.toFixed(1)} ms on calm nights. Geomagnetic activity may affect autonomic nervous system tone. This is an observational pattern, not a clinical finding.`,
+          accent: '#FF4444',
           metric: 'hrv',
-          confidence: highKp.length >= 3 ? 'medium' : 'low'
+          confidence: highKp.length >= 5 ? 'medium' : 'low',
         })
       }
     }
 
-    // 2. Protocol adherence
-    if (avgAdherencePct.value < 75) {
-      const meanDelta = protocolAdherence.value.reduce((a, b) => a + b.delta_sleep_min, 0) / protocolAdherence.value.length
-      result.push({
-        id: 'protocol-adherence-low',
-        type: 'adherence',
-        title: `${avgAdherencePct.value}% protocol adherence`,
-        body: `Your sleep timing is averaging ${Math.abs(Math.round(meanDelta))} min ${meanDelta > 0 ? 'later' : 'earlier'} than your HELIOS target. Consistent timing is the single most powerful lever for circadian entrainment (Roenneberg 2012).`,
-        accent: '#FFBD76',
-        metric: 'sleep_score',
-        confidence: 'high'
-      })
-    }
-
-    // 3. HRV trend (first half vs second half of window)
+    // 2. HRV trend (first half vs second half of window)
     const validHRV = w.filter(l => l.hrv_avg != null)
     if (validHRV.length >= 6) {
       const half = Math.floor(validHRV.length / 2)
-      const firstHalf = validHRV.slice(0, half)
+      const firstHalf  = validHRV.slice(0, half)
       const secondHalf = validHRV.slice(half)
-      const avgFirst = firstHalf.reduce((a, b) => a + b.hrv_avg!, 0) / firstHalf.length
+      const avgFirst  = firstHalf.reduce((a, b)  => a + b.hrv_avg!, 0) / firstHalf.length
       const avgSecond = secondHalf.reduce((a, b) => a + b.hrv_avg!, 0) / secondHalf.length
       const trend = avgSecond - avgFirst
       if (trend < -4) {
@@ -855,66 +864,120 @@ export const useBiometricsStore = defineStore('biometrics', () => {
           body: `Your HRV averaged ${avgFirst.toFixed(1)} ms in the first half of this period and ${avgSecond.toFixed(1)} ms in the second half. A sustained HRV decline often signals accumulated recovery debt. Prioritise sleep consistency and consider reducing training load.`,
           accent: '#FF4444',
           metric: 'hrv',
-          confidence: 'medium'
+          confidence: 'low',
         })
       }
     }
 
+    // 3. Protocol adherence
+    if (avgAdherencePct.value < 70) {
+      const meanDelta = protocolAdherence.value.reduce((a, b) => a + b.sleep_delta_min, 0) / protocolAdherence.value.length
+      result.push({
+        id: 'protocol-adherence-low',
+        type: 'adherence',
+        title: `${avgAdherencePct.value}% protocol adherence`,
+        body: `Your sleep timing is averaging ${Math.abs(Math.round(meanDelta))} min ${meanDelta > 0 ? 'later' : 'earlier'} than your HELIOS target. Consistent timing is the single most powerful lever for circadian entrainment (Roenneberg 2012).`,
+        accent: '#FFBD76',
+        metric: 'adherence',
+        confidence: 'medium',
+      })
+    }
+
     // 4. Late sleep → low score correlation
-    const lateSleepNights = protocolAdherence.value.filter(d => d.delta_sleep_min > 45)
+    const lateSleepNights = protocolAdherence.value.filter(d => Math.abs(d.sleep_delta_min) > 45)
     if (lateSleepNights.length >= 2) {
       const lateDates = new Set(lateSleepNights.map(d => d.date))
-      const lateScores = w.filter(l => lateDates.has(l.date) && l.sleep_score != null).map(l => l.sleep_score!)
+      const lateScores = w
+        .filter(l => lateDates.has(l.date) && l.sleep_score != null)
+        .map(l => l.sleep_score!)
       if (lateScores.length >= 2) {
         const avgLateScore = lateScores.reduce((a, b) => a + b, 0) / lateScores.length
-        if (avgLateScore < 70) {
+        if (avgLateScore < 65) {
           result.push({
             id: 'late-sleep-low-score',
             type: 'anomaly',
-            title: `Sleep quality drops when you sleep 45+ min late`,
+            title: 'Sleep quality drops when you sleep 45+ min late',
             body: `On ${lateSleepNights.length} nights when you slept significantly later than your 23:00 target, your average sleep score was ${avgLateScore.toFixed(0)} — below your typical range. Late sleep onset compresses slow-wave sleep in the first half of the night.`,
             accent: '#9B8BFA',
             metric: 'sleep_score',
-            confidence: 'medium'
+            confidence: 'low',
           })
         }
       }
     }
 
-    // Return max 4, sorted by confidence
+    // Sort: high → medium → low; take first 4
     const order: Record<'high' | 'medium' | 'low', number> = { high: 0, medium: 1, low: 2 }
     return result.sort((a, b) => order[a.confidence] - order[b.confidence]).slice(0, 4)
   })
 
+  // ---------------------------------------------------------------------------
   // Actions
-  function setDateRange(range: DateRange) { dateRange.value = range }
+  // ---------------------------------------------------------------------------
+
+  function setDateRange(range: DateRange) {
+    dateRange.value = range
+  }
 
   function loadMockData() {
     logs.value = MOCK_SLEEP_LOGS
     dataSource.value = 'mock'
   }
 
-  function ingestParsedLogs(parsed: SleepLog[]) {
-    logs.value = [...parsed].sort((a, b) => a.date.localeCompare(b.date))
+  function ingestParsedLogs(newLogs: SleepLog[]) {
+    logs.value = [...newLogs].sort((a, b) => a.date.localeCompare(b.date))
     dataSource.value = 'uploaded'
     uploadStatus.value = 'success'
   }
 
-  function setUploadStatus(status: UploadStatus, error?: string) {
+  function setUploadStatus(status: UploadStatus, err?: string) {
     uploadStatus.value = status
-    uploadError.value = error ?? null
+    uploadError.value = err ?? null
   }
 
+  // Auto-load mock data on store creation
+  loadMockData()
+
   return {
-    logs, dateRange, uploadStatus, uploadError, dataSource,
-    windowedLogs, hrvSeries, kpOverlaySeries, sleepArchitectureSeries,
-    sleepScoreSeries, restingHRSeries, skinTempSeries,
-    avgHRV, avgSleepScore, avgRestingHR, avgTotalSleepH,
-    protocolAdherence, avgAdherencePct, insights,
+    // State
+    logs,
+    dateRange,
+    uploadStatus,
+    uploadError,
+    dataSource,
+    // Windowed
+    windowedLogs,
+    // Chart series
+    hrvSeries,
+    kpOverlaySeries,
+    sleepArchitectureSeries,
+    sleepScoreSeries,
+    restingHRSeries,
+    skinTempSeries,
+    // KPIs
+    avgHRV,
+    avgSleepScore,
+    avgRestingHR,
+    avgTotalSleepH,
+    // Adherence + insights
+    protocolAdherence,
+    avgAdherencePct,
+    insights,
     // Phase A
-    dlmoEstimate, caffeineCutoff, napWindow,
+    dlmoEstimate,
+    caffeineCutoff,
+    napWindow,
     // Phase B
-    sri, sriSeries, sleepDebtMin, sleepDebtSeries, dialData, nowAngle,
-    setDateRange, loadMockData, ingestParsedLogs, setUploadStatus
+    sri,
+    sriSeries,
+    sleepDebtMin,
+    sleepDebtSeries,
+    dialData,
+    nowAngle,
+    // Actions
+    setDateRange,
+    loadMockData,
+    ingestParsedLogs,
+    setUploadStatus,
   }
 })
