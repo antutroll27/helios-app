@@ -108,7 +108,7 @@ function triggerFileInput() { document.getElementById('wearable-file-input')?.cl
 .bento__insights    { grid-area: insights; }
 .bento__upload      { grid-area: upload; }
 
-@media (max-width: 680px) {
+@media (max-width: 640px) {
   .bento {
     grid-template-columns: 1fr 1fr;
     grid-template-areas:
