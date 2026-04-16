@@ -542,9 +542,7 @@ export const useBiometricsStore = defineStore('biometrics', () => {
   }
 
   // Parses "HH:MM" or ISO datetime → minutes since midnight
-  // WARNING: do NOT use timeToMinutes inside protocolAdherence — use isoToMin
-  // instead. timeToMinutes applies the browser's local timezone offset on full
-  // ISO strings, which produces incorrect deltas for the post-midnight shift logic.
+  // protocolAdherence uses isoToMin (not timeToMinutes) for the post-midnight +1440 shift logic
   function timeToMinutes(s: string): number {
     const hhmm = s.length > 5 ? s.slice(11, 16) : s
     const [h, m] = hhmm.split(':').map(Number)
@@ -570,7 +568,7 @@ export const useBiometricsStore = defineStore('biometrics', () => {
   const nowAngle = ref<number>(
     ((new Date().getHours() * 60 + new Date().getMinutes()) / 1440) * 360
   )
-  // Keep the handle so Vitest tests can call clearInterval(_nowTimer) to avoid leaks
+  // onScopeDispose handles interval cleanup when the Pinia scope is disposed
   const _nowTimer = setInterval(() => {
     nowAngle.value = ((new Date().getHours() * 60 + new Date().getMinutes()) / 1440) * 360
   }, 60_000)
@@ -777,7 +775,7 @@ export const useBiometricsStore = defineStore('biometrics', () => {
 
   // ---------------------------------------------------------------------------
   // Protocol adherence
-  // Target sleep = 23:00; target wake = sleep onset + 8h (hardcoded for now).
+  // Target sleep = 23:00; target wake = 07:00 (fixed protocol target).
   // Per spec: sleep_delta_min = actual_sleep_min_from_midnight − target_sleep_min
   //           wake_delta_min  = actual_wake_min_from_midnight  − target_wake_min
   //           adherence_pct   = round((1 − clamp(avg|delta|, 0, 120) / 120) × 100)
@@ -882,10 +880,7 @@ export const useBiometricsStore = defineStore('biometrics', () => {
         body: `Your sleep timing is averaging ${Math.abs(Math.round(meanDelta))} min ${meanDelta > 0 ? 'later' : 'earlier'} than your HELIOS target. Consistent timing is the single most powerful lever for circadian entrainment (Roenneberg 2012).`,
         accent: '#FFBD76',
         metric: 'adherence',
-        // 'high' would sort this first but adherence is most actionable; keeping
-        // 'medium' because it fires only when adherence is already poor — the
-        // insight is corrective, not a leading indicator. Upgrade to 'high' if
-        // product decides adherence always tops the card stack.
+        // confidence: 'high' — adherence insight surfaces prominently when adherence is already poor
         confidence: 'high',
       })
     }
