@@ -17,8 +17,8 @@ import logging
 from datetime import datetime, UTC
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 
-# Add research/ to path (same pattern as backend/wearable/parsers/oura.py)
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..', 'research'))
+# Add backend/research/ to path
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'research'))
 from chronotype_engine import ChronotypeEngine, ProtocolScorer, SleepLog, ProtocolLog
 from space_weather_bio import SpaceWeatherBioModel, SpaceWeatherReading
 
