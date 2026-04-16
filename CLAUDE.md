@@ -13,7 +13,7 @@ A hackathon-winning circadian intelligence app that uses live NASA satellite dat
 - **APIs**: NASA DONKI, NOAA SWPC (space weather), Open-Meteo (weather), AQICN (air quality)
 - **Build**: Vite 8, vite-plugin-pwa + workbox
 - **Research**: Python research engine — 7 peer-reviewed modules (`research/`)
-- **Deployment**: Vercel (https://helios-app-six.vercel.app/)
+- **Deployment**: Cloudflare Pages (https://helios-app.pages.dev)
 
 ## Project Structure
 ```
@@ -60,7 +60,8 @@ helios-app/
 │   └── style.css                 # Tailwind v4 @theme tokens, CSS variables, utility classes
 ├── research/                     # Python research engine (7 peer-reviewed modules — see below)
 ├── backend/                      # FastAPI backend (see backend phase status below)
-├── vercel.json                   # SPA rewrites + --legacy-peer-deps install
+├── vercel.json                   # Legacy — SPA was on Vercel; now on Cloudflare Pages (_redirects)
+│   ├── public/_redirects             # Cloudflare Pages SPA fallback (/* /index.html 200)
 └── .env                          # VITE_AQICN_TOKEN, VITE_NASA_API_KEY (do NOT commit secrets)
 ```
 
@@ -161,9 +162,11 @@ VITE_AQICN_TOKEN=<aqicn api token>
 VITE_NASA_API_KEY=<nasa api key, falls back to DEMO_KEY>
 ```
 
-### Vercel Config
-- `vercel.json` has `installCommand` with `--legacy-peer-deps`
-- SPA rewrites: `{ "source": "/(.*)", "destination": "/index.html" }`
+### Cloudflare Pages Config
+- SPA routing: `public/_redirects` — `/* /index.html 200`
+- Build command: `npm run build`, output: `dist/`
+- Install: `npm install --legacy-peer-deps` (set in CF Pages dashboard)
+- `vercel.json` left in repo but unused — CF Pages ignores it
 
 ## Backend (FastAPI + Supabase)
 
@@ -235,7 +238,7 @@ ENCRYPTION_KEY=<fernet key for API key encryption>
 SHARED_LLM_PROVIDER=kimi
 SHARED_LLM_KEY=<api key for shared/free tier>
 SHARED_LLM_RATE_LIMIT=20
-CORS_ORIGINS=http://localhost:5173,https://helios-app-six.vercel.app
+CORS_ORIGINS=http://localhost:5173,https://helios-app.pages.dev
 ```
 
 ## Research Modules (`research/`)
@@ -286,7 +289,7 @@ Users export their own data and upload to HELIOS via `POST /api/wearable/upload`
 - **Landing Page** — Astro.js project scaffolded at `../landing_page/` — do not edit until explicitly told to
 
 ## Git Workflow
-- `master` — production branch (deployed to Vercel)
+- `master` — production branch (deployed to Cloudflare Pages)
 - `dev` — development branch (backend + research modules)
 - Feature branches: `feature/fastapi-backend`, `feature/python-research`, `feature/wearable-integration`
 - **Do NOT push to GitHub** without explicit user permission
