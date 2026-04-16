@@ -1,5 +1,5 @@
 import { defineStore } from 'pinia'
-import { computed, ref, onUnmounted } from 'vue'
+import { computed, ref, onScopeDispose } from 'vue'
 import SunCalc from 'suncalc'
 import { useGeoStore } from './geo'
 
@@ -15,7 +15,7 @@ export const useSolarStore = defineStore('solar', () => {
 
   // Auto-refresh every 60 seconds; cleared when the store is disposed
   const _nowInterval = setInterval(refreshNow, 60_000)
-  onUnmounted(() => clearInterval(_nowInterval))
+  onScopeDispose(() => clearInterval(_nowInterval))
 
   // ─── SunCalc raw data ────────────────────────────────────────────────────────
 
@@ -67,8 +67,6 @@ export const useSolarStore = defineStore('solar', () => {
     const dawnMs = times.value.dawn.getTime()
     const duskMs = times.value.dusk.getTime()
     const nightMs = times.value.night.getTime()
-    const nightStartMs = times.value.nightEnd ? times.value.nightEnd.getTime() : 0
-
     if (el >= 60) return 'High Sun'
     if (el >= 15 && t > sunriseMs && t < sunsetMs) {
       if (Math.abs(t - noonMs) < 90 * 60 * 1000) return 'Solar Noon'
@@ -79,7 +77,6 @@ export const useSolarStore = defineStore('solar', () => {
     if (t > sunsetMs && t <= duskMs) return 'Civil Twilight'
     if (t > duskMs && t <= nightMs) return 'Nautical Twilight'
     if (t < dawnMs || t > nightMs) return 'Night'
-    if (nightStartMs && t >= nightStartMs && t < dawnMs) return 'Astronomical Night'
     return 'Night'
   })
 

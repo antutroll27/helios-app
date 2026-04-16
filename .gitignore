@@ -2,6 +2,7 @@ node_modules
 dist
 .env
 .superpowers
-research/__pycache__/
-backend/__pycache__/
-backend/**/__pycache__/
+.worktrees/
+**/__pycache__/
+**/*.pyc
+*.log

@@ -1,10 +1,12 @@
 <script setup lang="ts">
 import { computed } from 'vue'
+import { getAlignmentMetricCopy } from '@/lib/circadianTruth'
 import { useProtocolStore } from '@/stores/protocol'
 
 const protocol = useProtocolStore()
+const copy = getAlignmentMetricCopy()
 
-const minutes = computed(() => Math.min(protocol.socialJetLagMinutes, 360))
+const minutes = computed(() => Math.min(protocol.solarAlignmentGapMinutes, 360))
 
 const color = computed(() => {
   if (minutes.value < 30) return '#00D4AA'
@@ -20,33 +22,49 @@ const status = computed(() => {
 </script>
 
 <template>
-  <div class="sjl">
-    <span class="sjl-label font-mono">SOCIAL JET LAG</span>
-
-    <div class="sjl-main">
-      <div class="sjl-circle" :style="{ borderColor: color }">
-        <span class="sjl-num font-mono" :style="{ color }">{{ minutes }}</span>
-        <span class="sjl-unit font-mono">MIN</span>
-      </div>
+  <div class="sjl telemetry-module" style="--telemetry-glow: rgba(255, 189, 118, 0.08);">
+    <div class="sjl__header telemetry-module__header">
+      <span class="telemetry-module__label font-mono">{{ copy.label }}</span>
+      <span class="telemetry-module__chip font-mono" :style="{ color }">{{ status }}</span>
     </div>
 
-    <span class="sjl-status font-display" :style="{ color }">{{ status }}</span>
-    <span class="sjl-desc">Delta between solar midnight and your sleep midpoint</span>
+    <div class="sjl__body telemetry-module__body">
+      <div class="sjl__readout telemetry-module__metric" :style="{ borderColor: `${color}3D`, background: `${color}12` }">
+        <span class="sjl__num font-mono" :style="{ color }">{{ minutes }}</span>
+        <span class="sjl__unit font-mono">MIN</span>
+      </div>
+      <p class="sjl__desc telemetry-module__message">{{ copy.description }}</p>
+    </div>
   </div>
 </template>
 
 <style scoped>
-.sjl { display: flex; flex-direction: column; align-items: center; gap: 0.5rem; text-align: center; padding: 0.25rem 0; }
-.sjl-label { font-size: 0.7rem; font-weight: 600; letter-spacing: 0.15em; color: var(--text-muted); }
-.sjl-main { display: flex; justify-content: center; }
-.sjl-circle {
-  width: 80px; height: 80px; border-radius: 50%;
-  border: 3px solid; background: var(--bg-primary);
-  display: flex; flex-direction: column; align-items: center; justify-content: center;
+.sjl__readout {
+  display: inline-flex;
+  align-items: baseline;
+  justify-self: start;
+  gap: 0.35rem;
+  padding: 0.78rem 0.88rem;
+  border-radius: 1rem;
+  border: 1px solid rgba(255, 189, 118, 0.24);
+  background: rgba(19, 10, 8, 0.42);
 }
-:root.light .sjl-circle { background: #0A171D; }
-.sjl-num { font-size: 1.5rem; font-weight: 800; line-height: 1; }
-.sjl-unit { font-size: 0.45rem; letter-spacing: 0.1em; color: var(--text-muted); }
-.sjl-status { font-size: 0.7rem; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; }
-.sjl-desc { font-size: 0.7rem; color: var(--text-muted); line-height: 1.35; max-width: 180px; }
+
+.sjl__num {
+  font-size: 1.5rem;
+  line-height: 1;
+  font-weight: 800;
+}
+
+.sjl__unit {
+  font-size: 0.48rem;
+  letter-spacing: 0.14em;
+  color: rgba(148, 163, 184, 0.74);
+}
+
+.sjl__desc {
+  max-width: 12.5rem;
+  font-size: 0.68rem;
+  line-height: 1.28;
+}
 </style>

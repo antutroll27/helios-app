@@ -3,41 +3,63 @@ HELIOS Backend — Chat Router
 Handles chat messages with Hermes memory enrichment.
 """
 
-import uuid
-from datetime import datetime
-from typing import Optional
+import logging
+from datetime import datetime, UTC
+from typing import Annotated, Literal, Optional
 
-from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks
-from pydantic import BaseModel
+from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks, Request
 
-from backend.auth.supabase_auth import get_current_user
+logger = logging.getLogger(__name__)
+from pydantic import BaseModel, ConfigDict, Field, StrictStr
+
+from backend.auth.supabase_auth import (
+    get_current_user_from_session,
+    encrypt_api_key,
+    decrypt_api_key,
+)
 from backend.chat.llm_proxy import call_llm, parse_ai_response
 from backend.chat.prompt_builder import build_system_prompt
-from backend.memory.hermes_learner import HermesLearner
+from backend.config import SHARED_LLM_PROVIDER, SHARED_LLM_KEY, SHARED_LLM_RATE_LIMIT
 
 router = APIRouter()
 
-
-# ─── In-memory session store (Phase 1 — move to Supabase in production) ─────
-
-_sessions: dict[str, list[dict]] = {}  # session_id -> messages
-_session_meta: dict[str, dict] = {}    # session_id -> {user_id, provider, api_key}
+MAX_CHAT_HISTORY_MESSAGES = 20
+MAX_CHAT_CONTENT_CHARS = 4096
+CSRF_HEADER_NAME = "X-HELIOS-CSRF"
 
 
 # ─── Request / Response Models ───────────────────────────────────────────────
 
 class ChatContext(BaseModel):
-    lat: float
-    lng: float
-    timezone: str
+    model_config = ConfigDict(extra="forbid")
+
+    lat: Optional[float] = None
+    lng: Optional[float] = None
+    timezone: Optional[str] = None
+    location: Optional[dict] = None
+    solar: Optional[dict] = None
+    space_weather: Optional[dict] = None
+    environment: Optional[dict] = None
+    protocol: Optional[dict] = None
+    user: Optional[dict] = None
+
+
+class ChatHistoryMessage(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    role: Literal["user", "assistant"]
+    content: StrictStr = Field(min_length=1, max_length=MAX_CHAT_CONTENT_CHARS)
+
 
 class ChatRequest(BaseModel):
-    message: str
-    provider: Optional[str] = None   # None = use shared key
-    api_key: Optional[str] = None    # None = use shared key
-    session_id: Optional[str] = None
+    model_config = ConfigDict(extra="forbid")
+
+    message: StrictStr = Field(min_length=1, max_length=MAX_CHAT_CONTENT_CHARS)
+    provider: Optional[StrictStr] = None   # None = use shared key
+    api_key: Optional[StrictStr] = None    # None = use shared key
+    session_id: Optional[StrictStr] = None
     context: ChatContext
-    history: list[dict] = []
+    history: Annotated[list[ChatHistoryMessage], Field(default_factory=list, max_length=MAX_CHAT_HISTORY_MESSAGES)]
 
 class ChatResponse(BaseModel):
     message: str
@@ -46,82 +68,134 @@ class ChatResponse(BaseModel):
     using_shared_key: bool
 
 
+def _resolve_location_context(context: ChatContext) -> tuple[float, float, str, Optional[str]]:
+    location = context.location or {}
+    lat = context.lat if context.lat is not None else location.get("lat")
+    lng = context.lng if context.lng is not None else location.get("lng")
+    timezone = context.timezone if context.timezone else location.get("timezone")
+    location_name = location.get("location_name")
+
+    if lat is None or lng is None or timezone is None:
+        raise HTTPException(status_code=422, detail="Context location requires lat, lng, and timezone.")
+
+    return float(lat), float(lng), str(timezone), location_name
+
+
+def require_csrf(request: Request) -> None:
+    session = getattr(request.state, "auth_session", None)
+    token = request.headers.get(CSRF_HEADER_NAME)
+    if not session or not request.app.state.session_service.validate_csrf(session, token):
+        raise HTTPException(status_code=403, detail="CSRF validation failed")
+
+
 # ─── Shared key rate limiting (in-memory, per-user daily count) ──────────────
 
-_shared_key_usage: dict[str, dict] = {}  # user_id -> {date: str, count: int}
+def _shared_usage_date() -> str:
+    return datetime.now(UTC).date().isoformat()
 
 
-def _check_shared_rate_limit(user_id: str) -> bool:
-    """Check if user is within the shared key daily rate limit."""
-    from backend.config import SHARED_LLM_RATE_LIMIT
-    today = datetime.now().strftime("%Y-%m-%d")
-    usage = _shared_key_usage.get(user_id, {})
-    if usage.get("date") != today:
-        _shared_key_usage[user_id] = {"date": today, "count": 0}
-    return _shared_key_usage[user_id]["count"] < SHARED_LLM_RATE_LIMIT
+def _get_or_create_shared_usage(db, user_id: str) -> dict:
+    usage_date = _shared_usage_date()
+    existing = (
+        db.table("shared_llm_usage")
+        .select("count")
+        .eq("user_id", user_id)
+        .eq("usage_date", usage_date)
+        .execute()
+    )
+    if existing.data:
+        return existing.data[0]
+
+    (
+        db.table("shared_llm_usage")
+        .upsert(
+            {
+                "user_id": user_id,
+                "usage_date": usage_date,
+                "count": 0,
+            },
+            on_conflict="user_id,usage_date",
+        )
+        .execute()
+    )
+    return {"count": 0}
 
 
-def _increment_shared_usage(user_id: str):
-    """Increment shared key usage counter."""
-    today = datetime.now().strftime("%Y-%m-%d")
-    if user_id not in _shared_key_usage or _shared_key_usage[user_id].get("date") != today:
-        _shared_key_usage[user_id] = {"date": today, "count": 0}
-    _shared_key_usage[user_id]["count"] += 1
+def _increment_shared_usage(db, user_id: str) -> int:
+    usage_date = _shared_usage_date()
+    current = int(_get_or_create_shared_usage(db, user_id)["count"])
+    next_count = current + 1
+    (
+        db.table("shared_llm_usage")
+        .upsert(
+            {
+                "user_id": user_id,
+                "usage_date": usage_date,
+                "count": next_count,
+                "updated_at": datetime.now(UTC).isoformat(),
+            },
+            on_conflict="user_id,usage_date",
+        )
+        .execute()
+    )
+    return next_count
 
 
 # ─── Memory-enriched chat endpoint ──────────────────────────────────────────
 
 @router.post("/send", response_model=ChatResponse)
 async def send_message(
-    request: ChatRequest,
-    user_id: str = Depends(get_current_user),
+    body: ChatRequest,
+    request: Request,
+    user_id: str = Depends(get_current_user_from_session),
 ):
     """
     Main chat endpoint with Hermes memory injection.
-
-    Supports two modes:
-    - BYOK (Bring Your Own Key): user provides provider + api_key
-    - Shared key: no provider/key → uses the house model (rate-limited)
-
-    Flow:
-    1. Resolve provider + key (own or shared)
-    2. Fetch user's memory.md (learned insights from past sessions)
-    3. Build enriched system prompt (scientific KB + live data + memories)
-    4. Proxy to LLM
-    5. Store messages in session for later Hermes processing
+    Supports BYOK (user provides provider+key) or shared key (rate-limited).
+    Messages are persisted to Supabase for Hermes learning on session end.
     """
-    from backend.config import SHARED_LLM_PROVIDER, SHARED_LLM_KEY
-
-    session_id = request.session_id or str(uuid.uuid4())
+    require_csrf(request)
+    supabase = request.app.state.supabase
+    memory_service = request.app.state.memory_service
 
     # Resolve provider + key
-    using_shared = not request.api_key or not request.provider
+    using_shared = not body.api_key or not body.provider
     if using_shared:
         if not SHARED_LLM_KEY:
             raise HTTPException(status_code=503, detail="Shared AI is not configured. Please add your own API key in Settings.")
-        if not _check_shared_rate_limit(user_id):
+        if int(_get_or_create_shared_usage(supabase, user_id)["count"]) >= SHARED_LLM_RATE_LIMIT:
             raise HTTPException(status_code=429, detail="Daily AI limit reached. Add your own API key in Settings for unlimited access.")
         provider = SHARED_LLM_PROVIDER
         api_key = SHARED_LLM_KEY
-        _increment_shared_usage(user_id)
+        _increment_shared_usage(supabase, user_id)
     else:
-        provider = request.provider
-        api_key = request.api_key
+        provider = body.provider
+        api_key = body.api_key
 
     # Fetch user's memory for prompt enrichment
-    memory_block = ""  # TODO: Wire to MemoryService when Supabase is connected
+    memory_block = await memory_service.get_memory_for_prompt(user_id)
+    lat, lng, timezone, location_name = _resolve_location_context(body.context)
+    user_context = body.context.user or {}
 
     # Build enriched system prompt
     system_prompt = build_system_prompt(
-        lat=request.context.lat,
-        lng=request.context.lng,
-        timezone=request.context.timezone,
+        lat=lat,
+        lng=lng,
+        timezone=timezone,
         user_id=user_id,
         memory_block=memory_block,
+        user_sleep_time=user_context.get("sleep_time", "23:00"),
+        user_chronotype=user_context.get("chronotype", "intermediate"),
+        user_context=user_context,
+        location_name=location_name,
+        solar_context=body.context.solar,
+        space_weather_context=body.context.space_weather,
+        environment_context=body.context.environment,
+        protocol_context=body.context.protocol,
     )
 
     # Build conversation
-    messages = request.history + [{"role": "user", "content": request.message}]
+    messages = [message.model_dump() for message in body.history] + [{"role": "user", "content": body.message}]
 
     # Call LLM
     try:
@@ -132,21 +206,47 @@ async def send_message(
             messages=messages,
         )
     except Exception as e:
-        raise HTTPException(status_code=502, detail=f"LLM provider error: {e}")
+        logger.error("[helios] LLM call failed: %s", e, exc_info=True)
+        raise HTTPException(status_code=502, detail="Upstream LLM provider error.")
 
-    # Parse response
     parsed = parse_ai_response(raw_response)
 
-    # Store in session for Hermes processing on end-session
-    if session_id not in _sessions:
-        _sessions[session_id] = []
-        _session_meta[session_id] = {
+    # --- Session persistence ---
+    enc_key = encrypt_api_key(api_key) if not using_shared else None
+
+    if not body.session_id:
+        # New session — create row in DB
+        session_result = supabase.table("chat_sessions").insert({
             "user_id": user_id,
             "provider": provider,
-            "api_key": api_key,
-        }
-    _sessions[session_id].append({"role": "user", "content": request.message})
-    _sessions[session_id].append({"role": "assistant", "content": parsed["message"]})
+            "encrypted_api_key": enc_key,
+        }).execute()
+        session_id = session_result.data[0]["id"]
+    else:
+        # Verify session exists in DB (client may send stale session_id after server restart)
+        existing = supabase.table("chat_sessions").select("id") \
+            .eq("id", body.session_id).eq("user_id", user_id).execute()
+        if existing.data:
+            session_id = body.session_id
+        else:
+            # Session not found — create a fresh one
+            session_result = supabase.table("chat_sessions").insert({
+                "user_id": user_id,
+                "provider": provider,
+                "encrypted_api_key": enc_key,
+            }).execute()
+            session_id = session_result.data[0]["id"]
+
+    # Persist user message + assistant response
+    # Failures are logged but not surfaced — LLM response already returned
+    try:
+        supabase.table("chat_messages").insert([
+            {"session_id": session_id, "role": "user", "content": body.message},
+            {"session_id": session_id, "role": "assistant", "content": parsed["message"],
+             "visual_cards": parsed["visual_cards"]},
+        ]).execute()
+    except Exception as e:
+        logger.warning("[helios] chat_messages insert failed: %s", e)
 
     return ChatResponse(
         message=parsed["message"],
@@ -158,100 +258,134 @@ async def send_message(
 
 # ─── Session end → Hermes learns ────────────────────────────────────────────
 
-async def _hermes_background_task(session_id: str):
-    """
-    Background task: Hermes processes the session transcript,
-    extracts circadian insights, and updates the user's memory.md.
-    Uses the user's own LLM key — zero extra cost.
-    """
-    messages = _sessions.get(session_id, [])
-    meta = _session_meta.get(session_id, {})
-
-    if not messages or len(messages) < 4:  # Need at least 2 exchanges
-        return
-
-    user_id = meta.get("user_id", "")
-    provider = meta.get("provider", "")
-    api_key = meta.get("api_key", "")
-
-    if not user_id or not api_key:
-        return
-
-    # TODO: Replace with MemoryService when Supabase is connected
-    # For now, use in-memory store
-    from backend.memory.hermes_learner import DEFAULT_MEMORY
-    current_memory = _user_memories.get(user_id, DEFAULT_MEMORY)
-
-    learner = HermesLearner()
-    updated_memory = await learner.process_session(
-        messages=messages,
-        current_memory=current_memory,
-        provider=provider,
-        api_key=api_key,
-    )
-
-    _user_memories[user_id] = updated_memory
-    print(f"Hermes updated memory for user {user_id[:8]}... ({len(messages)} messages processed)")
-
-    # Cleanup session data
-    _sessions.pop(session_id, None)
-    _session_meta.pop(session_id, None)
-
-
-# In-memory user memories (move to Supabase in production)
-_user_memories: dict[str, str] = {}
-
-
 @router.post("/end-session")
 async def end_session(
     session_id: str,
+    request: Request,
     background_tasks: BackgroundTasks,
-    user_id: str = Depends(get_current_user),
+    user_id: str = Depends(get_current_user_from_session),
 ):
     """
     End a chat session and trigger Hermes background learning.
-    Hermes analyzes the conversation, extracts insights, and updates
-    the user's memory.md — all using the user's own LLM key.
+    Fetches provider+key from the session row — no credentials needed from client.
     """
-    messages = _sessions.get(session_id, [])
-    has_enough = len(messages) >= 4
+    require_csrf(request)
+    supabase = request.app.state.supabase
+    memory_service = request.app.state.memory_service
 
-    if has_enough:
-        background_tasks.add_task(_hermes_background_task, session_id)
+    # Fetch session row (verify ownership + get credentials for Hermes)
+    session_result = supabase.table("chat_sessions") \
+        .select("provider, encrypted_api_key, ended_at, hermes_processed, hermes_processing") \
+        .eq("id", session_id).eq("user_id", user_id) \
+        .execute()
+
+    if not session_result.data:
+        raise HTTPException(status_code=404, detail="Session not found")
+
+    session_row = session_result.data[0]
+
+    if session_row.get("hermes_processed") or session_row.get("hermes_processing"):
+        return {"status": "already_processing", "session_id": session_id}
+
+    if session_row.get("ended_at"):
+        return {"status": "already_ended", "session_id": session_id}
+
+    # Count messages to decide whether Hermes should run
+    count_result = supabase.table("chat_messages") \
+        .select("id", count="exact") \
+        .eq("session_id", session_id) \
+        .execute()
+    message_count = count_result.count or 0
+
+    update_payload = {"ended_at": datetime.now(UTC).isoformat()}
+    if message_count >= 4:
+        update_payload["hermes_processing"] = True
+
+    update_result = supabase.table("chat_sessions") \
+        .update(update_payload) \
+        .eq("id", session_id) \
+        .eq("user_id", user_id) \
+        .eq("hermes_processed", False) \
+        .eq("hermes_processing", False) \
+        .is_("ended_at", "null") \
+        .execute()
+
+    if not update_result.data:
+        latest_session = supabase.table("chat_sessions") \
+            .select("ended_at, hermes_processed, hermes_processing") \
+            .eq("id", session_id).eq("user_id", user_id) \
+            .execute()
+        latest_row = latest_session.data[0] if latest_session.data else {}
+        if latest_row.get("hermes_processed") or latest_row.get("hermes_processing"):
+            return {"status": "already_processing", "session_id": session_id}
+        return {"status": "already_ended", "session_id": session_id}
+
+    hermes_queued = False
+    if message_count >= 4:
+        provider = session_row.get("provider", SHARED_LLM_PROVIDER)
+        enc_key = session_row.get("encrypted_api_key")
+        try:
+            api_key = decrypt_api_key(enc_key) if enc_key else SHARED_LLM_KEY
+        except Exception as e:
+            logger.warning("[helios] Decryption failed for session %s, falling back to shared key: %s", session_id, e)
+            api_key = SHARED_LLM_KEY
+
+        background_tasks.add_task(
+            memory_service.process_session,
+            user_id, session_id, provider, api_key,
+        )
+        hermes_queued = True
 
     return {
         "status": "ok",
         "session_id": session_id,
-        "messages_in_session": len(messages),
-        "hermes_queued": has_enough,
+        "messages_in_session": message_count,
+        "hermes_queued": hermes_queued,
     }
 
 
 @router.get("/history")
 async def get_history(
     session_id: str,
-    user_id: str = Depends(get_current_user),
+    request: Request,
+    user_id: str = Depends(get_current_user_from_session),
 ):
-    """Get messages for a chat session."""
-    messages = _sessions.get(session_id, [])
-    return {"session_id": session_id, "messages": messages}
+    """Get messages for a chat session from Supabase."""
+    supabase = request.app.state.supabase
+
+    # Verify session ownership
+    session_check = supabase.table("chat_sessions").select("id") \
+        .eq("id", session_id).eq("user_id", user_id).execute()
+    if not session_check.data:
+        raise HTTPException(status_code=404, detail="Session not found")
+
+    result = supabase.table("chat_messages") \
+        .select("role, content, timestamp") \
+        .eq("session_id", session_id) \
+        .order("timestamp") \
+        .execute()
+
+    return {"session_id": session_id, "messages": result.data or []}
 
 
 @router.get("/memory")
 async def get_user_memory(
-    user_id: str = Depends(get_current_user),
+    request: Request,
+    user_id: str = Depends(get_current_user_from_session),
 ):
-    """Get the user's current memory file (what Hermes has learned)."""
-    from backend.memory.hermes_learner import DEFAULT_MEMORY
-    memory = _user_memories.get(user_id, DEFAULT_MEMORY)
-    return {"user_id": user_id, "memory_md": memory}
+    """Get the user's current Hermes memory file."""
+    memory_service = request.app.state.memory_service
+    memory_md = await memory_service.get_memory(user_id)
+    return {"user_id": user_id, "memory_md": memory_md}
 
 
 @router.delete("/memory")
 async def reset_user_memory(
-    user_id: str = Depends(get_current_user),
+    request: Request,
+    user_id: str = Depends(get_current_user_from_session),
 ):
     """Reset the user's memory (GDPR delete / fresh start)."""
-    from backend.memory.hermes_learner import DEFAULT_MEMORY
-    _user_memories[user_id] = DEFAULT_MEMORY
+    require_csrf(request)
+    memory_service = request.app.state.memory_service
+    await memory_service.reset_memory(user_id)
     return {"status": "ok", "message": "Memory reset to default."}

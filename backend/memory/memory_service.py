@@ -4,8 +4,11 @@ Reads and writes per-user markdown memory files in Supabase.
 No Mem0, no pgvector, no shared API keys — just Postgres + markdown.
 """
 
+import logging
 from typing import Optional
 from backend.memory.hermes_learner import DEFAULT_MEMORY, HermesLearner
+
+logger = logging.getLogger(__name__)
 
 
 class MemoryService:
@@ -31,6 +34,7 @@ class MemoryService:
             if result.data and result.data.get("memory_md"):
                 return result.data["memory_md"]
         except Exception:
+            # supabase-py .single() raises when no row exists — expected for new users
             pass
         return DEFAULT_MEMORY
 
@@ -55,29 +59,50 @@ class MemoryService:
     async def process_session(
         self,
         user_id: str,
-        messages: list[dict],
+        session_id: str,
         provider: str,
         api_key: str,
-    ) -> str:
+    ) -> str | None:
         """
-        Process a completed chat session:
-        1. Fetch current memory
-        2. Run Hermes to extract insights
-        3. Save updated memory
-        4. Return the updated memory markdown
+        Process a completed chat session by fetching messages from Supabase.
+        Skips sessions with fewer than 4 messages (2 full exchanges).
+        Marks the session hermes_processed=True when done.
 
         Uses the user's own LLM key — zero extra cost.
         """
-        current_memory = await self.get_memory(user_id)
+        # Fetch messages from DB — `timestamp` column defined in backend/schema.sql
+        try:
+            result = self.db.table("chat_messages") \
+                .select("role, content") \
+                .eq("session_id", session_id) \
+                .order("timestamp") \
+                .execute()
+            messages = result.data or []  # supabase-py returns None (not []) for empty results
+        except Exception as e:
+            logger.warning("[hermes] Failed to fetch messages for session %s: %s", session_id, e)
+            return None
 
+        if len(messages) < 4:  # Need at least 2 full exchanges
+            return None
+
+        current_memory = await self.get_memory(user_id)
         updated_memory = await self.learner.process_session(
             messages=messages,
             current_memory=current_memory,
             provider=provider,
             api_key=api_key,
         )
-
         await self.save_memory(user_id, updated_memory)
+
+        # Mark session as hermes-processed
+        try:
+            self.db.table("chat_sessions") \
+                .update({"hermes_processed": True, "hermes_processing": False}) \
+                .eq("id", session_id) \
+                .execute()
+        except Exception as e:
+            logger.warning("[hermes] Failed to mark session %s processed: %s", session_id, e)
+
         return updated_memory
 
     async def get_section(self, user_id: str, section: str) -> list[str]:

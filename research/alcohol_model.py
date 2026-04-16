@@ -19,6 +19,8 @@ import numpy as np
 from dataclasses import dataclass
 from typing import Optional
 
+from research.evidence_contract import EvidenceProfile, merge_evidence
+
 
 @dataclass
 class DrinkerProfile:
@@ -26,6 +28,16 @@ class DrinkerProfile:
     body_weight_kg: float = 70.0
     sex: str = "male"              # "male" | "female"
     baseline_rmssd: float = 42.0   # resting HRV in ms (population median)
+
+
+ALCOHOL_SLEEP_PROFILE = EvidenceProfile(
+    evidence_tier="B",
+    effect_summary="Drink-count HRV bins plus BAC-informed REM reduction and fragmentation risk",
+    population_summary="Oura observational cohorts plus controlled alcohol and sleep literature",
+    main_caveat="BAC math is stronger than the sleep-architecture forecast built on top of it",
+    uncertainty_factors=["sex", "body mass", "meal timing", "clearance rate", "habitual tolerance"],
+    claim_boundary="General next-night risk guidance only",
+)
 
 
 # ─── Alcohol Pharmacokinetics & Sleep Impact Engine ───────────────────────────
@@ -252,15 +264,27 @@ class AlcoholModel:
                 "(Pietila 2018)."
             )
 
-        return {
+        advisory += " This is a citation-informed heuristic and individual response varies."
+
+        method_summary = (
+            "Widmark BAC math is the stronger part of the model; the sleep forecast "
+            "and HRV effects are heuristic overlays built on top of it."
+        )
+
+        return merge_evidence(
+            {
             "bac_at_bedtime": bac,
             "rmssd_pct_change": rmssd_pct_change,
             "rem_reduction_pct": rem_reduction_pct,
             "deep_sleep_change": deep_sleep_change,
             "second_half_awakenings": second_half_awakenings,
             "rhr_increase_bpm": rhr_increase_bpm,
+            "method_summary": method_summary,
+            "model_type": "heuristic",
             "advisory": advisory,
-        }
+            },
+            ALCOHOL_SLEEP_PROFILE,
+        )
 
     def optimal_cutoff(
         self,

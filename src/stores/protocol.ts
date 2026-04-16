@@ -1,19 +1,36 @@
 import { defineStore } from 'pinia'
 import { computed } from 'vue'
+import {
+  getAlignmentMetricCopy,
+  getCaffeineCutoffNarrative,
+  getDeepWorkWindowOffsets,
+} from '@/lib/circadianTruth'
+import { fmtTime as fmt } from '@/lib/timezoneUtils'
+import { useEnvironmentStore } from '@/stores/environment'
 import { useSolarStore } from '@/stores/solar'
 import { useSpaceWeatherStore } from '@/stores/spaceWeather'
 import { useUserStore } from '@/stores/user'
-import { useEnvironmentStore } from '@/stores/environment'
 
-// ─── Types ────────────────────────────────────────────────────────────────────
+export interface VizData {
+  supLabel: string       // superscript next to time: "AM" | "20 MIN" | "3H WIN" | "6H T½" | "90 MIN" | "LATE"
+  ringPct?: number       // 0–100, for ring cards (Wind-Down, Sleep Window)
+  ringCenter?: string    // text inside ring: "90" | alignment score string
+  ringUnit?: string      // unit below ring center: "MIN" | "ALIGN%"
+  stat1Label?: string
+  stat1Value?: string
+  stat2Label?: string
+  stat2Value?: string
+}
 
 export interface ProtocolItem {
   key: string
   title: string
   time: Date
+  endTime?: Date
   icon: string
   citation: string
   subtitle: string
+  vizData?: VizData
 }
 
 export interface DailyProtocol {
@@ -25,19 +42,13 @@ export interface DailyProtocol {
   sleepWindow: ProtocolItem
 }
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
-
-/** Add minutes to a Date and return a new Date */
 function addMinutes(date: Date, minutes: number): Date {
   return new Date(date.getTime() + minutes * 60_000)
 }
 
-/** Add hours to a Date and return a new Date */
 function addHours(date: Date, hours: number): Date {
   return new Date(date.getTime() + hours * 60 * 60_000)
 }
-
-// ─── Store ────────────────────────────────────────────────────────────────────
 
 export const useProtocolStore = defineStore('protocol', () => {
   const solar = useSolarStore()
@@ -45,64 +56,49 @@ export const useProtocolStore = defineStore('protocol', () => {
   const user = useUserStore()
   const environment = useEnvironmentStore()
 
-  // ─── Constants ──────────────────────────────────────────────────────────────
-
-  /** Fixed caffeine half-life used throughout all calculations (hours) */
   const caffeineHalfLifeHours = 6
 
-  // ─── Core timing anchors ────────────────────────────────────────────────────
-
-  /**
-   * Today's projected sleep time as a Date object.
-   * Delegates to the user store's getSleepTimeToday() which advances to tomorrow
-   * if the sleep time has already passed for today.
-   *
-   * Explicitly reads solar.now so this computed re-evaluates every 60 seconds,
-   * ensuring the "today vs tomorrow" branch stays correct after midnight.
-   */
   const sleepTime = computed<Date>(() => {
-    void solar.now // reactive dependency — ticks every 60 s
+    void solar.now
     return user.getSleepTimeToday()
   })
 
-  /**
-   * Estimated melatonin onset: 90 minutes before sleep time.
-   * This is the physiological anchor for all pre-sleep calculations.
-   */
   const melatoninOnset = computed<Date>(() => addMinutes(sleepTime.value, -90))
 
-  // ─── Derived protocol timings ────────────────────────────────────────────────
+  const wakeWindowTime = computed<Date>(() => {
+    const idealWake = addHours(sleepTime.value, 8)
+    return idealWake.getTime() > solar.wakeWindowStart.getTime() ? idealWake : solar.wakeWindowStart
+  })
+
+  const wakeWindowEnd = computed<Date>(() => addMinutes(wakeWindowTime.value, 30))
 
   /**
-   * Latest safe caffeine consumption time.
-   * = melatonin onset minus one full caffeine half-life (6 h).
-   * This ensures caffeine concentration is below ~1/64 of peak by sleep onset
-   * after enough half-lives, but more practically eliminates the acute
-   * 40-minute melatonin-delay effect documented by Burke et al. (2015).
+   * Default conservative caffeine cutoff.
+   * = estimated melatonin onset minus one default half-life (6 h).
+   * This reduces residual caffeine burden near bedtime, but it is not a
+   * personalized guarantee for every dose or metabolism.
    */
   const caffeineCutoff = computed<Date>(() =>
     addHours(melatoninOnset.value, -caffeineHalfLifeHours)
   )
 
   /**
-   * Start of peak cognitive performance window.
-   * Core body temperature peak typically precedes sleep onset by ~3 h,
-   * which correlates with maximal alertness and working memory capacity.
+   * HELIOS uses a chronotype-based daytime heuristic rather than the pre-sleep
+   * wake-maintenance zone as the default deep-work window.
    */
-  const peakFocusStart = computed<Date>(() => addHours(sleepTime.value, -3))
+  const deepWorkWindowOffsets = computed(() => getDeepWorkWindowOffsets(user.chronotype))
+
+  const peakFocusStart = computed<Date>(() =>
+    addHours(wakeWindowTime.value, deepWorkWindowOffsets.value.startHoursAfterWake)
+  )
+
+  const peakFocusEnd = computed<Date>(() =>
+    addHours(wakeWindowTime.value, deepWorkWindowOffsets.value.endHoursAfterWake)
+  )
 
   /**
-   * End of peak cognitive performance window.
-   * 1 h before sleep time — beyond this point alertness begins declining
-   * as melatonin secretion ramps up.
-   */
-  const peakFocusEnd = computed<Date>(() => addHours(sleepTime.value, -1))
-
-  /**
-   * Wind-down start time.
-   * Baseline: 90 min before sleep (coincides with melatonin onset).
-   * If geomagnetic disruption score >= 3 (storm-level), advance by 30 min
-   * to buffer against cortisol elevation caused by elevated Kp-index activity.
+   * If geomagnetic disruption score >= 3 (storm-level), advance wind-down by
+   * 30 min as a conservative recovery cue rather than a deterministic forecast.
    */
   const windDownStart = computed<Date>(() => {
     const base = addMinutes(sleepTime.value, -90)
@@ -112,108 +108,98 @@ export const useProtocolStore = defineStore('protocol', () => {
     return base
   })
 
-  // ─── Supplementary metrics ───────────────────────────────────────────────────
-
   /**
-   * Social jet lag in minutes.
-   * Defined as the absolute difference between the solar nadir (true biological
-   * midnight based on sun position) and the user's sleep midpoint.
-   * Sleep midpoint is estimated as sleep onset + 4 h (midpoint of an 8-h night).
-   * Larger values indicate greater misalignment between solar and behavioural clocks.
+   * Solar alignment gap in minutes.
+   * Defined as the absolute difference between solar nadir and the user's
+   * estimated sleep midpoint. This is not the standard workday-vs-free-day
+   * social jet lag metric.
    */
-  const socialJetLagMinutes = computed<number>(() => {
+  const solarAlignmentGapMinutes = computed<number>(() => {
     try {
-      // Compare only the time-of-day components (ignore calendar date)
       const sleepMidpoint = addHours(sleepTime.value, 4)
       const nadirMinOfDay = solar.nadir.getHours() * 60 + solar.nadir.getMinutes()
       const midpointMinOfDay = sleepMidpoint.getHours() * 60 + sleepMidpoint.getMinutes()
       let diff = Math.abs(nadirMinOfDay - midpointMinOfDay)
-      // Wrap around midnight — shortest angular distance on 24h clock
       if (diff > 720) diff = 1440 - diff
-      // Sanity cap — social jet lag over 360 min (6h) is unreasonable
       return Math.min(Math.round(diff), 360)
     } catch {
       return 0
     }
   })
 
-  /**
-   * Recommended morning bright-light exposure duration in minutes.
-   * Baseline: 20 min (sufficient for robust CAR and circadian entrainment).
-   * Reduced to 10 min when AQI > 150 (Unhealthy category) to limit particulate
-   * inhalation during mandatory outdoor exposure.
-   */
   const morningLightDurationMin = computed<number>(() => {
     return environment.aqiLevel > 150 ? 10 : 20
   })
 
-  // ─── Full daily protocol ─────────────────────────────────────────────────────
-
-  /**
-   * The complete daily biological protocol object.
-   * Each item carries a key, human title, computed Date anchor, Lucide icon name,
-   * peer-reviewed citation, and a context-aware subtitle.
-   */
   const dailyProtocol = computed<DailyProtocol>(() => {
     const lightDuration = morningLightDurationMin.value
+    const alignmentMetricCopy = getAlignmentMetricCopy()
     const aqiWarning =
       environment.aqiLevel > 150
-        ? ` (reduced to ${lightDuration} min — AQI ${environment.aqiLevel} is unhealthy)`
+        ? ` (reduced to ${lightDuration} min - AQI ${environment.aqiLevel} is unhealthy)`
         : ` (${lightDuration} min)`
 
     const windDownAdj =
       spaceWeather.disruptionScore >= 3
-        ? ' (advanced 30 min — geomagnetic storm active)'
+        ? ' (advanced 30 min as a conservative recovery adjustment during storm conditions)'
         : ''
 
-    const jetLagNote =
-      socialJetLagMinutes.value > 60
-        ? ` Social jet lag detected: ${Math.round(socialJetLagMinutes.value / 60 * 10) / 10} h.`
+    const solarAlignmentNote =
+      solarAlignmentGapMinutes.value > 60
+        ? ` ${alignmentMetricCopy.label}: ${Math.round(solarAlignmentGapMinutes.value / 60 * 10) / 10} h from solar midnight.`
         : ''
+
+    const isNightOwlWake = wakeWindowTime.value.getTime() > solar.wakeWindowStart.getTime()
 
     return {
-      wakeWindow: (() => {
-        // Smart wake: sleep time + 8h for adequate rest, but nudge toward sunrise if possible
-        const idealWake = addHours(sleepTime.value, 8)
-        const sunrise = solar.wakeWindowStart
-        // If ideal wake is after sunrise, use ideal wake (night owl — don't sacrifice sleep)
-        // If ideal wake is before sunrise, use sunrise (early bird — catch the light)
-        const smartWake = idealWake > sunrise ? idealWake : sunrise
-        const smartWakeEnd = addMinutes(smartWake, 30)
-        const isNightOwl = idealWake > sunrise
-        return {
-          key: 'wakeWindow',
-          title: 'Wake Window',
-          time: smartWake,
-          icon: 'Sunrise',
-          citation:
-            'Cortisol awakening response peaks within 30 min of solar elevation > 6°',
-          subtitle: isNightOwl
-            ? `Rise at ${fmt(smartWake)} (8h sleep). Get sunlight within 30 min of waking.`
-            : `Rise between ${fmt(smartWake)} – ${fmt(smartWakeEnd)} to anchor your circadian clock.`
-        }
-      })(),
+      wakeWindow: {
+        key: 'wakeWindow',
+        title: 'Wake Window',
+        time: wakeWindowTime.value,
+        endTime: wakeWindowEnd.value,
+        icon: 'Sunrise',
+        citation: 'Cortisol awakening response peaks within 30 min of solar elevation > 6 degrees',
+        subtitle: isNightOwlWake
+          ? `Rise at ${fmt(wakeWindowTime.value)} (8h sleep). Get sunlight within 30 min of waking.`
+          : `Rise between ${fmt(wakeWindowTime.value)} - ${fmt(wakeWindowEnd.value)} to anchor your circadian clock.`,
+        vizData: {
+          supLabel: 'AM',
+          stat1Label: 'Window',
+          stat1Value: `${Math.round((wakeWindowEnd.value.getTime() - wakeWindowTime.value.getTime()) / 60_000)} min`,
+          stat2Label: 'Sleep',
+          stat2Value: (() => {
+            const ms = wakeWindowTime.value.getTime() - sleepTime.value.getTime()
+            const h = Math.floor(ms / 3_600_000)
+            const m = Math.round((ms % 3_600_000) / 60_000)
+            return `${h}h ${m}m`
+          })(),
+        },
+      },
 
       morningLight: {
         key: 'morningLight',
         title: 'Morning Light',
         time: solar.wakeWindowEnd,
+        endTime: new Date(solar.wakeWindowEnd.getTime() + morningLightDurationMin.value * 60_000),
         icon: 'Sun',
-        citation:
-          'NASA ISS protocol: timed bright light for circadian entrainment',
-        subtitle:
-          `Get ${lightDuration} min of bright outdoor light starting at ${fmt(solar.wakeWindowStart)}${aqiWarning}.`
+        citation: 'NASA ISS protocol: timed bright light for circadian entrainment',
+        subtitle: `Get ${lightDuration} min of bright outdoor light starting at ${fmt(solar.wakeWindowStart)}${aqiWarning}.`,
+        vizData: {
+          supLabel: `${morningLightDurationMin.value} MIN`,
+        },
       },
 
       peakFocus: {
         key: 'peakFocus',
         title: 'Peak Focus',
         time: peakFocusStart.value,
+        endTime: peakFocusEnd.value,
         icon: 'Brain',
-        citation:
-          'Cognitive performance peaks in late afternoon/evening, paralleling core body temperature rhythm',
-        subtitle:
-          `Your cognitive peak window: ${fmt(peakFocusStart.value)} – ${fmt(peakFocusEnd.value)}. ${user.chronotype === 'early' ? 'Early types peak earlier.' : user.chronotype === 'late' ? 'Night owls peak in the evening.' : 'Adjusted for your chronotype.'}`
+        citation: 'Cognitive performance peaks in late afternoon/evening, paralleling core body temperature rhythm',
+        subtitle: `Recommended deep-work window: ${fmt(peakFocusStart.value)} - ${fmt(peakFocusEnd.value)}. The pre-sleep wake-maintenance zone is a separate alertness phenomenon, not your default best focus window.`,
+        vizData: {
+          supLabel: '3H WIN',
+        },
       },
 
       caffeineCutoff: {
@@ -221,21 +207,38 @@ export const useProtocolStore = defineStore('protocol', () => {
         title: 'Caffeine Cutoff',
         time: caffeineCutoff.value,
         icon: 'Coffee',
-        citation:
-          'Burke et al. (2015): caffeine 3h before bed delays melatonin by 40 min',
-        subtitle:
-          `No caffeine after ${fmt(caffeineCutoff.value)} to protect melatonin onset at ${fmt(melatoninOnset.value)}.`
+        citation: 'Burke et al. (2015): caffeine 3h before bed delays melatonin by 40 min',
+        subtitle: getCaffeineCutoffNarrative(fmt(caffeineCutoff.value), fmt(sleepTime.value)),
+        vizData: {
+          supLabel: '6H T½',
+        },
       },
 
       windDown: {
         key: 'windDown',
         title: 'Wind-Down',
         time: windDownStart.value,
+        endTime: sleepTime.value,
         icon: 'Moon',
-        citation:
-          'Begin screen dimming 90 min before estimated melatonin onset',
-        subtitle:
-          `Start dimming screens and lowering stimulation at ${fmt(windDownStart.value)}${windDownAdj}.`
+        citation: 'Begin screen dimming 90 min before estimated melatonin onset',
+        subtitle: `Start dimming screens and lowering stimulation at ${fmt(windDownStart.value)}${windDownAdj}.`,
+        vizData: (() => {
+          const durationMin = Math.round(
+            (sleepTime.value.getTime() - windDownStart.value.getTime()) / 60_000
+          )
+          const h = Math.floor(durationMin / 60)
+          const m = durationMin % 60
+          return {
+            supLabel: `${durationMin} MIN`,
+            ringPct: Math.min(Math.round((durationMin / 180) * 100), 100),
+            ringCenter: String(durationMin),
+            ringUnit: 'MIN',
+            stat1Label: 'Until sleep',
+            stat1Value: h > 0 ? `${h}h${m > 0 ? ` ${m}m` : ''}` : `${m}m`,
+            stat2Label: 'Melatonin onset',
+            stat2Value: fmt(melatoninOnset.value),
+          }
+        })(),
       },
 
       sleepWindow: {
@@ -243,39 +246,38 @@ export const useProtocolStore = defineStore('protocol', () => {
         title: 'Sleep Window',
         time: sleepTime.value,
         icon: 'BedDouble',
-        citation:
-          'Optimal sleep onset aligned with solar cycle and chronotype',
-        subtitle:
-          `Target sleep by ${fmt(sleepTime.value)} (${user.chronotype} chronotype).${jetLagNote}`
-      }
+        citation: 'Optimal sleep onset aligned with solar cycle and chronotype',
+        subtitle: `Target sleep by ${fmt(sleepTime.value)} (${user.chronotype} chronotype).${solarAlignmentNote}`,
+        vizData: (() => {
+          const gapMin = solarAlignmentGapMinutes.value  // already wrap-corrected and capped at 360 min
+          const alignPct = Math.max(0, Math.round((1 - gapMin / 360) * 100))
+          const gapH = (gapMin / 60).toFixed(1)
+          return {
+            supLabel: alignPct >= 70 ? 'ALIGNED' : 'LATE',
+            ringPct: alignPct,
+            ringCenter: String(alignPct),
+            ringUnit: 'ALIGN%',
+            stat1Label: 'Solar gap',
+            stat1Value: `${gapH}h`,
+            stat2Label: 'Solar midnight',
+            stat2Value: fmt(solar.nadir),
+          }
+        })(),
+      },
     }
   })
 
-  // ─── Utility ─────────────────────────────────────────────────────────────────
-
   return {
-    // constants
     caffeineHalfLifeHours,
-
-    // computed timings
     sleepTime,
     melatoninOnset,
+    wakeWindowTime,
     caffeineCutoff,
     peakFocusStart,
     peakFocusEnd,
     windDownStart,
-
-    // metrics
-    socialJetLagMinutes,
+    solarAlignmentGapMinutes,
     morningLightDurationMin,
-
-    // full protocol
-    dailyProtocol
+    dailyProtocol,
   }
 })
-
-// ─── Internal formatter (not exported) ───────────────────────────────────────
-
-function fmt(date: Date): string {
-  return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-}

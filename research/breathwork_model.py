@@ -19,6 +19,8 @@ import numpy as np
 from dataclasses import dataclass
 from typing import Optional
 
+from research.evidence_contract import EvidenceProfile, merge_evidence
+
 
 @dataclass
 class BreathworkSession:
@@ -61,6 +63,16 @@ TECHNIQUE_DEFAULTS = {
         "description": "Equal 5s inhale / 5s exhale for cardiac coherence",
     },
 }
+
+
+BREATHWORK_EVIDENCE_PROFILE = EvidenceProfile(
+    evidence_tier="B",
+    effect_summary="Short-term parasympathetic and HRV-oriented protocol estimates",
+    population_summary="Acute breathwork studies in healthy or stressed adults",
+    main_caveat="Acute response is variable and should not be treated as a personal biometric prediction",
+    uncertainty_factors=["technique familiarity", "baseline stress", "measurement noise"],
+    claim_boundary="Protocol guidance for same-day regulation only",
+)
 
 
 # ─── Breathwork HRV Response Engine ──────────────────────────────────────────────
@@ -165,32 +177,41 @@ class BreathworkModel:
             post_rmssd_delta_ms, post_duration_hours, lf_hf_during,
             optimal_rate_bpm, advisory.
         """
+        def build_result(payload: dict) -> dict:
+            return merge_evidence(payload, BREATHWORK_EVIDENCE_PROFILE)
+
         # Guard: unknown technique
         if technique not in TECHNIQUE_DEFAULTS:
-            return {
-                "during_rmssd_ms": baseline_rmssd,
-                "during_rmssd_pct_increase": 0.0,
-                "post_rmssd_delta_ms": 0.0,
-                "post_duration_hours": 0.0,
-                "lf_hf_during": 2.5,
-                "optimal_rate_bpm": 5.5,
-                "advisory": (
-                    f"Unknown technique '{technique}'. "
-                    f"Supported: resonance, box, 4-7-8, coherent."
-                ),
-            }
+            return build_result(
+                {
+                    "during_rmssd_ms": baseline_rmssd,
+                    "during_rmssd_pct_increase": 0.0,
+                    "post_rmssd_delta_ms": 0.0,
+                    "post_duration_hours": 0.0,
+                    "lf_hf_during": 2.5,
+                    "optimal_rate_bpm": 5.5,
+                    "model_type": "heuristic",
+                    "advisory": (
+                        f"Unknown technique '{technique}'. "
+                        f"Supported: resonance, box, 4-7-8, coherent."
+                    ),
+                }
+            )
 
         # Guard: non-positive values
         if duration_min <= 0 or breaths_per_min <= 0 or baseline_rmssd <= 0:
-            return {
-                "during_rmssd_ms": baseline_rmssd,
-                "during_rmssd_pct_increase": 0.0,
-                "post_rmssd_delta_ms": 0.0,
-                "post_duration_hours": 0.0,
-                "lf_hf_during": 2.5,
-                "optimal_rate_bpm": 5.5,
-                "advisory": "Error: duration, breaths_per_min, and baseline_rmssd must be positive.",
-            }
+            return build_result(
+                {
+                    "during_rmssd_ms": baseline_rmssd,
+                    "during_rmssd_pct_increase": 0.0,
+                    "post_rmssd_delta_ms": 0.0,
+                    "post_duration_hours": 0.0,
+                    "lf_hf_during": 2.5,
+                    "optimal_rate_bpm": 5.5,
+                    "model_type": "heuristic",
+                    "advisory": "Error: duration, breaths_per_min, and baseline_rmssd must be positive.",
+                }
+            )
 
         tech = TECHNIQUE_DEFAULTS[technique]
 
@@ -232,22 +253,25 @@ class BreathworkModel:
             quality = "mild"
 
         advisory = (
-            f"{quality.capitalize()} HRV response predicted: +{rmssd_delta_ms}ms rMSSD "
+            f"rough estimate: {quality} HRV response of about +{rmssd_delta_ms}ms rMSSD "
             f"({pct_increase_final}% increase) during {duration_min}min {technique} breathing "
-            f"at {breaths_per_min} bpm. Post-session: +{post_delta}ms residual for "
-            f"~{post_hours}h (Laborde 2022). "
-            f"LF/HF shifts from ~2.5 to {lf_hf_during} (parasympathetic dominance)."
+            f"at {breaths_per_min} bpm. Post-session residual may be about +{post_delta}ms "
+            f"for ~{post_hours}h (Laborde 2022). This is a citation-informed heuristic, "
+            f"not a validated personal prediction."
         )
 
-        return {
-            "during_rmssd_ms": during_rmssd,
-            "during_rmssd_pct_increase": pct_increase_final,
-            "post_rmssd_delta_ms": post_delta,
-            "post_duration_hours": post_hours,
-            "lf_hf_during": lf_hf_during,
-            "optimal_rate_bpm": optimal_bpm,
-            "advisory": advisory,
-        }
+        return build_result(
+            {
+                "during_rmssd_ms": during_rmssd,
+                "during_rmssd_pct_increase": pct_increase_final,
+                "post_rmssd_delta_ms": post_delta,
+                "post_duration_hours": post_hours,
+                "lf_hf_during": lf_hf_during,
+                "optimal_rate_bpm": optimal_bpm,
+                "model_type": "heuristic",
+                "advisory": advisory,
+            }
+        )
 
     def find_resonance_frequency(self, resting_hr: float = 70) -> dict:
         """
@@ -375,19 +399,23 @@ class BreathworkModel:
         }
 
         if goal not in goal_map:
-            return {
-                "technique": "resonance",
-                "breaths_per_min": 5.5,
-                "duration_min": 10,
-                "inhale_s": 5,
-                "hold_s": 0,
-                "exhale_s": 6,
-                "expected_rmssd_change_pct": 0.0,
-                "advisory": (
-                    f"Unknown goal '{goal}'. "
-                    f"Supported: calm, focus, recovery, sleep."
-                ),
-            }
+            return merge_evidence(
+                {
+                    "technique": "resonance",
+                    "breaths_per_min": 5.5,
+                    "duration_min": 10,
+                    "inhale_s": 5,
+                    "hold_s": 0,
+                    "exhale_s": 6,
+                    "expected_rmssd_change_pct": 0.0,
+                    "advisory": (
+                        f"Unknown goal '{goal}'. "
+                        f"Supported: calm, focus, recovery, sleep."
+                    ),
+                    "model_type": "heuristic",
+                },
+                BREATHWORK_EVIDENCE_PROFILE,
+            )
 
         rec = goal_map[goal]
 
@@ -443,16 +471,20 @@ class BreathworkModel:
             f"(Zaccaro 2018).{stress_note}"
         )
 
-        return {
-            "technique": rec["technique"],
-            "breaths_per_min": rec["bpm"],
-            "duration_min": duration,
-            "inhale_s": rec["inhale"],
-            "hold_s": rec["hold"],
-            "exhale_s": rec["exhale"],
-            "expected_rmssd_change_pct": expected_pct,
-            "advisory": advisory,
-        }
+        return merge_evidence(
+            {
+                "technique": rec["technique"],
+                "breaths_per_min": rec["bpm"],
+                "duration_min": duration,
+                "inhale_s": rec["inhale"],
+                "hold_s": rec["hold"],
+                "exhale_s": rec["exhale"],
+                "expected_rmssd_change_pct": expected_pct,
+                "model_type": "heuristic",
+                "advisory": advisory,
+            },
+            BREATHWORK_EVIDENCE_PROFILE,
+        )
 
 
 # ─── Example Usage ──────────────────────────────────────────────────────────────

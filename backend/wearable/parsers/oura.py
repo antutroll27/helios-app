@@ -40,8 +40,8 @@ from typing import Optional
 import sys
 import os
 
-# Add research/ to path for SleepLog import
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..', '..', 'research'))
+# Add backend/research/ to path for SleepLog import
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..', 'research'))
 from chronotype_engine import SleepLog
 
 

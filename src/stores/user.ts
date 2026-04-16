@@ -2,7 +2,7 @@ import { defineStore } from 'pinia'
 import { ref, watch } from 'vue'
 
 type Chronotype = 'early' | 'intermediate' | 'late'
-type Provider = 'openai' | 'claude' | 'kimi' | 'glm'
+type Provider = 'openai' | 'claude' | 'gemini' | 'grok' | 'perplexity' | 'kimi' | 'glm'
 
 const PREFIX = 'helios_'
 
@@ -17,10 +17,20 @@ function load<T>(key: string, fallback: T): T {
 }
 
 function save<T>(key: string, value: T): void {
+  if (typeof localStorage === 'undefined') return
   try {
     localStorage.setItem(PREFIX + key, JSON.stringify(value))
   } catch (err) {
     console.warn(`[user] Failed to save "${key}" to localStorage:`, err)
+  }
+}
+
+function clearStoredValue(key: string): void {
+  if (typeof localStorage === 'undefined') return
+  try {
+    localStorage.removeItem(PREFIX + key)
+  } catch (err) {
+    console.warn(`[user] Failed to clear "${key}" from localStorage:`, err)
   }
 }
 
@@ -32,14 +42,14 @@ export const useUserStore = defineStore('user', () => {
 
   // ─── API Provider ─────────────────────────────────────────────────────────────
   const provider = ref<Provider>(load<Provider>('provider', 'openai'))
-  const apiKey = ref<string>(load('apiKey', ''))
+  const apiKey = ref<string>('')
+  clearStoredValue('apiKey')
 
   // ─── Watchers — persist to localStorage ──────────────────────────────────────
   watch(usualSleepTime, (v) => save('usualSleepTime', v))
   watch(chronotype, (v) => save('chronotype', v))
   watch(hasCompletedOnboarding, (v) => save('hasCompletedOnboarding', v))
   watch(provider, (v) => save('provider', v))
-  watch(apiKey, (v) => save('apiKey', v))
 
   // ─── Actions ──────────────────────────────────────────────────────────────────
 
@@ -49,9 +59,16 @@ export const useUserStore = defineStore('user', () => {
     hasCompletedOnboarding.value = true
   }
 
-  function setProvider(newProvider: Provider, key: string): void {
+  function setProvider(newProvider: Provider, key?: string): void {
     provider.value = newProvider
-    apiKey.value = key
+    if (key !== undefined) {
+      apiKey.value = key
+    }
+  }
+
+  function clearSensitiveData(): void {
+    apiKey.value = ''
+    clearStoredValue('apiKey')
   }
 
   /**
@@ -79,6 +96,7 @@ export const useUserStore = defineStore('user', () => {
     apiKey,
     completeOnboarding,
     setProvider,
+    clearSensitiveData,
     getSleepTimeToday
   }
 })

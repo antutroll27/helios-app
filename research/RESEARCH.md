@@ -1,7 +1,12 @@
 # HELIOS Research Roadmap
 
 ## Overview
-This document tracks peer-reviewed papers, open source libraries, data sources, and architecture decisions for the HELIOS circadian intelligence engine. Everything here is backed by citations and intended to be converted into Python algorithms.
+This document tracks peer-reviewed papers, open source libraries, data sources, and architecture decisions for the HELIOS circadian intelligence engine. Literature findings, current heuristic implementations, and future roadmap items are distinct: cited papers inform the models, but current code paths are not automatically validated for individual prediction.
+
+## Evidence Tiers
+- Tier A: validated foundations used for primary timing guidance
+- Tier B: citation-informed heuristics translated into consumer calculators
+- Tier C: exploratory or observational context only, never a deterministic personal forecast
 
 ---
 
@@ -169,55 +174,53 @@ This document tracks peer-reviewed papers, open source libraries, data sources, 
 
 ---
 
-## Agent Architecture — Learning from User Data
+## Agent Architecture - Learning from User Data
 
 ### Full Stack
 ```
 Vue 3 Frontend (useAI.ts)
-    │ POST /api/chat/send
-    ▼
+    -> POST /api/chat/send
 FastAPI Backend
-    ├── Supabase (auth, user DB, chat logs, wearable data, protocol logs)
-    ├── Hermes Learner (per-user markdown memory, uses user's own LLM key)
-    ├── LLM Proxy (BYOK + shared key fallback for free tier users)
-    ├── Wearable Parsers (file-upload adapters per platform)
-    ├── ChronotypeEngine (existing)
-    ├── CaffeineModel (existing)
-    ├── SpaceWeatherBioModel (existing)
-    ├── CircadianLightModel (existing)
-    └── ProtocolScorer (existing)
+    -> Supabase (auth, user DB, chat logs, wearable data, protocol logs)
+    -> Hermes Learner (per-user markdown memory, uses the user's own LLM key)
+    -> LLM Proxy (BYOK + shared key fallback for free tier users)
+    -> Wearable Parsers (file-upload adapters per platform)
+    -> ChronotypeEngine
+    -> CaffeineModel
+    -> SpaceWeatherBioModel
+    -> CircadianLightModel
+    -> ProtocolScorer
 ```
 
 ### How It Works
-- **Hermes as per-user background learner** — runs after each chat session ends using the user's own LLM API key. Analyzes the conversation, extracts circadian insights, updates structured markdown memory file. Zero extra API costs.
-- **Markdown memory files in Postgres** — each user has one `user_memories` row containing structured markdown (categories: sleep, caffeine, light, adherence, biometrics, lifestyle, preferences). No Mem0, no pgvector, no vector embeddings. Plain text, queryable, GDPR-deletable.
-- **System prompt injection** — before each LLM call, the user's memory.md is formatted and injected as `[USER PROFILE FROM MEMORY]` alongside the scientific knowledge base.
-- **Shared key for free tier** — users without their own API key get a rate-limited shared model (Kimi/DeepInfra, 20 msgs/day). Hermes still learns from these sessions.
-- **Supabase for structured data** — raw chat logs, wearable imports, sleep logs, protocol adherence. Queryable SQL for analytics and investor demos.
-- **System prompt injection** — before each LLM call, FastAPI queries Mem0 for top 5-10 relevant memories, formats them as a `[USER PROFILE]` section in the system prompt alongside the existing scientific knowledge base.
+- Hermes is the current per-user background learner.
+- Memory is stored as structured markdown in the user_memories table in Postgres/Supabase.
+- Prompt enrichment injects a formatted markdown memory block when user memory exists.
+- Shared-key guest mode is a rate-limited fallback, not a separate memory architecture.
+- Current implementation boundary: this is a pragmatic personalization layer, not a semantic vector-memory system.
 
 ### Supabase Schema
 ```
-users              → auth, profile, LLM API keys (encrypted)
-chat_sessions      → full conversation logs (raw)
-chat_messages      → individual messages with role/content/timestamp
-memories           → Mem0 distilled insights (semantic/episodic/procedural)
-sleep_logs         → nightly sleep data (maps to SleepLog dataclass)
-data_imports       → uploaded wearable files (source, date range, status)
-wearable_tokens    → OAuth tokens for future live sync (encrypted)
-protocol_logs      → daily protocol + adherence (maps to ProtocolLog)
-caffeine_logs      → intake tracking for CaffeineModel
-biometric_logs     → HR, HRV (rMSSD/SDNN), skin temp, respiratory rate, SpO2
+users              -> auth, profile, LLM API keys (encrypted)
+chat_sessions      -> full conversation logs (raw)
+chat_messages      -> individual messages with role/content/timestamp
+user_memories      -> Hermes-managed markdown profile per user
+sleep_logs         -> nightly sleep data (maps to SleepLog dataclass)
+data_imports       -> uploaded wearable files (source, date range, status)
+wearable_tokens    -> OAuth tokens for future live sync (encrypted)
+protocol_logs      -> daily protocol + adherence (maps to ProtocolLog)
+caffeine_logs      -> intake tracking for CaffeineModel
+biometric_logs     -> HR, HRV (rMSSD/SDNN), skin temp, respiratory rate, SpO2
 ```
 
 ### The Learning Loop
-1. User chats → LLM responds with Mem0-enriched context
-2. Session ends → Hermes processes conversation, extracts learnings
-3. Mem0 stores distilled insights (not raw chat — compact and searchable)
-4. User uploads wearable data → parsers extract SleepLog + biometric entries
+1. User chats -> LLM responds with current live context plus any available Hermes memory block
+2. Session ends -> Hermes processes the conversation and extracts durable circadian learnings
+3. Hermes updates the user's markdown memory row in Supabase
+4. User uploads wearable data -> parsers extract SleepLog and biometric entries
 5. ChronotypeEngine reassesses chronotype from accumulated sleep logs
 6. ProtocolScorer correlates protocol adherence with sleep outcomes
-7. Next session → richer context → better personalized advice
+7. Next session -> richer context -> better personalized advice
 
 ### Wearable Data Import (No OAuth Required)
 
@@ -281,7 +284,7 @@ Long-term vision: build affordable, stylish sleep-specific wearables that outper
 ### Rejected Approaches
 | Approach | Why Not |
 |---|---|
-| Mem0 + pgvector | Needed shared API key for embeddings, added pgvector dependency, overkill for structured categories |
+| Vector-memory stack + pgvector | Extra embedding cost and dependency surface for little gain over structured markdown categories |
 | Shared Gemini/GPT key for Hermes | Extra API cost to us, privacy concern (user data processed by our key), unnecessary when user's own key works |
 | Hermes as orchestrator | Too heavy as middleware — simpler as background learner |
 | Letta (MemGPT) | Replaces entire AI layer, too big a commitment |

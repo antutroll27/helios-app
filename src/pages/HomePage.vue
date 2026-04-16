@@ -1,21 +1,36 @@
 <script setup lang="ts">
+import { defineAsyncComponent } from 'vue'
+import { Activity, Smartphone, Watch } from 'lucide-vue-next'
 import { useUserStore } from '@/stores/user'
-import { Watch, Activity, Smartphone } from 'lucide-vue-next'
-import HeliosGlobe from '@/components/HeliosGlobe.vue'
-import SpaceWeatherGauge from '@/components/SpaceWeatherGauge.vue'
-import SocialJetLagScore from '@/components/SocialJetLagScore.vue'
+import { useHomeDeferredSections } from '@/composables/useHomeDeferredSections'
 import EnvironmentBadge from '@/components/EnvironmentBadge.vue'
-import ProtocolTimeline from '@/components/ProtocolTimeline.vue'
-import ChatInterface from '@/components/ChatInterface.vue'
 import OnboardingModal from '@/components/OnboardingModal.vue'
+import ProtocolTimeline from '@/components/ProtocolTimeline.vue'
+import SocialJetLagScore from '@/components/SocialJetLagScore.vue'
+import SpaceWeatherGauge from '@/components/SpaceWeatherGauge.vue'
+import HomeChatPlaceholder from '@/components/home/HomeChatPlaceholder.vue'
+import HomeGlobePlaceholder from '@/components/home/HomeGlobePlaceholder.vue'
+
+const HeliosGlobePanel = defineAsyncComponent({
+  loader: () => import('@/components/globe/HeliosGlobePanel.vue'),
+  loadingComponent: HomeGlobePlaceholder,
+  delay: 0,
+})
+
+const ChatInterface = defineAsyncComponent({
+  loader: () => import('@/components/ChatInterface.vue'),
+  loadingComponent: HomeChatPlaceholder,
+  delay: 0,
+})
 
 const user = useUserStore()
+const { chatSectionRef, showGlobe, showChat } = useHomeDeferredSections()
 
 const wearables = [
-  { name: 'Garmin', icon: Watch, color: '#00B4D8' },
-  { name: 'Fitbit / Google', icon: Activity, color: '#00D4AA' },
-  { name: 'Samsung Health', icon: Smartphone, color: '#A78BFA' },
-  { name: 'Oura Ring', icon: Watch, color: '#FFBD76' },
+  { name: 'Garmin', icon: Watch, color: '#007CC3' },
+  { name: 'Fitbit / Google', icon: Activity, color: '#00B0B9' },
+  { name: 'Samsung Health', icon: Smartphone, color: '#00B140' },
+  { name: 'Oura Ring', icon: Watch, color: '#2F4A73', mix: 40 },
   { name: 'BCI — Brain-Computer Interface', icon: Activity, color: '#FF6B6B' },
 ]
 </script>
@@ -25,22 +40,17 @@ const wearables = [
     <OnboardingModal v-if="!user.hasCompletedOnboarding" />
 
     <section class="globe-section">
-      <HeliosGlobe />
+      <HomeGlobePlaceholder v-if="!showGlobe" />
+      <HeliosGlobePanel v-else />
       <div class="globe-fade" />
     </section>
 
     <div class="content-container">
       <section class="data-section">
         <div class="data-grid">
-          <div class="data-card">
-            <SpaceWeatherGauge />
-          </div>
-          <div class="data-card">
-            <SocialJetLagScore />
-          </div>
-          <div class="data-card">
-            <EnvironmentBadge />
-          </div>
+          <SpaceWeatherGauge />
+          <SocialJetLagScore />
+          <EnvironmentBadge />
         </div>
       </section>
 
@@ -62,22 +72,13 @@ const wearables = [
             v-for="w in wearables"
             :key="w.name"
             class="integration-card"
+            :style="{ background: `color-mix(in srgb, ${w.color} ${w.mix ?? 20}%, #07111a)` }"
           >
             <component :is="w.icon" :size="18" :color="w.color" :stroke-width="1.5" />
-            <span class="font-display" style="font-size: 0.75rem; font-weight: 600; color: var(--text-primary);">
-              {{ w.name }}
-            </span>
+            <span class="int-name">{{ w.name }}</span>
             <span
-              class="font-mono"
-              :style="{
-                fontSize: '0.5rem',
-                letterSpacing: '0.1em',
-                padding: '0.15rem 0.4rem',
-                borderRadius: '3px',
-                background: `${w.color}12`,
-                color: w.color,
-                border: `1px solid ${w.color}25`,
-              }"
+              class="int-badge"
+              :style="{ color: w.color, background: `${w.color}18`, borderColor: `${w.color}35` }"
             >COMING SOON</span>
           </div>
         </div>
@@ -96,8 +97,9 @@ const wearables = [
         </p>
       </div>
 
-      <section class="chat-section">
-        <ChatInterface />
+      <section ref="chatSectionRef" class="chat-section">
+        <HomeChatPlaceholder v-if="!showChat" />
+        <ChatInterface v-else />
       </section>
     </div>
   </div>
@@ -136,20 +138,13 @@ const wearables = [
 }
 
 .data-section {
-  margin-top: 0.5rem;
+  margin-top: 5rem;
 }
 
 .data-grid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  gap: 0.75rem;
-}
-
-.data-card {
-  background: var(--bg-card);
-  border: 1px solid var(--border-subtle);
-  border-radius: 6px;
-  padding: 1.25rem;
+  gap: 0.85rem;
 }
 
 @media (max-width: 640px) {
@@ -212,16 +207,32 @@ const wearables = [
   flex-direction: column;
   align-items: center;
   gap: 0.5rem;
-  padding: 1rem 0.5rem;
+  padding: 1.1rem 0.75rem;
   text-align: center;
-  background: var(--bg-card);
-  border: 1px solid var(--border-subtle);
-  border-radius: 6px;
-  transition: border-color 0.2s;
+  border-radius: 1rem;
+  transition: transform 0.2s;
 }
 
 .integration-card:hover {
-  border-color: var(--border-card);
+  transform: translateY(-2px);
+}
+
+.int-name {
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: rgba(255, 245, 225, 0.92);
+}
+
+.int-badge {
+  font-family: var(--font-mono);
+  font-size: 0.38rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  padding: 0.15rem 0.4rem;
+  border-radius: 4px;
+  border: 1px solid;
 }
 
 .attribution {
@@ -233,10 +244,6 @@ const wearables = [
 }
 
 @media (max-width: 640px) {
-  .data-row {
-    grid-template-columns: 1fr;
-  }
-
   .content-container {
     padding: 0 1rem;
   }

@@ -24,6 +24,8 @@ import numpy as np
 from dataclasses import dataclass
 from typing import Optional
 
+from research.evidence_contract import EvidenceProfile, merge_evidence
+
 
 @dataclass
 class LightReading:
@@ -38,6 +40,16 @@ class LightProfile:
     """User light sensitivity profile for age-adjusted models."""
     age: int = 30
     light_sensitive: bool = False  # user override for higher sensitivity
+
+
+LIGHT_MELATONIN_PROFILE = EvidenceProfile(
+    evidence_tier="B",
+    effect_summary="Estimated melatonin suppression and onset delay under melanopic exposure",
+    population_summary="Controlled lab light-exposure studies in healthy adults and adolescents",
+    main_caveat="Suppression is modeled from dose-response curves and individual delay varies",
+    uncertainty_factors=["age", "sensitivity", "duration", "spectral composition"],
+    claim_boundary="Heuristic for light-risk planning, not an exact personal forecast",
+)
 
 
 # ─── Circadian Light Model ──────────────────────────────────────────────────
@@ -233,25 +245,34 @@ class CircadianLightModel:
 
         # Advisory
         if suppression_pct < 10:
-            advisory = "Minimal melatonin suppression. Sleep onset should be unaffected."
+            advisory = (
+                "rough risk estimate: minimal melatonin suppression under this model. "
+                "Sleep effects may be small, but individual sensitivity varies."
+            )
         elif suppression_pct < 30:
             advisory = (
-                f"Moderate suppression ({suppression_pct:.0f}%). "
-                f"Expect ~{onset_delay_min:.0f} min delay in sleep onset."
+                f"rough risk estimate: moderate suppression ({suppression_pct:.0f}%) with "
+                f"an approximate {onset_delay_min:.0f} min sleep-onset delay. "
+                "This is a heuristic, not a validated personal forecast."
             )
         else:
             advisory = (
-                f"Significant suppression ({suppression_pct:.0f}%). "
-                f"Expect ~{onset_delay_min:.0f} min delay. Dim lights or use blue-blocking glasses."
+                f"rough risk estimate: higher suppression ({suppression_pct:.0f}%) with "
+                f"an approximate {onset_delay_min:.0f} min sleep-onset delay. "
+                "Treat this as a heuristic and dim lights if the exposure is avoidable."
             )
 
-        return {
+        return merge_evidence(
+            {
             "suppression_pct": suppression_pct,
             "onset_delay_min": onset_delay_min,
             "ed50_used": round(ed50, 1),
             "age_factor": round(age_f, 2),
+            "model_type": "heuristic",
             "advisory": advisory,
-        }
+            },
+            LIGHT_MELATONIN_PROFILE,
+        )
 
     def screen_impact(
         self,

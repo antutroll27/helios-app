@@ -4,6 +4,50 @@ import tailwindcss from '@tailwindcss/vite'
 import { VitePWA } from 'vite-plugin-pwa'
 import path from 'path'
 
+const NODE_MODULES_SEGMENT = '/node_modules/'
+const DEFERRED_ENTRY_PATTERNS = [
+  'home-globe-',
+  'home-chat-',
+  'ChatInterface-',
+  'HeliosGlobePanel-',
+] as const
+const VENDOR_CHUNK_GROUPS = {
+  'home-globe-vendor': ['cobe', 'phenomenon'],
+  'home-ui-vendor': [
+    '@vueuse/core',
+    'lucide-vue-next',
+    'pinia',
+    'suncalc'
+  ],
+  'biometrics-vendor': ['echarts', 'vue-echarts', 'zrender']
+} as const
+
+function matchesPackage(id: string, packageName: string) {
+  return id.includes(`${NODE_MODULES_SEGMENT}${packageName}/`)
+}
+
+function isDeferredEntryAsset(dep: string) {
+  return DEFERRED_ENTRY_PATTERNS.some((pattern) => dep.includes(pattern))
+}
+
+function resolveManualChunk(id: string) {
+  if (matchesPackage(id, 'cobe') || matchesPackage(id, 'phenomenon')) {
+    return 'home-globe-vendor'
+  }
+
+  for (const [chunkName, packages] of Object.entries(VENDOR_CHUNK_GROUPS)) {
+    if (packages.some((packageName) => matchesPackage(id, packageName))) {
+      return chunkName
+    }
+  }
+
+  if (id.includes(NODE_MODULES_SEGMENT)) {
+    return 'vendor'
+  }
+
+  return undefined
+}
+
 export default defineConfig({
   plugins: [
     vue(),
@@ -42,6 +86,20 @@ export default defineConfig({
       }
     })
   ],
+  build: {
+    modulePreload: {
+      resolveDependencies(_filename, deps) {
+        return deps.filter((dep) => !isDeferredEntryAsset(dep))
+      },
+    },
+    rollupOptions: {
+      output: {
+        manualChunks(id) {
+          return resolveManualChunk(id)
+        },
+      },
+    },
+  },
   resolve: {
     alias: {
       '@': path.resolve(__dirname, './src')

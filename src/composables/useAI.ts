@@ -1,278 +1,143 @@
+import { useAuthStore } from '@/stores/auth'
 import { useGeoStore } from '@/stores/geo'
 import { useSolarStore } from '@/stores/solar'
 import { useSpaceWeatherStore } from '@/stores/spaceWeather'
 import { useEnvironmentStore } from '@/stores/environment'
 import { useProtocolStore } from '@/stores/protocol'
 import { useUserStore } from '@/stores/user'
+import { buildChatContextSnapshot } from '@/lib/chatContext'
 import type { VisualCard } from '@/stores/chat'
-
-// ─── Types ────────────────────────────────────────────────────────────────────
+import { fmtTimeInZone } from '@/lib/timezoneUtils'
 
 export interface AIResponse {
   message: string
   visualCards: VisualCard[]
 }
 
-interface OpenAIMessage {
-  role: 'system' | 'user' | 'assistant'
-  content: string
+export interface BackendAIResponse extends AIResponse {
+  sessionId?: string
 }
-
-interface ClaudeMessage {
-  role: 'user' | 'assistant'
-  content: string
-}
-
-// ─── Provider registry ────────────────────────────────────────────────────────
 
 export const PROVIDERS = [
-  { id: 'openai', name: 'OpenAI', model: 'gpt-5.3', placeholder: 'sk-...' },
-  { id: 'claude', name: 'Claude', model: 'claude-opus-4-6 / claude-sonnet-4-6', placeholder: 'sk-ant-...' },
-  { id: 'kimi', name: 'Kimi 2.5 (DeepInfra)', model: 'moonshotai/Kimi-K2-Instruct', placeholder: 'ai335...' },
-  { id: 'glm', name: 'GLM-4', model: 'glm-4-flash', placeholder: '...' },
+  { id: 'openai', name: 'OpenAI', model: 'gpt-5.4', placeholder: 'sk-...' },
+  { id: 'claude', name: 'Claude', model: 'claude-sonnet-4-6', placeholder: 'sk-ant-...' },
+  { id: 'gemini', name: 'Gemini', model: 'google/gemini-3.1-flash-lite-preview', placeholder: 'aiml-...' },
+  { id: 'grok', name: 'Grok', model: 'grok-4.20-0309-non-reasoning', placeholder: 'xai-...' },
+  { id: 'perplexity', name: 'Perplexity', model: 'sonar-pro', placeholder: 'pplx-...' },
+  { id: 'kimi', name: 'Kimi', model: 'moonshotai/Kimi-K2.5', placeholder: 'ai335...' },
+  { id: 'glm', name: 'GLM', model: 'glm-5.1', placeholder: '...' },
 ] as const
 
-const PROVIDER_CONFIGS: Record<string, { baseUrl: string; model: string }> = {
-  openai: { baseUrl: 'https://api.openai.com/v1/chat/completions', model: 'gpt-5.3' },
-  kimi: { baseUrl: 'https://api.deepinfra.com/v1/openai/chat/completions', model: 'moonshotai/Kimi-K2-Instruct' },
-  glm: { baseUrl: 'https://open.bigmodel.cn/api/paas/v4/chat/completions', model: 'glm-4-flash' },
-  claude: { baseUrl: 'https://api.anthropic.com/v1/messages', model: 'claude-opus-4-6' },
-}
-
-// ─── Utility ──────────────────────────────────────────────────────────────────
-
-function fmt(date: Date): string {
-  return date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })
-}
-
-// ─── Composable ───────────────────────────────────────────────────────────────
-
 export function useAI() {
-  /**
-   * Build the HELIOS system prompt dynamically from live stores.
-   */
-  function buildSystemPrompt(): string {
+  async function sendMessage(
+    userMessage: string,
+    provider: string,
+    apiKey: string,
+    conversationHistory: Array<{ role: 'user' | 'assistant'; content: string }> = [],
+    sessionId?: string,
+  ): Promise<BackendAIResponse> {
+    const auth = useAuthStore()
+    const backendUrl = import.meta.env.VITE_BACKEND_URL
+
+    if (!auth.isAuthenticated || !auth.csrfToken) {
+      throw new Error('HELIOS chat requires a signed-in session.')
+    }
+
     const geo = useGeoStore()
     const solar = useSolarStore()
     const spaceWeather = useSpaceWeatherStore()
     const environment = useEnvironmentStore()
     const protocol = useProtocolStore()
     const user = useUserStore()
-
     const dp = protocol.dailyProtocol
-    const wakeStart = fmt(dp.wakeWindow.time)
-    const wakeEnd = fmt(solar.wakeWindowEnd)
-    const lightDuration = protocol.morningLightDurationMin
-    const caffeineCutoff = fmt(dp.caffeineCutoff.time)
-    const focusStart = fmt(dp.peakFocus.time)
-    const focusEnd = fmt(protocol.peakFocusEnd)
-    const windDown = fmt(dp.windDown.time)
-    const sleepTime = fmt(dp.sleepWindow.time)
+    const displayTimezone = geo.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone
+    const fmtLocationTime = (date: Date) => fmtTimeInZone(date, displayTimezone)
 
-    return `You are HELIOS, a circadian intelligence engine powered by live NASA satellite data and peer-reviewed chronobiology research. You help users optimize their sleep, circadian rhythm, and biological performance.
+    const contextSnapshot = buildChatContextSnapshot({
+      geo: {
+        lat: geo.lat,
+        lng: geo.lng,
+        timezone: displayTimezone,
+        locationName: geo.locationName,
+      },
+      solar: {
+        solarPhase: solar.solarPhase,
+        elevationDeg: solar.elevationDeg,
+        sunriseTime: fmtLocationTime(solar.sunriseTime),
+        sunsetTime: fmtLocationTime(solar.sunsetTime),
+        solarNoon: fmtLocationTime(solar.solarNoon),
+      },
+      spaceWeather: {
+        kpIndex: spaceWeather.kpIndex,
+        disruptionLabel: spaceWeather.disruptionLabel,
+        bzComponent: spaceWeather.bzComponent,
+        solarWindSpeed: spaceWeather.solarWindSpeed,
+        disruptionAdvisory: spaceWeather.disruptionAdvisory,
+      },
+      environment: {
+        uvIndexNow: environment.uvIndexNow,
+        temperatureNow: environment.temperatureNow,
+        temperatureNight: environment.temperatureNight,
+        aqiLevel: environment.aqiLevel,
+        humidity: environment.humidity,
+      },
+      protocol: {
+        wakeWindow: `${fmtLocationTime(dp.wakeWindow.time)}-${fmtLocationTime(dp.wakeWindow.endTime ?? solar.wakeWindowEnd)}`,
+        caffeineCutoff: fmtLocationTime(dp.caffeineCutoff.time),
+        peakFocus: `${fmtLocationTime(dp.peakFocus.time)}-${fmtLocationTime(protocol.peakFocusEnd)}`,
+        windDown: fmtLocationTime(dp.windDown.time),
+        sleepTarget: fmtLocationTime(dp.sleepWindow.time),
+      },
+      user: {
+        usualSleepTime: user.usualSleepTime,
+        chronotype: user.chronotype,
+      },
+    })
 
-RIGHT NOW you have access to these live data feeds:
-
-LOCATION: ${geo.locationName} (${geo.lat}°, ${geo.lng}°) | Timezone: ${geo.timezone}
-SOLAR: ${solar.solarPhase} | Elevation: ${solar.elevationDeg}° | Sunrise: ${fmt(solar.sunriseTime)} | Sunset: ${fmt(solar.sunsetTime)} | Solar Noon: ${fmt(solar.solarNoon)}
-SPACE WEATHER: Kp Index: ${spaceWeather.kpIndex} (${spaceWeather.disruptionLabel}) | Bz: ${spaceWeather.bzComponent} nT | Solar Wind: ${spaceWeather.solarWindSpeed} km/s
-ADVISORY: ${spaceWeather.disruptionAdvisory}
-ENVIRONMENT: UV Index: ${environment.uvIndexNow} | Temperature: ${environment.temperatureNow}°C | Night Temp: ${environment.temperatureNight}°C | AQI: ${environment.aqiLevel} | Humidity: ${environment.humidity}%
-
-CURRENT PROTOCOL (computed from live data):
-- Wake Window: ${wakeStart} - ${wakeEnd}
-- Morning Light: ${lightDuration} min starting at ${wakeStart}
-- Caffeine Cutoff: ${caffeineCutoff}
-- Peak Focus: ${focusStart} - ${focusEnd}
-- Wind-Down: ${windDown}
-- Sleep Target: ${sleepTime}
-
-USER PROFILE: Usual sleep time: ${user.usualSleepTime} | Chronotype: ${user.chronotype}
-
-TRAVEL SAFETY: You have access to US State Department travel advisories. When a user mentions traveling to a country, include the advisory level (1-4) and any relevant safety notes. Factor stress from high-risk destinations into the sleep protocol.
-
-PEER-REVIEWED SCIENTIFIC KNOWLEDGE BASE (use these exact findings):
-
-CAFFEINE & CIRCADIAN PHASE:
-- Burke et al. (2015, Science Translational Medicine 7(305):305ra146): Double espresso equivalent 3h before bedtime delays circadian melatonin rhythm by ~40 min via adenosine receptor/cAMP mechanism. This is roughly HALF the phase delay of 3h of 3000-lux bright evening light.
-- Drake et al. (2013, J Clinical Sleep Medicine): 400mg caffeine taken 6h before bedtime STILL significantly disrupts sleep — reduces total sleep by >1h. Even 6h is not fully safe for sensitive individuals.
-- 2024 RCT (Sleep journal): Caffeine impacts exceed clinical thresholds for sleep onset latency within 12h and for sleep efficiency within 8h of bedtime.
-- Caffeine half-life is highly variable: 2-10 hours depending on genetics (CYP1A2), oral contraceptives (doubles half-life), smoking (halves it), and liver function. HELIOS uses 6h as median.
-- IMPORTANT: Do NOT claim caffeine "blocks melatonin" — it DELAYS the circadian phase via adenosine receptor antagonism in the SCN, which is mechanistically distinct from melatonin suppression by light.
-
-LIGHT & CIRCADIAN ENTRAINMENT:
-- Morning bright light (>1000 lux) suppresses melatonin and advances circadian phase. Even 350 lux causes significant suppression (Zeitzer et al. 2000, J Physiology).
-- Cortisol response to light: 800-lux exposure causes ~35% further increase in cortisol 20-40 min after waking. Effects begin within 15 min at >2000 lux.
-- Optimal morning light duration: Research commonly uses 30-60 min exposures. 20 min is a practical minimum; effects are dose-dependent on intensity x duration.
-- Blue/short-wavelength light (446-477nm) is most effective for circadian resetting via ipRGCs projecting to SCN.
-- NASA ISS uses Solid-State Light Assemblies (SSLAs) with 3 modes: General (neutral), Bedtime (red-yellow), Phase Shift (high blue).
-
-PEAK COGNITIVE PERFORMANCE:
-- Core body temperature peaks in LATE EVENING (~10 PM for typical sleepers), NOT 2-3h before sleep onset. Cognitive performance peaks in late afternoon/early evening, roughly paralleling the temperature curve.
-- The "wake maintenance zone" (hardest time to fall asleep) occurs 2-3h BEFORE habitual bedtime — this is when alertness peaks, not when you should schedule deep work.
-- Chronotype matters: morning types peak earlier (~12-2 PM), evening types peak later (~6-8 PM). Always factor chronotype.
-- CORRECTION: Do NOT say "peak focus is 2-3h before sleep." Say "cognitive performance peaks in late afternoon to early evening, varying by chronotype."
-
-GEOMAGNETIC ACTIVITY & SLEEP:
-- Burch et al. (1999, 2008, Neuroscience Letters): Elevated Kp index correlates with reduced overnight 6-OHMS (melatonin metabolite) excretion. Two independent studies in utility workers.
-- Weydahl et al. (2001): Geomagnetic activity reduces melatonin at high latitudes (70°N) more than low latitudes.
-- The mechanism is CORRELATIONAL and population-level, possibly mediated by cryptochrome photoreceptors and/or magnetite nanoparticles. NOT deterministic at individual level.
-- 2024 study (Environment International): 1-IQR increase in Kp associated with 19% increase in odds of low cognitive scores in older adults.
-- IMPORTANT: Always label geomagnetic effects as "emerging research" — the evidence is suggestive but not settled. Never overclaim.
-
-SOCIAL JET LAG:
-- Affects 70-80% of the population (≥1 hour). 30-40% experience ≥2 hours.
-- Roenneberg et al. (2012, Current Biology): Independently associated with obesity and metabolic disruption.
-- ≥2h social jet lag: higher 5h cortisol levels, reduced weekly sleep, increased resting heart rate, more physical inactivity.
-- 2024 evidence: Social jet lag impairs exercise adaptation and mitochondrial content in muscle (npj Biological Timing and Sleep).
-- Dose-dependent cardiovascular risk increase per hour of social jet lag.
-
-NASA ASTRONAUT SLEEP:
-- ISS crew average 6h sleep vs 8.5h recommended. Same circadian disruption mechanisms as travel jet lag.
-- NASA classifies sleep deficiency as Category 1 risk for long-duration missions.
-- Pre-flight phase shifting achieved 9-12h circadian shifts over 7 days using timed bright light + melatonin + sleep schedule manipulation (Whitson et al. 1995).
-- Maximum safe phase shift: ~1-1.5h per day with protocol support. This is the basis for HELIOS jet lag schedules.
-
-RULES:
-1. Always ground your advice in the live data above — cite specific values and researcher names.
-2. When the user describes travel plans, generate a jet lag recovery schedule AND mention the travel advisory level.
-3. Explain how current space weather affects their sleep using Kp and Bz values. Always note this is "emerging research."
-4. Be scientifically precise. Use the exact findings above. Never fabricate citations or overstate evidence levels.
-5. Factor chronotype into all timing recommendations — morning types vs evening types have different peak windows.
-6. You MUST respond with valid JSON in this format:
-{
-  "message": "Your conversational response here (can use markdown)",
-  "visualCards": [
-    {
-      "type": "protocol" | "jetlag_timeline" | "health_impact" | "recommendation" | "space_weather" | "environment",
-      "title": "Card title",
-      "data": { ... card-specific data }
-    }
-  ]
-}
-
-Visual card data schemas:
-- protocol: { items: [{ key, title, time, icon, subtitle }] }
-- jetlag_timeline: { days: [{ day, date, lightWindow, caffeineWindow, sleepTime, wakeTime, shiftDirection, shiftHours }], origin, destination, totalShift }
-- health_impact: { metric, value, unit, severity ("good"|"warning"|"concern"), explanation }
-- recommendation: { action, timing, reason, citation }
-- space_weather: { kp, bz, speed, score, label, advisory }
-
-7. Always include at least one visualCard in your response.
-8. For health impacts, be specific about mechanisms (adenosine antagonism, SCN phase delay, HRV suppression, cortisol elevation).
-9. Never say "NASA endorses this app" or "approved by NASA." Say "powered by NASA APIs" or "data provided by NASA."`
-  }
-
-  /**
-   * Send a message to the selected AI provider and return a structured response.
-   */
-  async function sendMessage(
-    userMessage: string,
-    provider: string,
-    apiKey: string,
-    conversationHistory: ClaudeMessage[] = [],
-    proxyUrl?: string
-  ): Promise<AIResponse> {
-    const systemPrompt = buildSystemPrompt()
-    const config = PROVIDER_CONFIGS[provider]
-
-    if (!config) {
-      throw new Error(`Unknown provider: ${provider}`)
-    }
-
-    let responseText: string
-
-    if (provider === 'claude') {
-      // ── Claude format ──────────────────────────────────────────────────────
-      const claudeMessages: ClaudeMessage[] = [
-        ...conversationHistory,
-        { role: 'user', content: userMessage },
-      ]
-
-      const url = config.baseUrl
-      const response = await fetch(url, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-api-key': apiKey,
-          'anthropic-version': '2023-06-01',
-          'anthropic-dangerous-direct-browser-access': 'true',
-        },
-        body: JSON.stringify({
-          model: config.model,
-          system: systemPrompt,
-          messages: claudeMessages,
-          max_tokens: 2000,
-        }),
-      })
-
-      if (!response.ok) {
-        const errorText = await response.text().catch(() => response.statusText)
-        throw new Error(`Claude API error ${response.status}: ${errorText}`)
-      }
-
-      const data = await response.json()
-      responseText = data?.content?.[0]?.text ?? ''
-    } else {
-      // ── OpenAI-compatible format (OpenAI, Kimi, GLM) ──────────────────────
-      const openAIMessages: OpenAIMessage[] = [
-        { role: 'system', content: systemPrompt },
-        ...conversationHistory.map((m) => ({
-          role: m.role as 'user' | 'assistant',
-          content: m.content,
-        })),
-        { role: 'user', content: userMessage },
-      ]
-
-      const url = proxyUrl ?? config.baseUrl
-      const headers: Record<string, string> = {
+    const apiBase = backendUrl ?? ''
+    const response = await fetch(`${apiBase}/api/chat/send`, {
+      method: 'POST',
+      credentials: 'include',
+      headers: {
         'Content-Type': 'application/json',
-        Authorization: `Bearer ${apiKey}`,
-      }
+        'X-HELIOS-CSRF': auth.csrfToken,
+      },
+      body: JSON.stringify({
+        message: userMessage,
+        provider,
+        api_key: apiKey.trim(),
+        session_id: sessionId ?? null,
+        context: contextSnapshot,
+        history: conversationHistory,
+      }),
+    })
 
-      if (proxyUrl) {
-        headers['X-Provider'] = provider
-      }
-
-      const response = await fetch(url, {
-        method: 'POST',
-        headers,
-        body: JSON.stringify({
-          model: config.model,
-          messages: openAIMessages,
-          temperature: 0.7,
-          max_tokens: 2000,
-        }),
-      })
-
-      if (!response.ok) {
-        const errorText = await response.text().catch(() => response.statusText)
-        throw new Error(`${provider} API error ${response.status}: ${errorText}`)
-      }
-
-      const data = await response.json()
-      responseText = data?.choices?.[0]?.message?.content ?? ''
+    if (!response.ok) {
+      const errorText = await response.text().catch(() => response.statusText)
+      throw new Error(`Backend error ${response.status}: ${errorText}`)
     }
 
-    // ── Parse structured JSON response ─────────────────────────────────────
-    return parseAIResponse(responseText)
+    const data = await response.json()
+    const messageText = typeof data.message === 'string' ? data.message : ''
+    const parsed = parseAIResponse(messageText)
+
+    return {
+      message: parsed.message,
+      visualCards: Array.isArray(data.visual_cards) ? data.visual_cards : parsed.visualCards,
+      sessionId: data.session_id,
+    }
   }
 
   return {
-    buildSystemPrompt,
     sendMessage,
   }
 }
 
-// ─── Response parser ──────────────────────────────────────────────────────────
-
 function parseAIResponse(raw: string): AIResponse {
   if (!raw) {
-    return { message: 'No response received from the AI provider.', visualCards: [] }
+    return { message: 'No response received from the backend.', visualCards: [] }
   }
 
-  // Strip markdown code fences if the model wrapped JSON in ```json ... ```
-  // The leading replace allows optional whitespace before the opening fence.
   const stripped = raw
     .replace(/^\s*```(?:json)?\s*/i, '')
     .replace(/\s*```\s*$/, '')
@@ -286,7 +151,6 @@ function parseAIResponse(raw: string): AIResponse {
       : []
     return { message, visualCards }
   } catch {
-    // JSON parsing failed — return raw text with no visual cards
     return { message: raw, visualCards: [] }
   }
 }

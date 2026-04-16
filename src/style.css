@@ -24,6 +24,28 @@
   --font-display: 'Sora', 'Space Grotesk', sans-serif;
   --font-body: 'Plus Jakarta Sans', 'Inter', sans-serif;
   --font-mono: 'Geist Mono', 'JetBrains Mono', monospace;
+
+  /* Custom micro-typography scale */
+  --font-size-5xs: 0.35rem;
+  --font-size-4xs: 0.4rem;
+  --font-size-3xs: 0.45rem;
+  --font-size-2xs: 0.48rem;
+  --font-size-xs2: 0.5rem;
+  --font-size-xs3: 0.55rem;
+  --font-size-xs4: 0.6rem;
+  --font-size-xs5: 0.65rem;
+  --font-size-xs6: 0.7rem;
+  --font-size-sm2: 0.85rem;
+  --font-size-md2: 0.9rem;
+  --font-size-lg2: 1.35rem;
+
+  /* Custom tracking scale */
+  --tracking-micro: 0.03em;
+  --tracking-tight2: -0.02em;
+  --tracking-fine: 0.05em;
+  --tracking-spread: 0.08em;
+  --tracking-label: 0.15em;
+  --tracking-ultra: 0.25em;
 }
 
 * {
@@ -40,6 +62,7 @@ body {
 }
 
 :root {
+  --navbar-height: 52px;
   --bg-primary: #0A171D;
   --bg-card: #15242E;
   --bg-card-hover: #1A2E38;
@@ -71,6 +94,23 @@ body {
 .font-body { font-family: var(--font-body); }
 .font-mono { font-family: var(--font-mono); }
 .tracking-label { letter-spacing: 0.15em; }
+.tracking-micro  { letter-spacing: 0.03em; }
+.tracking-tight2 { letter-spacing: -0.02em; }
+.tracking-fine   { letter-spacing: 0.05em; }
+.tracking-spread { letter-spacing: 0.08em; }
+.tracking-ultra  { letter-spacing: 0.25em; }
+.text-5xs { font-size: 0.35rem; }
+.text-4xs { font-size: 0.4rem; }
+.text-3xs { font-size: 0.45rem; }
+.text-2xs { font-size: 0.48rem; }
+.text-xs2 { font-size: 0.5rem; }
+.text-xs3 { font-size: 0.55rem; }
+.text-xs4 { font-size: 0.6rem; }
+.text-xs5 { font-size: 0.65rem; }
+.text-xs6 { font-size: 0.7rem; }
+.text-sm2 { font-size: 0.85rem; }
+.text-md2 { font-size: 0.9rem; }
+.text-lg2 { font-size: 1.35rem; }
 
 ::-webkit-scrollbar {
   width: 4px;
@@ -102,7 +142,7 @@ body, .theme-transition {
   background: var(--bg-card);
   border: 1px solid var(--border-card);
   border-radius: 1rem;
-  padding: 1.25rem;
+  padding: 1rem;
   transition: all 0.2s ease;
 }
 
@@ -116,6 +156,11 @@ body, .theme-transition {
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
   border-bottom: 1px solid var(--glass-border);
+}
+
+@keyframes pulse-bar {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.7; }
 }
 
 @keyframes pulse-dot {

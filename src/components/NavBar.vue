@@ -5,9 +5,10 @@ import { useSpaceWeatherStore } from '@/stores/spaceWeather'
 import { useEnvironmentStore } from '@/stores/environment'
 import { useDonkiStore } from '@/stores/donki'
 import { useTheme } from '@/composables/useTheme'
-import { Sun, Moon, Settings, RotateCcw, MapPin } from 'lucide-vue-next'
-import { useRouter } from 'vue-router'
-import { ref } from 'vue'
+import { Sun, Moon, RotateCcw, MapPin, Activity } from 'lucide-vue-next'
+import { ref, computed } from 'vue'
+import { useRouter, useRoute } from 'vue-router'
+import { useAuthStore } from '@/stores/auth'
 
 const geo = useGeoStore()
 const user = useUserStore()
@@ -15,15 +16,27 @@ const sw = useSpaceWeatherStore()
 const env = useEnvironmentStore()
 const donki = useDonkiStore()
 const { isDark, toggle } = useTheme()
-const router = useRouter()
 
 const isReloading = ref(false)
+
+const router = useRouter()
+const route  = useRoute()
+const auth   = useAuthStore()
+
+const userInitial = computed(() =>
+  auth.user?.email ? auth.user.email[0].toUpperCase() : ''
+)
+
+async function handleSignOut() {
+  await auth.signOut()
+  router.push('/')
+}
 
 async function fullReload() {
   isReloading.value = true
   // Reset onboarding so judges can see it
   user.hasCompletedOnboarding = false
-  localStorage.removeItem('helios_onboarded')
+  localStorage.removeItem('helios_hasCompletedOnboarding')
   // Re-fetch all data
   await geo.requestLocation()
   await Promise.allSettled([
@@ -60,6 +73,9 @@ async function fullReload() {
 
     <!-- Right: Controls -->
     <div class="nav-right">
+      <button class="nav-btn" title="Biometrics" @click="router.push('/biometrics')">
+        <Activity :size="15" style="color: var(--text-secondary)" />
+      </button>
       <button class="nav-btn" @click="fullReload" title="Restart demo" :disabled="isReloading">
         <RotateCcw :size="15" :class="{ 'spin-anim': isReloading }" style="color: var(--text-secondary)" />
       </button>
@@ -67,9 +83,28 @@ async function fullReload() {
         <Sun v-if="isDark" :size="15" style="color: var(--text-secondary)" />
         <Moon v-else :size="15" style="color: var(--text-secondary)" />
       </button>
-      <button class="nav-btn" @click="router.push('/settings')" title="Settings">
-        <Settings :size="15" style="color: var(--text-secondary)" />
-      </button>
+
+      <!-- Auth indicator — hidden while auth is resolving to prevent flicker -->
+      <template v-if="!auth.loading">
+        <!-- Unauthenticated: Sign in link -->
+        <RouterLink
+          v-if="!auth.isAuthenticated"
+          :to="`/auth?mode=login&redirect=${encodeURIComponent(route.path)}`"
+          class="nav-sign-in"
+        >
+          Sign in
+        </RouterLink>
+
+        <!-- Authenticated: initial avatar -->
+        <button
+          v-else
+          class="nav-avatar"
+          :title="`Signed in as ${auth.user?.email} — click to sign out`"
+          @click="handleSignOut"
+        >
+          {{ userInitial }}
+        </button>
+      </template>
     </div>
   </nav>
 </template>
@@ -84,7 +119,7 @@ async function fullReload() {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0.6rem 1.25rem;
+  padding: 0.42rem 1.1rem;
   background: var(--glass-bg);
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
@@ -132,21 +167,21 @@ async function fullReload() {
   flex-direction: column;
   align-items: center;
   overflow: visible;
-  padding: 0.25rem 0;
+  padding: 0.12rem 0;
 }
 
 .nav-logo-svg {
-  height: 36px;
+  height: 30px;
   width: auto;
   color: var(--text-primary);
   display: block;
 }
 
 .nav-tagline {
-  font-size: 0.35rem;
-  letter-spacing: 0.25em;
+  font-size: 0.31rem;
+  letter-spacing: 0.22em;
   color: var(--text-muted);
-  margin-top: 0.1rem;
+  margin-top: 0.05rem;
 }
 
 /* Right */
@@ -184,5 +219,39 @@ async function fullReload() {
 
 .spin-anim {
   animation: spin 0.8s linear infinite;
+}
+
+.nav-sign-in {
+  font-family: 'Geist Mono', monospace;
+  font-size: var(--font-size-3xs);
+  letter-spacing: var(--tracking-fine);
+  color: var(--text-muted);
+  text-decoration: none;
+  transition: color 0.15s;
+}
+
+.nav-sign-in:hover {
+  color: var(--color-nectarine, #FFBD76);
+}
+
+.nav-avatar {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--color-nectarine, #FFBD76) 15%, transparent);
+  border: 1px solid color-mix(in srgb, var(--color-nectarine, #FFBD76) 30%, transparent);
+  color: var(--color-nectarine, #FFBD76);
+  font-family: 'Geist Mono', monospace;
+  font-size: var(--font-size-xs3);
+  font-weight: 700;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: opacity 0.15s;
+}
+
+.nav-avatar:hover {
+  opacity: 0.8;
 }
 </style>

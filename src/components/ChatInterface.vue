@@ -1,8 +1,9 @@
 <script setup lang="ts">
-import { ref, computed, nextTick, watch, onMounted } from 'vue'
+import { ref, computed, nextTick, watch, onMounted, onUnmounted } from 'vue'
 import { useChatStore } from '@/stores/chat'
 import { useUserStore } from '@/stores/user'
 import { useAI, PROVIDERS } from '@/composables/useAI'
+import { useAuthStore } from '@/stores/auth'
 import ChatMessage from '@/components/ChatMessage.vue'
 import { ChevronUp, ChevronDown, Send } from 'lucide-vue-next'
 
@@ -15,24 +16,48 @@ const inputText = ref('')
 const messagesContainer = ref<HTMLElement | null>(null)
 const inputRef = ref<HTMLTextAreaElement | null>(null)
 
+const auth = useAuthStore()
+const BACKEND_URL = import.meta.env.VITE_BACKEND_URL
+
+const sessionId = ref<string | null>(null)
+let inactivityTimer: ReturnType<typeof setTimeout> | null = null
+
 const WELCOME_MESSAGE =
   "I'm HELIOS. I have access to live NASA satellite data and your local solar conditions right now. Ask me anything about your sleep, circadian rhythm, or travel plans."
 
-const hasApiKey = computed(() => !!user.apiKey)
+const backendReady = computed(() => auth.isAuthenticated && !!BACKEND_URL)
+const chatStatus = computed(() => {
+  if (!auth.isAuthenticated) {
+    return 'Sign in to chat through the backend.'
+  }
+
+  if (!BACKEND_URL) {
+    return 'Chat backend unavailable.'
+  }
+
+  if (user.apiKey) {
+    return 'Backend routed. API keys stay in this session only.'
+  }
+
+  return 'Backend routed. Shared AI can still answer without a key.'
+})
 
 const currentProviderName = computed(() => {
   const p = PROVIDERS.find((pr) => pr.id === user.provider)
   return p ? p.name : user.provider
 })
 
-// Seed welcome message on mount
 onMounted(() => {
   if (chat.messages.length === 0) {
     chat.addAssistantMessage(WELCOME_MESSAGE)
   }
 })
 
-// Auto-scroll to bottom when messages change
+onUnmounted(() => {
+  if (inactivityTimer) clearTimeout(inactivityTimer)
+  endSession()
+})
+
 watch(
   () => chat.messages.length,
   async () => {
@@ -61,43 +86,55 @@ function handleKeydown(e: KeyboardEvent) {
   }
 }
 
+async function endSession() {
+  if (!sessionId.value || !BACKEND_URL) return
+  const id = sessionId.value
+  sessionId.value = null
+  if (!auth.csrfToken) return
+  fetch(`${BACKEND_URL}/api/chat/end-session?session_id=${id}`, {
+    method: 'POST',
+    credentials: 'include',
+    headers: { 'X-HELIOS-CSRF': auth.csrfToken },
+  }).catch(() => {})
+}
+
 async function sendMessage() {
   const text = inputText.value.trim()
   if (!text || chat.isStreaming) return
-  if (!hasApiKey.value) return
 
-  // Expand on first send
   if (!isExpanded.value) isExpanded.value = true
 
   inputText.value = ''
-
-  // 1. Add user message
   chat.addUserMessage(text)
 
-  // 2. Add loading placeholder
   const loadingId = chat.addLoadingMessage()
 
   await nextTick()
   scrollToBottom()
 
   try {
-    // Build conversation history (exclude loading message)
     const history = chat.messages
       .filter((m) => !m.loading && m.id !== loadingId)
       .map((m) => ({ role: m.role as 'user' | 'assistant', content: m.content }))
 
-    // Remove the last user message from history since sendMessage adds it
     history.pop()
 
-    // 3. Call AI
     const response = await ai.sendMessage(
       text,
       user.provider,
       user.apiKey,
-      history
+      history,
+      sessionId.value ?? undefined,
     )
 
-    // 4. Finalise
+    if (response.sessionId) {
+      sessionId.value = response.sessionId
+    }
+    if (BACKEND_URL && auth.csrfToken) {
+      if (inactivityTimer) clearTimeout(inactivityTimer)
+      inactivityTimer = setTimeout(endSession, 10 * 60 * 1000)
+    }
+
     chat.finaliseMessage(loadingId, response.message, response.visualCards)
   } catch (err: unknown) {
     const errorMsg =
@@ -115,11 +152,10 @@ async function sendMessage() {
 
 <template>
   <div class="chat-interface" :class="{ 'chat-interface--expanded': isExpanded }">
-    <!-- Header -->
     <button class="chat-header" @click="toggleExpand">
       <div class="chat-header-left">
         <span class="chat-header-title font-display tracking-label">ASK HELIOS</span>
-        <span v-if="hasApiKey" class="chat-provider-chip font-mono">
+        <span v-if="auth.isAuthenticated" class="chat-provider-chip font-mono">
           {{ currentProviderName }}
         </span>
       </div>
@@ -130,7 +166,6 @@ async function sendMessage() {
       />
     </button>
 
-    <!-- Messages area (visible when expanded) -->
     <div v-if="isExpanded" ref="messagesContainer" class="chat-messages">
       <ChatMessage
         v-for="msg in chat.messages"
@@ -139,12 +174,11 @@ async function sendMessage() {
       />
     </div>
 
-    <!-- Input area -->
     <div class="chat-input-area">
-      <div v-if="!hasApiKey" class="chat-no-key">
-        <span>Configure your AI provider in settings to start chatting</span>
+      <div v-if="backendReady" class="chat-status">
+        <span>{{ chatStatus }}</span>
       </div>
-      <div v-else class="chat-input-wrap">
+      <div v-if="backendReady" class="chat-input-wrap">
         <textarea
           ref="inputRef"
           v-model="inputText"
@@ -161,6 +195,9 @@ async function sendMessage() {
         >
           <Send :size="16" color="#0A171D" />
         </button>
+      </div>
+      <div v-else class="chat-status chat-status--error">
+        <span>{{ chatStatus }}</span>
       </div>
     </div>
   </div>
@@ -180,8 +217,6 @@ async function sendMessage() {
 .chat-interface--expanded {
   max-height: 60vh;
 }
-
-/* ── Header ─────────────────────────────────────────── */
 
 .chat-header {
   display: flex;
@@ -222,8 +257,6 @@ async function sendMessage() {
   border: 1px solid rgba(0, 212, 170, 0.2);
 }
 
-/* ── Messages ───────────────────────────────────────── */
-
 .chat-messages {
   flex: 1;
   overflow-y: auto;
@@ -236,7 +269,6 @@ async function sendMessage() {
   scroll-behavior: smooth;
 }
 
-/* Hide scrollbar for clean look */
 .chat-messages::-webkit-scrollbar {
   width: 3px;
 }
@@ -244,8 +276,6 @@ async function sendMessage() {
   background: var(--border-subtle);
   border-radius: 2px;
 }
-
-/* ── Input area ─────────────────────────────────────── */
 
 .chat-input-area {
   padding: 0.75rem;
@@ -302,15 +332,17 @@ async function sendMessage() {
   cursor: not-allowed;
 }
 
-/* ── No API key notice ──────────────────────────────── */
-
-.chat-no-key {
+.chat-status {
   text-align: center;
   padding: 0.5rem 0;
 }
-.chat-no-key span {
+.chat-status span {
   font-size: 0.75rem;
   color: var(--text-muted);
   font-style: italic;
+}
+
+.chat-status--error span {
+  color: #ff8a8a;
 }
 </style>
