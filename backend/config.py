@@ -64,8 +64,8 @@ PROVIDER_CONFIGS = {
         "model": "claude-sonnet-4-6",
     },
     "gemini": {
-        "base_url": "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions",
-        "model": "gemini-3.1-pro-preview",
+        "base_url": "https://api.aimlapi.com/v1/chat/completions",
+        "model": "google/gemini-3-1-flash-lite-preview",
     },
     "grok": {
         "base_url": "https://api.x.ai/v1/chat/completions",

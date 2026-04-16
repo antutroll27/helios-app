@@ -1,7 +1,8 @@
 """
 HELIOS Backend — Multi-Provider LLM Proxy
 Ports the provider dispatch logic from useAI.ts to Python.
-Supports: OpenAI, Claude, Kimi (DeepInfra), GLM.
+Supports: OpenAI, Claude, Gemini (AIML API), Kimi (DeepInfra), GLM, Grok, Perplexity.
+All providers except Claude use the OpenAI-compatible branch (_call_openai_compatible).
 """
 
 import httpx
@@ -22,7 +23,7 @@ async def call_llm(
     Send a chat completion request to the user's chosen LLM provider.
 
     Args:
-        provider: Provider ID ("openai", "claude", "kimi", "glm")
+        provider: Provider ID ("openai", "claude", "gemini", "kimi", "glm", "grok", "perplexity")
         api_key: User's decrypted API key for this provider
         system_prompt: Full system prompt with scientific KB + memories
         messages: Conversation history [{role, content}, ...]
