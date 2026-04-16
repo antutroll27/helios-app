@@ -3,10 +3,13 @@ HELIOS Backend — Chat Router
 Handles chat messages with Hermes memory enrichment.
 """
 
+import logging
 from datetime import datetime, UTC
 from typing import Annotated, Literal, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks, Request
+
+logger = logging.getLogger(__name__)
 from pydantic import BaseModel, ConfigDict, Field, StrictStr
 
 from backend.auth.supabase_auth import (
@@ -202,7 +205,8 @@ async def send_message(
             system_prompt=system_prompt,
             messages=messages,
         )
-    except Exception:
+    except Exception as e:
+        logger.error("[helios] LLM call failed: %s", e, exc_info=True)
         raise HTTPException(status_code=502, detail="Upstream LLM provider error.")
 
     parsed = parse_ai_response(raw_response)
@@ -242,7 +246,7 @@ async def send_message(
              "visual_cards": parsed["visual_cards"]},
         ]).execute()
     except Exception as e:
-        print(f"[helios] chat_messages insert failed: {e}")
+        logger.warning("[helios] chat_messages insert failed: %s", e)
 
     return ChatResponse(
         message=parsed["message"],
@@ -322,8 +326,9 @@ async def end_session(
         enc_key = session_row.get("encrypted_api_key")
         try:
             api_key = decrypt_api_key(enc_key) if enc_key else SHARED_LLM_KEY
-        except Exception:
-            api_key = SHARED_LLM_KEY  # fallback if decryption fails
+        except Exception as e:
+            logger.warning("[helios] Decryption failed for session %s, falling back to shared key: %s", session_id, e)
+            api_key = SHARED_LLM_KEY
 
         background_tasks.add_task(
             memory_service.process_session,

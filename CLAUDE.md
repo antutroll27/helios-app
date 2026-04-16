@@ -187,9 +187,9 @@ FastAPI Backend (backend/)
 |---|---|---|
 | **1 — Chat Proxy** | `/chat/send`, `/chat/end-session`, LLM proxy, prompt builder, Supabase auth | **Built** — uses in-memory session storage; needs Supabase wiring to persist across restarts |
 | **2 — Hermes Memory** | Session → insight extraction, per-user markdown memory, prompt injection | **Hermes learner built** — memory service framework exists but not wired to Supabase; memory is currently always empty in live requests |
-| **3 — Supabase Wiring** | Connect sessions, memories, chat history to Supabase DB | **Pending** — blocked until UI and use cases are finalised |
-| **4 — Wearable Import** | Upload endpoint, file parsers (Oura, Whoop, Fitbit, Garmin, Apple, Samsung) | **Pending** — router and parsers are empty stubs |
-| **5 — Circadian Routes** | `/chronotype`, `/protocol/today`, research module API endpoints | **Pending** — research modules built in Python but not wired to any route |
+| **3 — Supabase Wiring** | Connect sessions, memories, chat history to Supabase DB | **Built** — schema applied, Supabase wired end-to-end (chat, memory, sessions) |
+| **4 — Wearable Import** | Upload endpoint, file parsers (Oura, Whoop, Fitbit, Garmin, Apple, Samsung) | **Built** — `POST /api/wearable/upload` wraps OuraParser; ZIP + JSON supported |
+| **5 — Circadian Routes** | `/chronotype`, `/protocol-score`, `/space-weather` research module endpoints | **Built** — `/api/circadian/chronotype`, `/api/circadian/protocol-score`, `/api/circadian/space-weather` live |
 
 ### Hermes Memory System
 Each user has a per-account Hermes agent that learns from their conversations:
@@ -219,8 +219,11 @@ backend/
 ├── memory/
 │   ├── hermes_learner.py      # Session processor → markdown memory (built, not yet wired)
 │   └── memory_service.py      # CRUD for user_memories in Supabase (framework only)
-├── wearable/parsers/          # Stub — routers and parsers not yet implemented
-└── circadian/                 # Stub — research module routes not yet implemented
+├── wearable/
+│   ├── router.py              # POST /api/wearable/upload (Phase 4 — built)
+│   └── parsers/oura.py        # OuraParser — ZIP + JSON (fully implemented)
+└── circadian/
+    └── router.py              # /chronotype, /protocol-score, /space-weather (Phase 5 — built)
 ```
 
 ### Backend Environment Variables
@@ -240,10 +243,10 @@ CORS_ORIGINS=http://localhost:5173,https://helios-app-six.vercel.app
 ### Built — V1
 - `chronotype_engine.py` — MCTQ (MSFsc, SJL), protocol scoring, circadian phase estimation
 - `caffeine_model.py` — Personalized pharmacokinetics (CYP1A2, ADORA2A), multi-dose tracking, optimal cutoff
-- `space_weather_bio.py` — Kp→HRV impact (Alabdali 2022), melatonin modifier (Burch 2008, labeled "preliminary"), composite disruption
 - `light_model.py` — Melanopic EDI zones (Brown 2022), melatonin suppression model (Gimenez 2022), screen/lamp impact
 
-### Built — V2
+### Built — V2 (Research-Calibrated)
+- `space_weather_bio.py` — **Fully redesigned April 2026.** Non-linear NOAA G-scale staged HRV suppression (G0: 0% → G5: 42%) anchored to Alabdali 2022 (n=809, rMSSD −14.7 ms, SDNN −8.2 ms per 75th%ile Kp). Latitude modifier (0.5× equator → 5.0× poles, anchor 42°N). Bz demoted to physics-only storm-arrival predictor with propagation time. Melatonin disruption tiers from Burch 1999/2008 + Weydahl 2001 thresholds (not `avg_kp/7.0`). `bp_advisory()` from Chen 2025 (n=554,319, rs=0.409). Cognitive modifier from Liddie 2024 (n=1,081, +19% low-MMSE odds). Mechanism note cites Kirschvink/Wang 2019 (ηp²=0.34 alpha-ERD). All effect sizes traceable to citations. See spec: `docs/superpowers/specs/2026-04-15-space-weather-bio-redesign.md`
 - `alcohol_model.py` — BAC pharmacokinetics (Widmark), HRV/deep sleep impact per drink count (Pietilä 2018, n=4,098)
 - `breathwork_model.py` — Resonance frequency finder, HRV dose-response (Laborde 2022 meta-analysis)
 - `nap_model.py` — NASA 26-min nap protocol, duration/timing optimization, coffee nap sequencing (Rosekind 1995)
@@ -258,8 +261,8 @@ CORS_ORIGINS=http://localhost:5173,https://helios-app-six.vercel.app
 - `jetlag_optimizer.py` — Kronauer model, optimal light schedules
 
 ## Wearable Data Import (No OAuth Required)
-Users export their own data and upload to HELIOS. Parser stubs exist in `backend/wearable/parsers/`:
-- **Oura** (JSON) — parser stub exists, needs implementation
+Users export their own data and upload to HELIOS via `POST /api/wearable/upload`:
+- **Oura** (ZIP or JSON) — fully implemented; ZIP preferred (includes sleep_score from daily_sleep.json)
 - **Whoop** (CSV) — planned
 - **Fitbit** (JSON via Google Takeout) — planned
 - **Samsung** (CSV) — planned

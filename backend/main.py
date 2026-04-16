@@ -3,8 +3,11 @@ HELIOS Backend — FastAPI Application
 Circadian intelligence engine with persistent memory and learning.
 """
 
+import logging
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
+
+logger = logging.getLogger(__name__)
 from fastapi.middleware.cors import CORSMiddleware
 from supabase import create_client, Client
 from backend.config import CORS_ORIGINS, SUPABASE_URL, SUPABASE_KEY
@@ -25,10 +28,10 @@ async def lifespan(app: FastAPI):
     app.state.supabase = supabase
     app.state.session_service = SessionService(supabase)
     app.state.memory_service = MemoryService(supabase)
-    print("[helios] Supabase client initialized")
+    logger.info("[helios] Supabase client initialized")
     yield
     # Shutdown — nothing to teardown for Supabase client
-    print("[helios] Shutting down")
+    logger.info("[helios] Shutting down")
 
 
 app = FastAPI(
@@ -43,8 +46,8 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=CORS_ORIGINS,
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["GET", "POST", "DELETE"],
+    allow_headers=["Content-Type", "Authorization", "X-HELIOS-CSRF"],
 )
 
 
@@ -71,10 +74,10 @@ app.include_router(auth_router, prefix="/api/auth", tags=["auth"])
 # from backend.memory.router import router as memory_router
 # app.include_router(memory_router, prefix="/api/memories", tags=["memory"])
 
-# Phase 4: Wearable (uncomment when built)
-# from backend.wearable.router import router as wearable_router
-# app.include_router(wearable_router, prefix="/api/wearable", tags=["wearable"])
+# Phase 4: Wearable
+from backend.wearable.router import router as wearable_router
+app.include_router(wearable_router, prefix="/api/wearable", tags=["wearable"])
 
-# Phase 5: Circadian (uncomment when built)
-# from backend.circadian.router import router as circadian_router
-# app.include_router(circadian_router, prefix="/api", tags=["circadian"])
+# Phase 5: Circadian
+from backend.circadian.router import router as circadian_router
+app.include_router(circadian_router, prefix="/api/circadian", tags=["circadian"])

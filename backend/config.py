@@ -28,7 +28,7 @@ ENCRYPTION_KEY = os.environ.get("ENCRYPTION_KEY", "")  # Fernet key for API key 
 # This keeps the onboarding frictionless — they can always add their own later.
 # Rate-limited per user to prevent abuse.
 
-SHARED_LLM_PROVIDER = os.environ.get("SHARED_LLM_PROVIDER", "kimi")  # cheapest default
+SHARED_LLM_PROVIDER = os.environ.get("SHARED_LLM_PROVIDER", "gemini")  # free-tier default
 SHARED_LLM_KEY = os.environ.get("SHARED_LLM_KEY", "")
 SHARED_LLM_RATE_LIMIT = int(os.environ.get("SHARED_LLM_RATE_LIMIT", "20"))  # msgs/day per user
 NASA_API_KEY = os.environ.get("NASA_API_KEY", os.environ.get("VITE_NASA_API_KEY", "DEMO_KEY"))
@@ -64,8 +64,9 @@ PROVIDER_CONFIGS = {
         "model": "claude-sonnet-4-6",
     },
     "gemini": {
-        "base_url": "https://api.aimlapi.com/v1/chat/completions",
-        "model": "google/gemini-3-1-flash-lite-preview",
+        # Google's native OpenAI-compatible endpoint — works with AIzaSy... keys from AI Studio
+        "base_url": "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions",
+        "model": "gemini-3.1-flash-lite-preview",
     },
     "grok": {
         "base_url": "https://api.x.ai/v1/chat/completions",

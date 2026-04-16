@@ -21,7 +21,7 @@ export interface BackendAIResponse extends AIResponse {
 export const PROVIDERS = [
   { id: 'openai', name: 'OpenAI', model: 'gpt-5.4', placeholder: 'sk-...' },
   { id: 'claude', name: 'Claude', model: 'claude-sonnet-4-6', placeholder: 'sk-ant-...' },
-  { id: 'gemini', name: 'Gemini', model: 'google/gemini-3-1-flash-lite-preview', placeholder: 'aiml-...' },
+  { id: 'gemini', name: 'Gemini', model: 'gemini-3.1-flash-lite-preview', placeholder: 'AIzaSy...' },
   { id: 'grok', name: 'Grok', model: 'grok-4.20-0309-non-reasoning', placeholder: 'xai-...' },
   { id: 'perplexity', name: 'Perplexity', model: 'sonar-pro', placeholder: 'pplx-...' },
   { id: 'kimi', name: 'Kimi', model: 'moonshotai/Kimi-K2.5', placeholder: 'ai335...' },

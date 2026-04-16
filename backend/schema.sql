@@ -49,7 +49,7 @@ ALTER TABLE public.chat_sessions
 ALTER TABLE public.chat_sessions
   ADD COLUMN IF NOT EXISTS hermes_processing BOOLEAN DEFAULT FALSE;
 
-CREATE INDEX idx_chat_sessions_user ON public.chat_sessions(user_id);
+CREATE INDEX IF NOT EXISTS idx_chat_sessions_user ON public.chat_sessions(user_id);
 
 CREATE TABLE IF NOT EXISTS public.public_api_cache (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -104,7 +104,7 @@ CREATE TABLE IF NOT EXISTS public.chat_messages (
     timestamp TIMESTAMPTZ DEFAULT NOW()
 );
 
-CREATE INDEX idx_chat_messages_session ON public.chat_messages(session_id);
+CREATE INDEX IF NOT EXISTS idx_chat_messages_session ON public.chat_messages(session_id);
 
 -- ─── Sleep Logs (maps to SleepLog dataclass) ────────────────────────────────
 
@@ -125,7 +125,7 @@ CREATE TABLE IF NOT EXISTS public.sleep_logs (
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
-CREATE INDEX idx_sleep_logs_user_date ON public.sleep_logs(user_id, date);
+CREATE INDEX IF NOT EXISTS idx_sleep_logs_user_date ON public.sleep_logs(user_id, date);
 
 -- ─── Data Imports (wearable file uploads) ───────────────────────────────────
 
@@ -156,7 +156,7 @@ CREATE TABLE IF NOT EXISTS public.protocol_logs (
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
-CREATE INDEX idx_protocol_logs_user_date ON public.protocol_logs(user_id, date);
+CREATE INDEX IF NOT EXISTS idx_protocol_logs_user_date ON public.protocol_logs(user_id, date);
 
 -- ─── Caffeine Logs ──────────────────────────────────────────────────────────
 
@@ -169,7 +169,7 @@ CREATE TABLE IF NOT EXISTS public.caffeine_logs (
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
-CREATE INDEX idx_caffeine_logs_user_date ON public.caffeine_logs(user_id, time);
+CREATE INDEX IF NOT EXISTS idx_caffeine_logs_user_date ON public.caffeine_logs(user_id, time);
 
 -- ─── Biometric Logs (HR, HRV, skin temp, etc.) ─────────────────────────────
 
@@ -183,7 +183,7 @@ CREATE TABLE IF NOT EXISTS public.biometric_logs (
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
-CREATE INDEX idx_biometric_logs_user_metric ON public.biometric_logs(user_id, metric, timestamp);
+CREATE INDEX IF NOT EXISTS idx_biometric_logs_user_metric ON public.biometric_logs(user_id, metric, timestamp);
 
 -- ─── Row Level Security ─────────────────────────────────────────────────────
 
@@ -201,17 +201,61 @@ ALTER TABLE public.shared_llm_usage ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.app_sessions ENABLE ROW LEVEL SECURITY;
 
 -- Users can only access their own data
-CREATE POLICY users_own_data ON public.users FOR ALL USING (auth.uid() = id);
-CREATE POLICY memories_own_data ON public.user_memories FOR ALL USING (auth.uid() = user_id);
-CREATE POLICY sessions_own_data ON public.chat_sessions FOR ALL USING (auth.uid() = user_id);
-CREATE POLICY messages_own_data ON public.chat_messages FOR ALL USING (
-    session_id IN (SELECT id FROM public.chat_sessions WHERE user_id = auth.uid())
-);
-CREATE POLICY sleep_own_data ON public.sleep_logs FOR ALL USING (auth.uid() = user_id);
-CREATE POLICY imports_own_data ON public.data_imports FOR ALL USING (auth.uid() = user_id);
-CREATE POLICY protocol_own_data ON public.protocol_logs FOR ALL USING (auth.uid() = user_id);
-CREATE POLICY caffeine_own_data ON public.caffeine_logs FOR ALL USING (auth.uid() = user_id);
-CREATE POLICY biometric_own_data ON public.biometric_logs FOR ALL USING (auth.uid() = user_id);
+DO $$ BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE schemaname='public' AND tablename='users' AND policyname='users_own_data') THEN
+        CREATE POLICY users_own_data ON public.users FOR ALL USING (auth.uid() = id);
+    END IF;
+END $$;
+
+DO $$ BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE schemaname='public' AND tablename='user_memories' AND policyname='memories_own_data') THEN
+        CREATE POLICY memories_own_data ON public.user_memories FOR ALL USING (auth.uid() = user_id);
+    END IF;
+END $$;
+
+DO $$ BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE schemaname='public' AND tablename='chat_sessions' AND policyname='sessions_own_data') THEN
+        CREATE POLICY sessions_own_data ON public.chat_sessions FOR ALL USING (auth.uid() = user_id);
+    END IF;
+END $$;
+
+DO $$ BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE schemaname='public' AND tablename='chat_messages' AND policyname='messages_own_data') THEN
+        CREATE POLICY messages_own_data ON public.chat_messages FOR ALL USING (
+            session_id IN (SELECT id FROM public.chat_sessions WHERE user_id = auth.uid())
+        );
+    END IF;
+END $$;
+
+DO $$ BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE schemaname='public' AND tablename='sleep_logs' AND policyname='sleep_own_data') THEN
+        CREATE POLICY sleep_own_data ON public.sleep_logs FOR ALL USING (auth.uid() = user_id);
+    END IF;
+END $$;
+
+DO $$ BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE schemaname='public' AND tablename='data_imports' AND policyname='imports_own_data') THEN
+        CREATE POLICY imports_own_data ON public.data_imports FOR ALL USING (auth.uid() = user_id);
+    END IF;
+END $$;
+
+DO $$ BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE schemaname='public' AND tablename='protocol_logs' AND policyname='protocol_own_data') THEN
+        CREATE POLICY protocol_own_data ON public.protocol_logs FOR ALL USING (auth.uid() = user_id);
+    END IF;
+END $$;
+
+DO $$ BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE schemaname='public' AND tablename='caffeine_logs' AND policyname='caffeine_own_data') THEN
+        CREATE POLICY caffeine_own_data ON public.caffeine_logs FOR ALL USING (auth.uid() = user_id);
+    END IF;
+END $$;
+
+DO $$ BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE schemaname='public' AND tablename='biometric_logs' AND policyname='biometric_own_data') THEN
+        CREATE POLICY biometric_own_data ON public.biometric_logs FOR ALL USING (auth.uid() = user_id);
+    END IF;
+END $$;
 
 DO $$
 BEGIN

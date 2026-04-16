@@ -4,8 +4,11 @@ Reads and writes per-user markdown memory files in Supabase.
 No Mem0, no pgvector, no shared API keys — just Postgres + markdown.
 """
 
+import logging
 from typing import Optional
 from backend.memory.hermes_learner import DEFAULT_MEMORY, HermesLearner
+
+logger = logging.getLogger(__name__)
 
 
 class MemoryService:
@@ -31,6 +34,7 @@ class MemoryService:
             if result.data and result.data.get("memory_md"):
                 return result.data["memory_md"]
         except Exception:
+            # supabase-py .single() raises when no row exists — expected for new users
             pass
         return DEFAULT_MEMORY
 
@@ -75,7 +79,7 @@ class MemoryService:
                 .execute()
             messages = result.data or []  # supabase-py returns None (not []) for empty results
         except Exception as e:
-            print(f"[hermes] Failed to fetch messages for session {session_id}: {e}")
+            logger.warning("[hermes] Failed to fetch messages for session %s: %s", session_id, e)
             return None
 
         if len(messages) < 4:  # Need at least 2 full exchanges
@@ -97,7 +101,7 @@ class MemoryService:
                 .eq("id", session_id) \
                 .execute()
         except Exception as e:
-            print(f"[hermes] Failed to mark session {session_id} processed: {e}")
+            logger.warning("[hermes] Failed to mark session %s processed: %s", session_id, e)
 
         return updated_memory
 
