@@ -38,7 +38,7 @@ AQICN_TOKEN = os.environ.get("AQICN_TOKEN", os.environ.get("VITE_AQICN_TOKEN", "
 
 CORS_ORIGINS = os.environ.get(
     "CORS_ORIGINS",
-    "http://localhost:5173,http://localhost:5174,https://helios-app-six.vercel.app"
+    "http://localhost:5173,http://localhost:5174,https://helios-app.pages.dev"
 ).split(",")
 
 PUBLIC_ENVIRONMENT_CACHE_TTL_SECONDS = int(os.environ.get("PUBLIC_ENVIRONMENT_CACHE_TTL_SECONDS", "600"))
