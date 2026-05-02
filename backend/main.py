@@ -70,9 +70,9 @@ app.include_router(public_router, prefix="/api/public", tags=["public"])
 from backend.auth.router import router as auth_router
 app.include_router(auth_router, prefix="/api/auth", tags=["auth"])
 
-# Phase 2: Memory (uncomment when built)
-# from backend.memory.router import router as memory_router
-# app.include_router(memory_router, prefix="/api/memories", tags=["memory"])
+# Phase 2: Memory
+from backend.memory.router import router as memory_router
+app.include_router(memory_router, prefix="/api/memories", tags=["memory"])
 
 # Phase 4: Wearable
 from backend.wearable.router import router as wearable_router

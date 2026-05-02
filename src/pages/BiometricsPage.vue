@@ -1,5 +1,4 @@
 <script setup lang="ts">
-import { onMounted } from 'vue'
 import { useBiometricsStore } from '@/stores/biometrics'
 import BiometricsHeader from '@/components/biometrics/BiometricsHeader.vue'
 import HRVHeroCell from '@/components/biometrics/HRVHeroCell.vue'
@@ -15,7 +14,6 @@ import BiometricsEmptyState from '@/components/biometrics/BiometricsEmptyState.v
 import ProtocolIntelligenceSection from '@/components/biometrics/ProtocolIntelligenceSection.vue'
 
 const biometrics = useBiometricsStore()
-onMounted(() => biometrics.loadMockData())
 function triggerFileInput() { document.getElementById('wearable-file-input')?.click() }
 </script>
 

@@ -921,15 +921,23 @@ export const useBiometricsStore = defineStore('biometrics', () => {
     dateRange.value = range
   }
 
+  const STORAGE_KEY = 'helios_biometrics_logs'
+
   function loadMockData() {
     logs.value = MOCK_SLEEP_LOGS
     dataSource.value = 'mock'
   }
 
   function ingestParsedLogs(newLogs: SleepLog[]) {
-    logs.value = [...newLogs].sort((a, b) => a.date.localeCompare(b.date))
+    const sorted = [...newLogs].sort((a, b) => a.date.localeCompare(b.date))
+    logs.value = sorted
     dataSource.value = 'uploaded'
     uploadStatus.value = 'success'
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(sorted))
+    } catch {
+      // localStorage unavailable (private browsing quota) — data lives in memory only
+    }
   }
 
   function setUploadStatus(status: UploadStatus, err?: string) {
@@ -937,8 +945,23 @@ export const useBiometricsStore = defineStore('biometrics', () => {
     uploadError.value = err ?? null
   }
 
-  // Auto-load mock data on store creation
-  loadMockData()
+  // On init: restore real uploaded logs from localStorage; fall back to mock
+  ;(function init() {
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY)
+      if (raw) {
+        const parsed: SleepLog[] = JSON.parse(raw)
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          logs.value = parsed
+          dataSource.value = 'uploaded'
+          return
+        }
+      }
+    } catch {
+      // corrupted storage — fall through to mock
+    }
+    loadMockData()
+  })()
 
   return {
     // State
