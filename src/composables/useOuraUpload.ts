@@ -32,17 +32,20 @@ export function useOuraUpload() {
 
         if (response.ok) {
           const data = await response.json()
-          // Map backend SleepLog shape to store SleepLog type
-          const logs: SleepLog[] = (data.logs ?? []).map((l: Record<string, unknown>) => ({
-            date: l.date as string,
-            sleep_onset: (l.sleep_onset as string) ?? '',
-            wake_time: (l.wake_time as string) ?? '',
-            total_sleep_min: (l.total_sleep_min as number) ?? 0,
-            hrv_avg: l.hrv_avg as number | undefined,
-            sleep_score: l.sleep_score as number | undefined,
-            source: 'oura' as const,
-          }))
-          biometrics.ingestParsedLogs(logs)
+          if (Array.isArray(data.logs)) {
+            const logs: SleepLog[] = data.logs.map((l: Record<string, unknown>) => ({
+              date: l.date as string,
+              sleep_onset: (l.sleep_onset as string) ?? '',
+              wake_time: (l.wake_time as string) ?? '',
+              total_sleep_min: (l.total_sleep_min as number) ?? 0,
+              hrv_avg: l.hrv_avg as number | undefined,
+              sleep_score: l.sleep_score as number | undefined,
+              source: 'oura' as const,
+            }))
+            biometrics.ingestParsedLogs(logs)
+          } else {
+            biometrics.setUploadStatus('success')
+          }
           return
         }
 

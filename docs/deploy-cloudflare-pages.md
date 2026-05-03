@@ -50,10 +50,10 @@ Under **Environment variables** → **Production**, add all of the following:
 | `VITE_SUPABASE_URL` | `https://zciyjaaigefeearpzsip.supabase.co` |
 | `VITE_SUPABASE_ANON_KEY` | *(your Supabase anon/publishable key)* |
 | `VITE_BACKEND_URL` | `https://helios-backend-production.up.railway.app` |
-| `VITE_AQICN_TOKEN` | *(your AQICN token from `.env`)* |
-| `VITE_NASA_API_KEY` | *(your NASA API key from `.env`)* |
 
 Then click **Save and Deploy**.
+
+AQICN and NASA data-source tokens are backend-only secrets. Set them on Railway or the backend host as `AQICN_TOKEN` and `NASA_API_KEY`; do not expose them as `VITE_*` browser variables.
 
 ---
 

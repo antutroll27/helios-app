@@ -81,3 +81,7 @@ app.include_router(wearable_router, prefix="/api/wearable", tags=["wearable"])
 # Phase 5: Circadian
 from backend.circadian.router import router as circadian_router
 app.include_router(circadian_router, prefix="/api/circadian", tags=["circadian"])
+
+# Phase 6: Lab (exercise timing, meal window, supplements)
+from backend.lab.router import router as lab_router
+app.include_router(lab_router, prefix="/api/lab", tags=["lab"])

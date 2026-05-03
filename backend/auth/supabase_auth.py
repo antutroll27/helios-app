@@ -67,7 +67,7 @@ async def get_current_user(
                 "verify_iss": bool(issuer),
             },
         )
-    except (JWTError, Exception):
+    except JWTError:
         raise HTTPException(status_code=401, detail="Unauthorized")
 
     if not isinstance(payload, dict) or not payload.get("sub"):
@@ -78,8 +78,13 @@ async def get_current_user(
 
 async def get_current_user_from_session(
     request: Request,
-    credentials: Optional[HTTPAuthorizationCredentials] = Depends(security),
 ) -> str:
+    """
+    Require a backend-issued session cookie for normal app routes.
+
+    Bearer tokens are intentionally ignored here so browser routes cannot bypass
+    the httpOnly session + CSRF architecture.
+    """
     session_service = getattr(request.app.state, "session_service", None)
     session_id = request.cookies.get(SESSION_COOKIE_NAME)
 
@@ -89,4 +94,4 @@ async def get_current_user_from_session(
             request.state.auth_session = session
             return session["user_id"]
 
-    return await get_current_user(credentials)
+    raise HTTPException(status_code=401, detail="Unauthorized")

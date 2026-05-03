@@ -104,6 +104,7 @@ export const useAuthStore = defineStore('auth', () => {
     loading,
     error,
     isAuthenticated,
+    applyPayload,
     init,
     dispose,
     signIn,

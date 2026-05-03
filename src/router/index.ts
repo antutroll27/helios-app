@@ -8,6 +8,7 @@ const router = createRouter({
     { path: '/biometrics', name: 'biometrics', component: () => import('@/pages/BiometricsPage.vue') },
     { path: '/lab', component: () => import('@/pages/LabPage.vue') },
     { path: '/auth', name: 'auth', component: () => import('@/pages/AuthPage.vue') },
+    { path: '/auth/callback', name: 'auth-callback', component: () => import('@/pages/AuthCallbackPage.vue') },
   ]
 })
 

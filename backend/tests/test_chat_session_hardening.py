@@ -1,6 +1,8 @@
 from types import SimpleNamespace
 
+import pytest
 from fastapi import FastAPI, Request
+from fastapi import HTTPException
 from fastapi.testclient import TestClient
 from unittest.mock import AsyncMock, MagicMock
 
@@ -36,14 +38,13 @@ def build_app() -> FastAPI:
     return app
 
 
-def test_shared_usage_is_read_from_db_not_memory(monkeypatch):
+def test_shared_usage_limit_denies_from_atomic_rpc(monkeypatch):
     app = build_app()
     client = TestClient(app)
     monkeypatch.setattr(chat_router, "SHARED_LLM_KEY", "shared-key")
-    monkeypatch.setattr(chat_router, "SHARED_LLM_PROVIDER", "kimi")
-    usage_query = app.state.supabase.table.return_value.select.return_value
-    usage_query.eq.return_value.eq.return_value.execute.return_value = SimpleNamespace(
-        data=[{"count": chat_router.SHARED_LLM_RATE_LIMIT}]
+    monkeypatch.setattr(chat_router, "SHARED_LLM_PROVIDER", "gemini")
+    app.state.supabase.rpc.return_value.execute.return_value = SimpleNamespace(
+        data={"allowed": False, "count": chat_router.SHARED_LLM_RATE_LIMIT, "limit": chat_router.SHARED_LLM_RATE_LIMIT}
     )
 
     response = client.post(
@@ -57,6 +58,37 @@ def test_shared_usage_is_read_from_db_not_memory(monkeypatch):
     )
 
     assert response.status_code == 429
+    app.state.supabase.rpc.assert_called_once()
+
+
+def test_shared_usage_consumption_uses_atomic_db_rpc(monkeypatch):
+    db = MagicMock()
+    db.rpc.return_value.execute.return_value = SimpleNamespace(
+        data={"allowed": True, "count": 1, "limit": 20}
+    )
+    monkeypatch.setattr(chat_router, "SHARED_LLM_RATE_LIMIT", 20)
+
+    usage = chat_router._consume_shared_llm_usage(db, "user-123")
+
+    db.rpc.assert_called_once_with(
+        "consume_shared_llm_usage",
+        {"p_user_id": "user-123", "p_limit": 20},
+    )
+    assert usage == {"allowed": True, "count": 1, "limit": 20}
+
+
+def test_shared_usage_consumption_rejects_when_rpc_denies(monkeypatch):
+    db = MagicMock()
+    db.rpc.return_value.execute.return_value = SimpleNamespace(
+        data={"allowed": False, "count": 20, "limit": 20}
+    )
+    monkeypatch.setattr(chat_router, "SHARED_LLM_RATE_LIMIT", 20)
+
+    with pytest.raises(HTTPException) as exc_info:
+        chat_router._consume_shared_llm_usage(db, "user-123")
+
+    assert exc_info.value.status_code == 429
+    assert exc_info.value.detail == "Daily AI limit reached. Add your own API key in Settings for unlimited access."
 
 
 def test_end_session_returns_already_processing_when_hermes_lock_is_set():

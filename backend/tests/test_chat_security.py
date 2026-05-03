@@ -165,6 +165,22 @@ async def test_get_current_user_validates_supabase_issuer_and_audience(monkeypat
     assert captured["options"] == {"verify_aud": True, "verify_iss": True}
 
 
+@pytest.mark.asyncio
+async def test_session_auth_rejects_bearer_token_without_backend_cookie(monkeypatch):
+    request = SimpleNamespace(
+        app=SimpleNamespace(state=SimpleNamespace(session_service=FakeSessionService())),
+        cookies={},
+        state=SimpleNamespace(),
+    )
+    monkeypatch.setattr(supabase_auth, "get_current_user", AsyncMock(return_value="user-123"))
+
+    with pytest.raises(HTTPException) as exc_info:
+        await supabase_auth.get_current_user_from_session(request)
+
+    assert exc_info.value.status_code == 401
+    assert exc_info.value.detail == "Unauthorized"
+
+
 def test_send_rejects_missing_csrf_when_cookie_session_is_used(monkeypatch):
     app = FastAPI()
     app.include_router(chat_router.router, prefix="/api/chat", tags=["chat"])

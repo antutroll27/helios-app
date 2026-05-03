@@ -73,6 +73,59 @@ CREATE TABLE IF NOT EXISTS public.shared_llm_usage (
     PRIMARY KEY (user_id, usage_date)
 );
 
+CREATE OR REPLACE FUNCTION public.consume_shared_llm_usage(
+    p_user_id UUID,
+    p_limit INT
+)
+RETURNS TABLE(allowed BOOLEAN, "count" INT, "limit" INT)
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+    v_count INT;
+BEGIN
+    IF p_limit < 1 THEN
+        RETURN QUERY SELECT FALSE, 0, p_limit;
+        RETURN;
+    END IF;
+
+    IF auth.uid() IS NOT NULL AND auth.uid() <> p_user_id THEN
+        RAISE EXCEPTION 'Unauthorized shared LLM usage update'
+            USING ERRCODE = '42501';
+    END IF;
+
+    INSERT INTO public.shared_llm_usage (user_id, usage_date, count, updated_at)
+    VALUES (p_user_id, CURRENT_DATE, 0, NOW())
+    ON CONFLICT (user_id, usage_date) DO NOTHING;
+
+    UPDATE public.shared_llm_usage
+    SET count = public.shared_llm_usage.count + 1,
+        updated_at = NOW()
+    WHERE user_id = p_user_id
+      AND usage_date = CURRENT_DATE
+      AND public.shared_llm_usage.count < p_limit
+    RETURNING public.shared_llm_usage.count INTO v_count;
+
+    IF v_count IS NULL THEN
+        SELECT public.shared_llm_usage.count
+        INTO v_count
+        FROM public.shared_llm_usage
+        WHERE user_id = p_user_id
+          AND usage_date = CURRENT_DATE;
+
+        RETURN QUERY SELECT FALSE, COALESCE(v_count, p_limit), p_limit;
+        RETURN;
+    END IF;
+
+    RETURN QUERY SELECT TRUE, v_count, p_limit;
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.consume_shared_llm_usage(UUID, INT) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION public.consume_shared_llm_usage(UUID, INT) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.consume_shared_llm_usage(UUID, INT) TO service_role;
+
 CREATE TABLE IF NOT EXISTS public.app_sessions (
     id TEXT PRIMARY KEY,
     user_id UUID NOT NULL REFERENCES public.users(id) ON DELETE CASCADE,

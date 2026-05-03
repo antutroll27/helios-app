@@ -88,57 +88,38 @@ def require_csrf(request: Request) -> None:
         raise HTTPException(status_code=403, detail="CSRF validation failed")
 
 
-# ─── Shared key rate limiting (in-memory, per-user daily count) ──────────────
+# ─── Shared key rate limiting (durable, per-user daily count) ──────────────
 
 def _shared_usage_date() -> str:
     return datetime.now(UTC).date().isoformat()
 
 
-def _get_or_create_shared_usage(db, user_id: str) -> dict:
-    usage_date = _shared_usage_date()
-    existing = (
-        db.table("shared_llm_usage")
-        .select("count")
-        .eq("user_id", user_id)
-        .eq("usage_date", usage_date)
-        .execute()
-    )
-    if existing.data:
-        return existing.data[0]
+def _normalize_shared_usage_rpc_result(data) -> dict:
+    if isinstance(data, list):
+        return data[0] if data else {}
+    if isinstance(data, dict):
+        return data
+    return {}
 
-    (
-        db.table("shared_llm_usage")
-        .upsert(
-            {
-                "user_id": user_id,
-                "usage_date": usage_date,
-                "count": 0,
-            },
-            on_conflict="user_id,usage_date",
+
+def _consume_shared_llm_usage(db, user_id: str) -> dict:
+    """Atomically consume one shared-key daily quota slot in Postgres."""
+    result = db.rpc(
+        "consume_shared_llm_usage",
+        {
+            "p_user_id": user_id,
+            "p_limit": SHARED_LLM_RATE_LIMIT,
+        },
+    ).execute()
+    usage = _normalize_shared_usage_rpc_result(getattr(result, "data", None))
+
+    if not usage.get("allowed"):
+        raise HTTPException(
+            status_code=429,
+            detail="Daily AI limit reached. Add your own API key in Settings for unlimited access.",
         )
-        .execute()
-    )
-    return {"count": 0}
 
-
-def _increment_shared_usage(db, user_id: str) -> int:
-    usage_date = _shared_usage_date()
-    current = int(_get_or_create_shared_usage(db, user_id)["count"])
-    next_count = current + 1
-    (
-        db.table("shared_llm_usage")
-        .upsert(
-            {
-                "user_id": user_id,
-                "usage_date": usage_date,
-                "count": next_count,
-                "updated_at": datetime.now(UTC).isoformat(),
-            },
-            on_conflict="user_id,usage_date",
-        )
-        .execute()
-    )
-    return next_count
+    return usage
 
 
 # ─── Memory-enriched chat endpoint ──────────────────────────────────────────
@@ -163,11 +144,9 @@ async def send_message(
     if using_shared:
         if not SHARED_LLM_KEY:
             raise HTTPException(status_code=503, detail="Shared AI is not configured. Please add your own API key in Settings.")
-        if int(_get_or_create_shared_usage(supabase, user_id)["count"]) >= SHARED_LLM_RATE_LIMIT:
-            raise HTTPException(status_code=429, detail="Daily AI limit reached. Add your own API key in Settings for unlimited access.")
         provider = SHARED_LLM_PROVIDER
         api_key = SHARED_LLM_KEY
-        _increment_shared_usage(supabase, user_id)
+        _consume_shared_llm_usage(supabase, user_id)
     else:
         provider = body.provider
         api_key = body.api_key

@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>HELIOS — Refreshing</title>
+  <style>
+    body { margin: 0; background: #0A171D; display: flex; align-items: center; justify-content: center; min-height: 100vh; }
+    p { font-family: monospace; color: #FFBD76; letter-spacing: 0.08em; font-size: 0.75rem; }
+  </style>
+</head>
+<body>
+  <p>Refreshing HELIOS…</p>
+  <script>
+    (async () => {
+      if ('caches' in window) {
+        const keys = await caches.keys()
+        await Promise.all(keys.map(k => caches.delete(k)))
+      }
+      if ('serviceWorker' in navigator) {
+        const regs = await navigator.serviceWorker.getRegistrations()
+        await Promise.all(regs.map(r => r.unregister()))
+      }
+      window.location.replace('/auth?mode=signup')
+    })()
+  </script>
+</body>
+</html>

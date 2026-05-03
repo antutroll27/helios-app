@@ -29,13 +29,9 @@ class MemoryService:
         Fetch the user's memory markdown from Supabase.
         Returns DEFAULT_MEMORY if no memory exists yet.
         """
-        try:
-            result = self.db.table("user_memories").select("memory_md").eq("user_id", user_id).single().execute()
-            if result.data and result.data.get("memory_md"):
-                return result.data["memory_md"]
-        except Exception:
-            # supabase-py .single() raises when no row exists — expected for new users
-            pass
+        result = self.db.table("user_memories").select("memory_md").eq("user_id", user_id).maybe_single().execute()
+        if result.data and result.data.get("memory_md"):
+            return result.data["memory_md"]
         return DEFAULT_MEMORY
 
     async def save_memory(self, user_id: str, memory_md: str) -> None:

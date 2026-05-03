@@ -9,7 +9,7 @@ A hackathon-winning circadian intelligence app that uses live NASA satellite dat
 - **State**: Pinia stores (`src/stores/`)
 - **3D Globe**: COBE library (`cobe`) — canvas-based WebGL globe with drag, idle drift, and marker support
 - **Astronomy**: SunCalc.js (client-side solar position, sunrise/sunset calculations)
-- **AI Chat**: 4 providers — OpenAI, Claude (Anthropic), Kimi via DeepInfra, GLM via Zhipu AI (`src/composables/useAI.ts`)
+- **AI Chat**: 7 providers — OpenAI, Claude, Gemini (AIML API), Grok, Perplexity, Kimi (DeepInfra), GLM (`src/composables/useAI.ts`)
 - **APIs**: NASA DONKI, NOAA SWPC (space weather), Open-Meteo (weather), AQICN (air quality)
 - **Build**: Vite 8, vite-plugin-pwa + workbox
 - **Research**: Python research engine — 7 peer-reviewed modules (`research/`)
@@ -188,11 +188,12 @@ FastAPI Backend (backend/)
 
 | Phase | What | Status |
 |---|---|---|
-| **1 — Chat Proxy** | `/chat/send`, `/chat/end-session`, LLM proxy, prompt builder, Supabase auth | **Built** — uses in-memory session storage; needs Supabase wiring to persist across restarts |
-| **2 — Hermes Memory** | Session → insight extraction, per-user markdown memory, prompt injection | **Hermes learner built** — memory service framework exists but not wired to Supabase; memory is currently always empty in live requests |
-| **3 — Supabase Wiring** | Connect sessions, memories, chat history to Supabase DB | **Built** — schema applied, Supabase wired end-to-end (chat, memory, sessions) |
-| **4 — Wearable Import** | Upload endpoint, file parsers (Oura, Whoop, Fitbit, Garmin, Apple, Samsung) | **Built** — `POST /api/wearable/upload` wraps OuraParser; ZIP + JSON supported |
+| **1 — Chat Proxy** | `/chat/send`, `/chat/end-session`, LLM proxy, prompt builder, Supabase auth | **Built** — chat sessions + messages persisted to Supabase; shared-key rate-limiting via `shared_llm_usage` table |
+| **2 — Hermes Memory** | Session → insight extraction, per-user markdown memory, prompt injection | **Built** — `MemoryService` reads/writes `user_memories` in Supabase; memory injected into every system prompt; `process_session()` queued as `BackgroundTask` on `end_session` |
+| **3 — Supabase Wiring** | Connect sessions, memories, chat history to Supabase DB | **Built** — schema applied (schema.sql + schema_v2.sql), all tables live with RLS |
+| **4 — Wearable Import** | Upload endpoint, file parsers (Oura, Whoop, Fitbit, Garmin, Apple, Samsung) | **Built** — `POST /api/wearable/upload` auto-detects device from filename; all 6 parsers implemented; `GET /api/wearable/sources` lists them |
 | **5 — Circadian Routes** | `/chronotype`, `/protocol-score`, `/space-weather` research module endpoints | **Built** — `/api/circadian/chronotype`, `/api/circadian/protocol-score`, `/api/circadian/space-weather` live |
+| **6 — Lab Routes** | Exercise PRC, meal window TRF scoring, supplement ranking, sleep regularity, nocturnal HRV, cold exposure, jet lag plan | **Built** — 7 routes under `/api/lab/` live |
 
 ### Hermes Memory System
 Each user has a per-account Hermes agent that learns from their conversations:
@@ -204,29 +205,32 @@ Each user has a per-account Hermes agent that learns from their conversations:
 - No Mem0, no pgvector, no shared API keys — just Postgres + markdown + user's own LLM
 
 ### Shared Key (Free Tier)
-Users without their own API key get a shared "house" model (default: Kimi via DeepInfra):
+Users without their own API key get a shared "house" model (default: Gemini Flash via AIML API):
 - Rate-limited to 20 messages/day per user
 - Hermes learning still works using the shared key
 
 ### Backend Structure
 ```
 backend/
-├── main.py                    # FastAPI app, CORS, routers (Phase 1 active; 2-5 commented out pending Supabase)
+├── main.py                    # FastAPI app, CORS, all routers registered; MemoryService + SessionService on app.state
 ├── config.py                  # Supabase, encryption, provider configs, shared key
-├── schema.sql                 # Full Supabase migration with RLS
+├── schema.sql                 # Core Supabase migration (users, chat_sessions, chat_messages, user_memories, shared_llm_usage)
+├── schema_v2.sql              # Extended biometrics migration (12 new tables, triggers, daily_summaries)
 ├── auth/supabase_auth.py      # JWT verification + Fernet API key encryption
 ├── chat/
-│   ├── router.py              # /chat/send, /chat/end-session, /chat/memory (in-memory for now)
-│   ├── prompt_builder.py      # System prompt with scientific KB + memory injection placeholder
+│   ├── router.py              # /send (memory-enriched), /end-session (Hermes background), /history, /memory GET/DELETE
+│   ├── prompt_builder.py      # System prompt with scientific KB + [USER PROFILE FROM MEMORY] injection
 │   └── llm_proxy.py           # Multi-provider LLM caller (async httpx)
 ├── memory/
-│   ├── hermes_learner.py      # Session processor → markdown memory (built, not yet wired)
-│   └── memory_service.py      # CRUD for user_memories in Supabase (framework only)
+│   ├── hermes_learner.py      # LLM-based transcript → markdown memory extraction
+│   └── memory_service.py      # get/save/process memory in Supabase user_memories table
 ├── wearable/
-│   ├── router.py              # POST /api/wearable/upload (Phase 4 — built)
-│   └── parsers/oura.py        # OuraParser — ZIP + JSON (fully implemented)
-└── circadian/
-    └── router.py              # /chronotype, /protocol-score, /space-weather (Phase 5 — built)
+│   ├── router.py              # POST /upload (auto-detect parser), GET /sources
+│   └── parsers/               # oura.py, fitbit.py, whoop.py, garmin.py, samsung.py, apple_health.py
+├── circadian/
+│   └── router.py              # /chronotype, /protocol-score, /space-weather
+└── lab/
+    └── router.py              # /exercise-timing /meal-window /supplements /sleep-regularity /nocturnal-hrv /cold-exposure /jetlag-plan
 ```
 
 ### Backend Environment Variables
@@ -235,7 +239,7 @@ SUPABASE_URL=<supabase project url>
 SUPABASE_KEY=<supabase service role key>
 SUPABASE_JWT_SECRET=<jwt secret for token verification>
 ENCRYPTION_KEY=<fernet key for API key encryption>
-SHARED_LLM_PROVIDER=kimi
+SHARED_LLM_PROVIDER=gemini
 SHARED_LLM_KEY=<api key for shared/free tier>
 SHARED_LLM_RATE_LIMIT=20
 CORS_ORIGINS=http://localhost:5173,https://helios-app.pages.dev
@@ -254,23 +258,29 @@ CORS_ORIGINS=http://localhost:5173,https://helios-app.pages.dev
 - `breathwork_model.py` — Resonance frequency finder, HRV dose-response (Laborde 2022 meta-analysis)
 - `nap_model.py` — NASA 26-min nap protocol, duration/timing optimization, coffee nap sequencing (Rosekind 1995)
 
-### Planned
-- `meal_timing_model.py` — Time-restricted feeding, peripheral clock alignment (Sutton 2018)
-- `exercise_timing_model.py` — First human exercise PRC (Youngstedt 2019)
-- `supplement_model.py` — Mg glycinate, melatonin, glycine (meta-analysis effect sizes)
-- `cold_exposure_model.py` — Cold water HRV rebound, norepinephrine (Espeland 2022)
-- `hrv_sleep_model.py` — Sleep regularity index, bedtime deviation penalty (Windred 2024)
-- `wearable_pipeline.py` — Garmin/Oura/Fitbit data parsers → SleepLog
-- `jetlag_optimizer.py` — Kronauer model, optimal light schedules
+### Built — V3 (Lab Panel)
+- `exercise_timing_model.py` — Youngstedt 2019 human exercise PRC; Thomas 2020 chronotype multiplier (late=1.5×, early=0.5×); Sato 2019 morning metabolic bonus flag
+- `meal_timing_model.py` — TRF scoring 0–100 (window width + first-meal timing + pre-sleep gap); Manoogian 2022 glucose benefit at ≤10h; Sutton 2018 eTRF
+- `supplement_model.py` — Contextual ranking for melatonin/magnesium/ashwagandha/glycine; goal × HRV × sleep score × travel state scoring; Bannai 2012 / Abbasi 2012 / Chandrasekhar 2012 / Ferracioli-Oda 2013
+
+### Built — V4 (Biometrics + Pipeline)
+- `hrv_sleep_model.py` — SRI via pairwise overlap (Phillips 2017); Windred 2024 thresholds (>86.7 low, 72–86.7 moderate, <72 high risk +40–53% mortality); age-adjusted rMSSD interpretation (Shaffer & Ginsberg 2017)
+- `cold_exposure_model.py` — NE boost by temp band (Espeland 2022 + Tipton 2017); duration factor (Machado 2016); DOMS reduction (10–15°C optimal zone); timing advisory + habituated flag
+- `jetlag_optimizer.py` — Kronauer/Jewett PRC; advance 1.5h/day (eastbound), delay 1.0h/day (westbound) (Sack 2010); chronotype offset; melatonin timing (Eastman & Burgess 2009); day-by-day HH:MM light/dark schedule
+- `wearable_pipeline.py` — `WearableParser` ABC; OuraPipelineParser delegates to OuraParser; `_StubParser` base for Fitbit/Garmin/Whoop/Samsung/Apple Health; `parse_wearable_file()` auto-routing by filename
 
 ## Wearable Data Import (No OAuth Required)
-Users export their own data and upload to HELIOS via `POST /api/wearable/upload`:
-- **Oura** (ZIP or JSON) — fully implemented; ZIP preferred (includes sleep_score from daily_sleep.json)
-- **Whoop** (CSV) — planned
-- **Fitbit** (JSON via Google Takeout) — planned
-- **Samsung** (CSV) — planned
-- **Garmin** (FIT binary) — planned, needs fitparse
-- **Apple Health** (XML) — planned, streaming parse
+Users export their own data and upload to HELIOS via `POST /api/wearable/upload`.
+Device is auto-detected from the filename. `GET /api/wearable/sources` returns the list.
+
+| Device | File format | Status | Notes |
+|---|---|---|---|
+| **Oura** | `.zip` or `sleep.json` | Fully implemented | ZIP preferred — includes `daily_sleep.json` sleep score |
+| **Fitbit** | Google Takeout `.zip` | Implemented | Joins `sleep-*.json` + `hrv-*.json`; efficiency → sleep_score |
+| **Whoop** | `physiological_cycles.csv` or `.zip` | Implemented | SWS→deep; recovery score→sleep_score; skin temp omitted (absolute, not delta) |
+| **Garmin** | Garmin Connect bulk export `.zip` | Implemented | `wellnessSleepFile_*.json`; FIT binary not supported (no fitparse) |
+| **Samsung** | Samsung Health export `.zip` | Implemented | Stage CSV preferred; falls back to `factor_*` columns in summary CSV |
+| **Apple Health** | Apple Health export `.zip` or `export.xml` | Implemented | Streaming iterparse (handles 1 GB+ XML); SDNN stored as hrv_avg |
 
 ## Key Architectural Decisions
 1. **Client-side astronomy** — SunCalc runs in browser, no server needed for solar calculations

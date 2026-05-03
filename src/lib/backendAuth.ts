@@ -13,6 +13,22 @@ function getBackendUrl(): string {
   return import.meta.env.VITE_BACKEND_URL ?? ''
 }
 
+function getSafeRedirectPath(redirect: string): string {
+  if (!redirect.startsWith('/') || redirect.startsWith('//')) {
+    return '/'
+  }
+  return redirect
+}
+
+export function getOAuthStartUrl(provider: 'google', redirect: string): string {
+  const params = new URLSearchParams({
+    provider,
+    redirect: getSafeRedirectPath(redirect),
+    return_origin: globalThis.location?.origin ?? '',
+  })
+  return `${getBackendUrl()}/api/auth/oauth/start?${params.toString()}`
+}
+
 async function parseResponse<T>(response: Response): Promise<T> {
   if (response.ok) {
     return response.json() as Promise<T>

@@ -187,7 +187,8 @@ class SpaceWeatherBioModel:
     COMPOSITE_EVIDENCE_PROFILE = EvidenceProfile(
         evidence_tier="C",
         effect_summary=(
-            "Non-linear G-scale staged model. HRV effect sizes anchored to Alabdali 2022 "
+            "Exploratory geomagnetic context model using non-linear G-scale staging. "
+            "HRV effect sizes anchored to Alabdali 2022 "
             "(n=809, 17-year cohort). Cognitive associations from Liddie 2024 (n=1,081). "
             "Melatonin thresholds from Burch 1999/2008 + Weydahl 2001 (two independent groups). "
             "BP correlation from Chen 2025 (n=554,319)."
@@ -209,7 +210,7 @@ class SpaceWeatherBioModel:
             "measurement lag between Kp exposure and biological response",
         ],
         claim_boundary=(
-            "Context and conservative protocol guidance only. "
+            "Context only for conservative protocol guidance. "
             "Not the sole basis for clinical or safety decisions."
         ),
     )
@@ -554,7 +555,8 @@ class SpaceWeatherBioModel:
                     f"Minor to moderate storm ({g_scale}, Kp {kp_index:.1f}). "
                     "Liddie 2024: +19–30% increased odds of low MMSE in this Kp range. "
                     "Working memory (digit span) is the most consistently affected domain. "
-                    "Prefer routine cognitive tasks; defer high-stakes decisions if possible."
+                    "This has uncertain individual relevance; prefer routine cognitive tasks "
+                    "and defer high-stakes decisions if possible."
                 ),
             }
         elif bio_alert == "significant":
@@ -769,6 +771,11 @@ class SpaceWeatherBioModel:
                 f"Kp rise in ~{storm_pred['propagation_min']} minutes — begin protocol now.",
             )
 
+        overall_advisory = (
+            f"{overall_advisory} Exploratory geomagnetic context only; "
+            "not validated for individual prediction."
+        )
+
         return merge_evidence(
             {
                 "g_scale": g_scale,
@@ -785,7 +792,7 @@ class SpaceWeatherBioModel:
                 "bp_clinical_relevance": bp["clinical_relevance"],
                 "storm_arrival": storm_pred,
                 "protocol_adjustments": protocol_adjustments,
-                "model_type": "g_scale_staged_research_calibrated",
+                "model_type": "exploratory_heuristic",
                 "mechanism_note": (
                     "Wang & Kirschvink et al. (2019, eNeuro 6:2, PMC6494972): alpha-EEG "
                     "power drop up to 60% (ηp²=0.34) in response to Earth-strength field "

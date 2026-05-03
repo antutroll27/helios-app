@@ -71,6 +71,7 @@ export default defineConfig({
       },
       workbox: {
         globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}'],
+        globIgnores: ['sw-reset.html'],
         runtimeCaching: [
           {
             urlPattern: /^https:\/\/services\.swpc\.noaa\.gov\/.*/i,

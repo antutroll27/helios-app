@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
-import { login, logout, me, signup } from '@/lib/backendAuth'
+import { getOAuthStartUrl, login, logout, me, signup } from '@/lib/backendAuth'
 
 describe('backendAuth client', () => {
   afterEach(() => {
@@ -69,5 +69,16 @@ describe('backendAuth client', () => {
       expect.stringContaining('/api/auth/logout'),
       expect.objectContaining({ method: 'POST', credentials: 'include' }),
     )
+  })
+
+  it('builds a backend-owned OAuth start URL', () => {
+    vi.stubGlobal('location', { origin: 'http://localhost:5173' })
+
+    const url = getOAuthStartUrl('google', '/lab')
+
+    expect(url).toContain('/api/auth/oauth/start?')
+    expect(url).toContain('provider=google')
+    expect(url).toContain('redirect=%2Flab')
+    expect(url).toContain('return_origin=http%3A%2F%2Flocalhost%3A5173')
   })
 })
